@@ -58,8 +58,8 @@ def detect_chat(token: str) -> dict:
     updates = call(token, "getUpdates", {"timeout": 0})
     chats = [u["message"]["chat"] for u in updates if "message" in u and u["message"]["chat"]["type"] == "private"]
     if not chats:
-        raise TelegramError(f"Nessun messaggio trovato. Apri @{me.get('username')} su Telegram, premi AVVIA "
-                            "(o scrivi /start) e riprova.")
+        raise TelegramError(f"Non trovo ancora la tua chat. Su Telegram apri @{me.get('username')}, scrivigli "
+                            "un messaggio qualsiasi (es. ciao) e premi di nuovo 'Trova la mia chat'.")
     chat = chats[-1]
     name = " ".join(x for x in (chat.get("first_name"), chat.get("last_name")) if x) or chat.get("username", "")
     return {"chat_id": str(chat["id"]), "chat_name": name, "bot": me.get("username")}

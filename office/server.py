@@ -49,7 +49,12 @@ def handle_action(path: str, body: dict) -> dict:
         found = notifier.detect_chat(s["telegram"]["token"])
         s["telegram"].update(chat_id=found["chat_id"], chat_name=found["chat_name"])
         local_settings.save(s)
-        return {"message": f"Chat trovata: {found['chat_name']} (bot @{found['bot']}). Ora invia un messaggio di prova."}
+        try:
+            notifier.send_now(f"👋 Ciao {found['chat_name']}! Collegamento riuscito: da ora l'ufficio ti scrive qui.", s)
+            extra = "Ti ho appena scritto su Telegram: controlla il bot."
+        except notifier.TelegramError as exc:
+            extra = f"Chat salvata, ma il messaggio di benvenuto non è partito: {exc}"
+        return {"message": f"Chat trovata: {found['chat_name']} (bot @{found['bot']}). {extra}"}
     if path == "/api/telegram/test":
         notifier.send_now("✅ <b>Crypto Trading Office</b>\nCiao! Da ora ti avviso qui su trade, veti, "
                           "allarmi e report giornaliero.\n— Marco, Sofia, Luca, Giulia, Franco, Paolo, Elena", s)
