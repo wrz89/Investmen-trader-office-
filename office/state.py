@@ -1,0 +1,69 @@
+"""Costruisce la "fotografia" dell'ufficio letta dalla dashboard."""
+from __future__ import annotations
+
+import json
+import time
+
+from . import registry
+from .config import REGISTRY_DIR, load_yaml
+from .store import Store
+
+
+def _j(value):
+    return json.loads(value) if value else None
+
+
+def build_state(store: Store) -> dict:
+    agents = store.query("SELECT * FROM agent_status")
+    for a in agents:
+        a["stats"] = _j(a["stats"])
+    events = store.query("SELECT * FROM events ORDER BY id DESC LIMIT 200")
+    for e in events:
+        e["payload"] = _j(e["payload"])
+
+    statuses = {r["strategy_id"]: r for r in store.query("SELECT * FROM strategy_status")}
+    strategies = []
+    for path in sorted(REGISTRY_DIR.glob("*.json")):
+        if path.name.endswith(".validation.json"):
+            continue
+        d = json.loads(path.read_text(encoding="utf-8"))
+        v = registry.load_validation(d["strategy_id"])
+        st = statuses.get(d["strategy_id"], {})
+        strategies.append({
+            **d,
+            "status": st.get("status", "RESEARCH"),
+            "status_reason": st.get("reason"),
+            "validation": None if v is None else {
+                k: v.get(k) for k in ("verdict", "checks", "metrics", "chosen_params", "windows",
+                                      "holdout", "equity_oos", "data_source", "timeframe",
+                                      "validated_at", "period", "costs", "exit_reasons", "by_symbol",
+                                      "n_trials_total")
+            },
+        })
+
+    equity = store.query("SELECT * FROM equity ORDER BY ts")
+    step = max(1, len(equity) // 300)
+    opps = store.query("SELECT * FROM opportunities ORDER BY id DESC LIMIT 40")
+    for o in opps:
+        o["data"], o["reasons"] = _j(o["data"]), _j(o["reasons"])
+    reports = store.query("SELECT day, data FROM daily_reports ORDER BY day DESC LIMIT 14")
+    for r in reports:
+        r["data"] = _j(r["data"])
+
+    return {
+        "generated": time.time(),
+        "meta": store.get("office_meta", {}),
+        "cycle": store.get("cycle", {}),
+        "agents": agents,
+        "events": events,
+        "strategies": strategies,
+        "positions": store.query("SELECT * FROM positions WHERE is_open=1"),
+        "trades": store.query("SELECT * FROM trades ORDER BY id DESC LIMIT 50"),
+        "equity": equity[::step] + (equity[-1:] if equity and (len(equity) - 1) % step else []),
+        "risk_state": store.get("risk_state"),
+        "kill_switch": store.get("kill_switch"),
+        "limits": load_yaml("risk_limits.yaml"),
+        "gates": load_yaml("quant_gates.yaml"),
+        "opportunities": opps,
+        "reports": reports,
+    }

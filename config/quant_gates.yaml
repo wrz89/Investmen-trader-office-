@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────
+#  CANCELLO DI VALIDAZIONE (Quantitative Researcher)
+#  Una strategia passa a PAPER solo se supera TUTTI i criteri.
+#  Tutte le metriche sono NETTE di commissioni, spread e slippage
+#  e calcolate FUORI CAMPIONE (walk-forward + hold-out finale).
+# ─────────────────────────────────────────────────────────────
+
+min_oos_trades: 200              # campione minimo fuori campione (tutti gli asset insieme)
+min_profit_factor: 1.20
+min_sharpe_annual: 1.00
+min_gross_edge_vs_costs: 2.0     # guadagno lordo medio per trade ≥ 2 × costo di un giro completo
+min_profitable_windows: 0.65     # quota di finestre walk-forward in utile netto
+cost_stress_multiplier: 1.5      # deve restare in utile con costi × 1,5
+max_mc_drawdown_95: 0.10         # drawdown al 95° percentile (Monte Carlo) sul capitale allocato
+min_param_stability: 0.50        # quota di combinazioni di parametri in utile (no "picco isolato")
+min_deflated_sharpe: 0.90        # probabilità che lo Sharpe non sia frutto di test multipli
+holdout_min_profit_factor: 1.10  # hold-out finale, usato UNA sola volta
+
+# Regole di sospensione durante il paper trading
+paper_min_trades_for_review: 30
+paper_suspend_profit_factor: 0.90
+paper_max_slippage_vs_model: 2.0

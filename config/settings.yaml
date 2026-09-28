@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────
+#  CRYPTO TRADING OFFICE — impostazioni generali
+# ─────────────────────────────────────────────────────────────
+
+# paper = soldi finti, prezzi veri. live = NON disponibile finché
+# una strategia non ha superato paper trading + approvazione manuale.
+mode: paper
+
+capital:
+  initial: 130          # capitale iniziale (in valuta di quotazione)
+  currency: EUR
+
+exchange:
+  # Exchange usato per prezzi live, order book e (in futuro) esecuzione.
+  data: bybit
+  # Exchange da cui scaricare lo storico per la ricerca/backtest.
+  history: bybit
+  # Opzioni ccxt. Se il tuo conto è Bybit EU e i dati pubblici non
+  # rispondono, prova a scommentare: hostname: bybit.eu
+  options: {}
+  # Contesto derivati (funding / open interest): SOLO lettura dati,
+  # nessuna operazione in derivati. Lascia vuoto per disattivare.
+  derivatives_context: bybit
+
+# Universo iniziale: pochi asset, molto liquidi.
+# Bybit EU: se le coppie EUR risultano poco liquide (spread alto),
+# lo Scanner lo segnala e il Risk Manager blocca: valuta /USDC.
+universe:
+  - BTC/EUR
+  - ETH/EUR
+
+timeframe: 1h
+
+# Modello di costo usato in backtest e nelle stime dello Scanner.
+# Verifica le TUE commissioni reali nella pagina fee dell'exchange.
+costs:
+  taker_fee: 0.0010     # 0,10% per lato (Bybit spot, livello base)
+  maker_fee: 0.0010
+  slippage_bps: 3       # slippage extra stimato, in punti base (0,03%)
+  default_spread_bps: 4 # usato in backtest quando lo spread reale non è noto
+
+# Ricerca
+research:
+  history_days: 1095    # ~3 anni di storico
+  holdout_fraction: 0.20
+  walk_forward_windows: 6
+  train_fraction: 0.40  # quota dello storico di sviluppo usata come finestra di training
+
+# Ciclo operativo
+cycle_seconds: 300      # un ciclo ogni 5 minuti
+dashboard_port: 8765

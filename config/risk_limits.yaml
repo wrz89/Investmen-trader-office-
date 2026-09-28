@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────
+#  LIMITI DEL RISK MANAGER — potere di veto assoluto
+#  Questo file viene "sigillato" all'avvio (hash SHA-256).
+#  Se cambia mentre l'ufficio è in funzione → BLOCK su tutto.
+# ─────────────────────────────────────────────────────────────
+
+leverage_allowed: false
+short_allowed: false
+
+risk_per_trade: 0.005            # 0,5% del capitale a rischio per trade (distanza dallo stop)
+max_exposure_per_asset: 0.20     # max 20% del capitale su un singolo asset
+max_total_exposure: 0.50         # max 50% del capitale investito in totale
+max_daily_loss: 0.02             # -2% nel giorno → stop fino al giorno dopo
+max_drawdown: 0.10               # -10% dal massimo → KILL SWITCH (reset solo manuale)
+correlation_threshold: 0.70      # asset correlati sopra soglia = un'unica esposizione
+
+max_spread_bps: 10               # spread massimo accettato all'ingresso (0,10%)
+max_book_participation: 0.10     # l'ordine non può superare il 10% della liquidità entro ±0,5%
+min_net_edge_vs_costs: 1.5       # profitto netto atteso ≥ 1,5 × costi totali
+max_data_age_seconds: 120        # ticker/order book più vecchi → dati non affidabili
+max_api_error_rate: 0.20         # oltre il 20% di chiamate fallite → API instabile
+max_open_positions: 4
