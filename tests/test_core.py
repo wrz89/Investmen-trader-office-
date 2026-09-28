@@ -104,3 +104,18 @@ def test_rotation_holds_one_asset_at_a_time():
     assert entries.max() <= 1                       # mai più di un asset scelto per ribilanciamento
     rebal = pd.to_datetime(ts, unit="ms", utc=True)
     assert all(rebal[i].weekday() == 0 and rebal[i].hour == 0 for i in np.flatnonzero(entries.to_numpy()))
+
+
+def test_shadow_book_is_separate_and_immutable(tmp_path):
+    from office.shadow import ShadowBook
+    s = Store(tmp_path / "s.db")
+    book = ShadowBook(s, {"taker_fee": 0.001, "slippage_bps": 3})
+    book.open({"strategy_id": "X", "symbol": "BTC/USDC", "price": 100.0, "stop": 90.0, "signal": "test"})
+    pos = book.open_positions()[0]
+    out = book.close(pos, 110.0, "segnale")
+    assert out["net"] > 0.09 and not book.open_positions()
+    assert not s.query("SELECT * FROM trades")                 # il libro vero resta vuoto
+    with pytest.raises(sqlite3.IntegrityError):
+        s.execute("DELETE FROM shadow_trades")
+    summ = book.summary("X", 0.0035, 0.2, "2026-09-28")
+    assert summ["trades"] == 1 and summ["profit_factor"] == 99.0

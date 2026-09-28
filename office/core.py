@@ -21,6 +21,7 @@ from .config import DB_PATH, ensure_dirs, load_settings, load_yaml
 from .market import DataError, MarketData
 from . import local_settings, system
 from .notifier import Notifier
+from .shadow import ShadowBook
 from .store import Store
 from .strategies import timeframe_of
 
@@ -30,7 +31,10 @@ class Office:
         ensure_dirs()
         self.settings = load_settings(overrides)
         self.gates = load_yaml("quant_gates.yaml")
-        self.retired = (load_yaml("strategy_lifecycle.yaml").get("retired") or {})
+        lifecycle = load_yaml("strategy_lifecycle.yaml")
+        self.retired = lifecycle.get("retired") or {}
+        self.observe = lifecycle.get("observe") or {}
+        self.observe_review = lifecycle.get("observe_review") or {}
         self.store = Store(DB_PATH)
         self.cycle_id = None
         self.last_risk_state: dict | None = None
@@ -40,6 +44,7 @@ class Office:
         self.derivatives = MarketData(dctx, timeout_ms=5000) if (dctx and connect_market) else None
         self.account = PaperAccount(self.store, self.settings["capital"]["initial"])
         self.notifier = Notifier(self.store)
+        self.shadow = ShadowBook(self.store, self.settings["costs"])
 
         self.pm = PortfolioManager(self)
         self.scanner = MarketScanner(self)
@@ -90,6 +95,8 @@ class Office:
         by_id = {s["module"].STRATEGY_ID: s for s in strategies_state}
         for pos in self.account.open_positions():
             self._manage_position(pos, snapshot, by_id)
+        for pos in self.shadow.open_positions():
+            self._manage_shadow(pos, snapshot, by_id)
 
         # 2) nuove opportunità
         opps = self.scanner.opportunities(snapshot, strategies_state)
@@ -104,6 +111,8 @@ class Office:
             else:
                 self.quant.say(f"{opp['strategy_id']}: nessuna validazione disponibile.", "blocked", "quant_check")
             decision = self.risk.evaluate(opp, snapshot, self.account, st["validation"])
+            if opp["strategy_status"] == "OBSERVE":
+                self._shadow_entry(opp, snapshot)
             if decision["approved"]:
                 if self.execution.buy(opp, decision, snapshot, self.account):
                     fills += 1
@@ -122,40 +131,65 @@ class Office:
         self._end_cycle()
         return {"ok": True, "opportunities": len(opps), "fills": fills}
 
-    def _manage_position(self, pos: dict, snapshot: dict, by_id: dict) -> None:
+    def _exit_decision(self, pos: dict, snapshot: dict, by_id: dict, agent):
+        """Decide se una posizione (vera o in ombra) va chiusa. Restituisce (motivo, prezzo_stop) o None."""
         info = snapshot["symbols"].get(pos["symbol"], {})
         st = by_id.get(pos["strategy_id"])
         tf = timeframe_of(st["module"], self.settings["timeframe"]) if st else self.settings["timeframe"]
         df = self.scanner.candles_for(snapshot, pos["symbol"], tf) if info.get("bid") else None
         if df is None:
-            self.execution.say(f"Posizione {pos['symbol']}: dati mancanti, non posso gestirla ora.",
-                               "alert", "error", level="ERROR")
-            return
-        entry_ms = _iso_to_ms(pos["entry_ts"])
-        since_entry = df[df["ts"] >= entry_ms]
-        reason, stop_px = None, None
+            agent.say(f"Posizione {pos['symbol']}: dati mancanti, non posso gestirla ora.", "alert", "error",
+                      level="ERROR")
+            return None
+        since_entry = df[df["ts"] >= _iso_to_ms(pos["entry_ts"])]
         hit = since_entry[since_entry["low"] <= pos["stop"]]
         if len(hit):
-            reason, stop_px = "stop loss", min(pos["stop"], float(hit.iloc[0]["open"]))
-        elif info["bid"] <= pos["stop"]:
-            reason = "stop loss"
-        else:
-            if st:
-                params = (st["validation"] or {}).get("chosen_params") or {}
-                if params:
-                    sigs = self.scanner.strategy_signals(snapshot, st["module"], params, tf) or {}
-                    if pos["symbol"] not in sigs:
-                        return                     # dati incompleti: si riprova al prossimo ciclo (lo stop resta attivo)
-                    sig = sigs[pos["symbol"]][1]
-                    bars_held = len(since_entry)
-                    if len(since_entry) and bool(sig["exit"].iloc[-1]):
-                        reason = "segnale di uscita della strategia"
-                    elif params.get("max_hold") and bars_held >= params["max_hold"]:
-                        reason = f"uscita a tempo ({bars_held} candele)"
-        if not reason:
+            return "stop loss", min(pos["stop"], float(hit.iloc[0]["open"]))
+        if info["bid"] <= pos["stop"]:
+            return "stop loss", None
+        if not st:
+            return None
+        params = (st["validation"] or {}).get("chosen_params") or {}
+        if not params:
+            return None
+        sigs = self.scanner.strategy_signals(snapshot, st["module"], params, tf) or {}
+        if pos["symbol"] not in sigs:
+            return None                    # dati incompleti: si riprova al prossimo ciclo (lo stop resta attivo)
+        sig = sigs[pos["symbol"]][1]
+        if len(since_entry) and bool(sig["exit"].iloc[-1]):
+            return "segnale di uscita della strategia", None
+        if params.get("max_hold") and len(since_entry) >= params["max_hold"]:
+            return f"uscita a tempo ({len(since_entry)} candele)", None
+        return None
+
+    def _manage_position(self, pos: dict, snapshot: dict, by_id: dict) -> None:
+        decision = self._exit_decision(pos, snapshot, by_id, self.execution)
+        if not decision:
             return
+        reason, stop_px = decision
         fill = self.execution.sell(pos, snapshot, self.account, reason, stop_px)
         self.auditor.record_trade(pos, fill, reason)
+
+    def _manage_shadow(self, pos: dict, snapshot: dict, by_id: dict) -> None:
+        decision = self._exit_decision(pos, snapshot, by_id, self.auditor)
+        if not decision:
+            return
+        reason, stop_px = decision
+        out = self.shadow.close(pos, stop_px or snapshot["symbols"][pos["symbol"]]["bid"], reason)
+        self.auditor.say(f"Ombra · {pos['strategy_id']}: chiusa {pos['symbol']} a {out['exit']:,.4g} "
+                         f"({reason}), netto {out['net'] * 100:+.2f}%. Nessun capitale coinvolto.", "ok", "shadow")
+
+    def _shadow_entry(self, opp: dict, snapshot: dict) -> None:
+        info = snapshot["symbols"][opp["symbol"]]
+        if not info.get("ok") or info.get("anomalies"):
+            self.auditor.log(f"Ombra · {opp['strategy_id']}: segnale su {opp['symbol']} ignorato, dati non affidabili.",
+                             kind="shadow")
+            return
+        if self.shadow.has_open(opp["strategy_id"], opp["symbol"]):
+            return
+        out = self.shadow.open(opp)
+        self.auditor.say(f"Ombra · {opp['strategy_id']}: ingresso virtuale {opp['symbol']} a {out['entry']:,.4g}, "
+                         f"stop {out['stop']:,.4g}. Nessun capitale coinvolto.", "ok", "shadow")
 
     def _daily_report_if_needed(self) -> None:
         last = self.store.get("last_report_day")

@@ -6,3 +6,20 @@
 retired:
   STRATEGY_01_v3: "Codice identico alla v5; validata il 28/09/2026 con il vecchio test del drawdown (allocazione fissa 20%)"
   STRATEGY_01_v4: "Codice identico alla v5; validata il 28/09/2026 con rischio per trade 0,5% (drawdown MC 10,8%)"
+
+# ─────────────────────────────────────────────────────────────
+#  OSSERVAZIONE IN OMBRA
+#  Segnali seguiti sui dati nuovi, senza capitale. Registro separato.
+# ─────────────────────────────────────────────────────────────
+observe:
+  STRATEGY_04_v1:
+    since: "2026-09-28"
+    reason: "Promettente ma non provata (67 trade fuori campione, Sharpe 0,83): la si segue in ombra sui dati nuovi"
+
+# Revisione dell'osservazione, fissata il 28/09/2026 prima del primo segnale in ombra.
+# Solo se TUTTI soddisfatti la strategia potrà essere rivalutata per il paper trading
+# (decisione umana, con una nuova versione dal codice identico).
+observe_review:
+  min_months: 12
+  min_shadow_trades: 15
+  min_profit_factor: 1.2

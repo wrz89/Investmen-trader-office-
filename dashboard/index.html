@@ -243,6 +243,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .curve .l { fill: none; stroke-width: 1.5; }
 .curve .up { stroke: var(--ok); } .curve .dn { stroke: var(--bad); }
 .curve text { fill: var(--muted); font: 10px var(--f-data); }
+.shadow-box .row, .shadow-box .gauge { font-size: 12.5px; color: var(--muted); }
+.shadow-box { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--accent); border-radius: var(--r); background: var(--accent-soft); }
 .backlog { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
 .backlog li { display: flex; gap: 8px; align-items: baseline; }
 .backlog li::before { content: "→"; color: var(--accent); }
@@ -371,8 +373,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   };
   const ORDER = ["market_scanner", "strategy_researcher", "quant_researcher", "portfolio_manager", "risk_manager", "execution", "auditor"];
   const STATE_LABEL = { working: "Al lavoro", ok: "Operativo", blocked: "Veto", alert: "Allerta", idle: "In attesa" };
-  const STATUS_LABEL = { RESEARCH: "In ricerca", PAPER: "Paper trading", REJECTED: "Rifiutata", SUSPENDED: "Sospesa", BLOCKED: "Bloccata", LIVE: "Live", RETIRED: "Ritirata", SUPERSEDED: "Sostituita" };
-  const STATUS_CLASS = { RESEARCH: "st-working", PAPER: "st-ok", REJECTED: "st-blocked", SUSPENDED: "st-alert", BLOCKED: "st-blocked", LIVE: "st-ok", RETIRED: "st-idle", SUPERSEDED: "st-idle" };
+  const STATUS_LABEL = { RESEARCH: "In ricerca", PAPER: "Paper trading", REJECTED: "Rifiutata", SUSPENDED: "Sospesa", BLOCKED: "Bloccata", LIVE: "Live", RETIRED: "Ritirata", SUPERSEDED: "Sostituita", OBSERVE: "In osservazione" };
+  const STATUS_CLASS = { RESEARCH: "st-working", PAPER: "st-ok", REJECTED: "st-blocked", SUSPENDED: "st-alert", BLOCKED: "st-blocked", LIVE: "st-ok", RETIRED: "st-idle", SUPERSEDED: "st-idle", OBSERVE: "st-working" };
 
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -681,6 +683,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
     return `${f(c.value)} / ${["mc_dd", "div_corr"].includes(c.key) ? "≤" : c.key === "div_sharpe" ? ">" : "≥"} ${f(c.threshold)}`;
   }
 
+  function shadowBlock(sh) {
+    const rv = sh.review || {};
+    const months = sh.months == null ? 0 : sh.months;
+    const bar = (v, t) => `<div class="bar"><i class="${v >= t ? "" : "w"}" style="width:${Math.min(100, t ? v / t * 100 : 0).toFixed(0)}%"></i></div>`;
+    return `<div class="shadow-box">
+      <div class="row"><span class="eyebrow">Osservazione in ombra · dal ${esc(sh.since || "—")}</span><span class="tag">nessun capitale</span></div>
+      <div class="metrics">
+        <div class="metric"><small>Trade in ombra</small><b>${sh.trades}</b></div>
+        <div class="metric"><small>Profit factor</small><b>${sh.profit_factor == null ? "—" : fmt(sh.profit_factor)}</b></div>
+        <div class="metric"><small>Win rate</small><b>${sh.win_rate == null ? "—" : pct(sh.win_rate, 0)}</b></div>
+        <div class="metric"><small>Risultato (size reale)</small><b class="${sh.total_sized >= 0 ? "pos" : "neg"}">${spct(sh.total_sized)}</b></div>
+      </div>
+      <div class="gauge"><div class="row"><span>Mesi di osservazione</span><span class="num">${fmt(months, 1)} / ${rv.min_months}</span></div>${bar(months, rv.min_months)}</div>
+      <div class="gauge"><div class="row"><span>Trade in ombra</span><span class="num">${sh.trades} / ${rv.min_shadow_trades}</span></div>${bar(sh.trades, rv.min_shadow_trades)}</div>
+      <p>Revisione quando entrambi sono completi: servirà un profit factor in ombra di almeno ${fmt(rv.min_profit_factor, 1)}.
+      ${(sh.open || []).length ? `Posizioni virtuali aperte: ${sh.open.map((o) => `${esc(o.symbol)} da ${fmt(o.entry_price, 4)}`).join(", ")}.` : "Nessuna posizione virtuale aperta."}</p>
+    </div>`;
+  }
+
   function renderBoard() {
     const board = $("#board");
     const passed = S.strategies.filter((s) => s.validation?.verdict === "PASSED").length;
@@ -693,13 +714,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <div class="card-head"><div><div class="id">${esc(s.strategy_id)} · ${esc(s.family)}</div><h3>${esc(s.name)}</h3></div>
           <span class="pill ${STATUS_CLASS[s.status] || "st-idle"}">${esc(STATUS_LABEL[s.status] || s.status)}</span></div>
         <p>${esc(s.description)}</p>
+        ${s.shadow ? shadowBlock(s.shadow) : ""}
         ${v ? `<div class="metrics">
           <div class="metric"><small>Trade fuori campione</small><b>${m.trades}</b></div>
           <div class="metric"><small>Profit factor netto</small><b class="${m.profit_factor >= 1 ? "pos" : "neg"}">${fmt(m.profit_factor)}</b></div>
           <div class="metric"><small>Netto medio / trade</small><b class="${m.expectancy_net >= 0 ? "pos" : "neg"}">${spct(m.expectancy_net)}</b></div>
           <div class="metric"><small>Win rate</small><b>${pct(m.win_rate, 0)}</b></div>
         </div>
-        <div><div class="row"><span class="eyebrow">Equity fuori campione (allocazione ${pct(v.alloc ?? S.limits?.max_exposure_per_asset, 0)})</span><span class="num">${spct((v.equity_oos?.at(-1) ?? 1) - 1)}</span></div>${curve(v.equity_oos)}</div>
+        <div><div class="row"><span class="eyebrow">Equity fuori campione (${v.sizing === "risk_based" ? "size reale" : `allocazione ${pct(v.alloc ?? S.limits?.max_exposure_per_asset, 0)}`})</span><span class="num">${spct((v.equity_oos?.at(-1) ?? 1) - 1)}</span></div>${curve(v.equity_oos)}</div>
         <div class="checks">${v.checks.map((c) => `<div class="check ${c.passed ? "pass" : "fail"}"><span class="mk">${c.passed ? "✔" : "✘"}</span><span>${esc(c.label)}</span><span>${checkValue(c)}</span></div>`).join("")}</div>
         <p>${v.verdict === "PASSED" ? "Tutti i criteri superati: autorizzata al paper trading." : `${failed} criteri su ${v.checks.length} non superati. ${esc(v.holdout?.note || "")}`} Dati: ${esc(v.data_source)} · ${esc(v.timeframe)} · ${v.n_trials_total} combinazioni di parametri testate in totale.</p>`
         : `<p>In attesa di validazione: lancia <span class="num">python ufficio.py ricerca</span>.</p>`}

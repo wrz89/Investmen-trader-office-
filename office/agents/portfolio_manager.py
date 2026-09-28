@@ -38,6 +38,8 @@ class PortfolioManager(Agent):
             base, ver = _split(sid)
             if sid in retired:
                 new, reason = "RETIRED", retired[sid]
+            elif sid in self.office.observe:
+                new, reason = "OBSERVE", self.office.observe[sid]["reason"]
             elif e["registry"]["status"] == "tampered":
                 new, reason = "BLOCKED", "codice modificato senza nuova versione"
             elif validation is None:

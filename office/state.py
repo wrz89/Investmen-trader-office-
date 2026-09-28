@@ -5,7 +5,8 @@ import json
 import time
 
 from . import registry
-from .config import REGISTRY_DIR, load_yaml
+from .config import REGISTRY_DIR, load_settings, load_yaml
+from .shadow import ShadowBook
 from .store import Store
 
 
@@ -37,9 +38,19 @@ def build_state(store: Store) -> dict:
                 k: v.get(k) for k in ("verdict", "checks", "metrics", "chosen_params", "windows",
                                       "holdout", "equity_oos", "data_source", "timeframe",
                                       "validated_at", "period", "costs", "exit_reasons", "by_symbol",
-                                      "n_trials_total")
+                                      "n_trials_total", "sizing", "avg_alloc", "alloc")
             },
         })
+
+    lifecycle = load_yaml("strategy_lifecycle.yaml")
+    observe = lifecycle.get("observe") or {}
+    limits = load_yaml("risk_limits.yaml")
+    shadow = ShadowBook(store, load_settings()["costs"])
+    for st in strategies:
+        if st["strategy_id"] in observe:
+            st["shadow"] = shadow.summary(st["strategy_id"], limits["risk_per_trade"],
+                                          limits["max_exposure_per_asset"], observe[st["strategy_id"]].get("since"))
+            st["shadow"]["review"] = lifecycle.get("observe_review") or {}
 
     equity = store.query("SELECT * FROM equity ORDER BY ts")
     step = max(1, len(equity) // 300)
