@@ -42,9 +42,17 @@ class CostModel:
         return cls(c["taker_fee"], c["slippage_bps"], c["default_spread_bps"])
 
 
-def prepare(df: pd.DataFrame, strategy, params: dict) -> dict:
+def signals(strategy, datasets: dict, params: dict) -> dict:
+    """Segnali per ogni asset. Le strategie multi-asset (generate_multi) guardano tutti
+    gli asset insieme; le altre ogni asset per conto suo."""
+    if hasattr(strategy, "generate_multi"):
+        return strategy.generate_multi(datasets, params)
+    return {s: strategy.generate(df, params) for s, df in datasets.items()}
+
+
+def prepare(df: pd.DataFrame, strategy, params: dict, sig: pd.DataFrame | None = None) -> dict:
     """Pre-calcola segnali e ATR come array numpy (una volta per combinazione)."""
-    sig = strategy.generate(df, params)
+    sig = strategy.generate(df, params) if sig is None else sig
     return {
         "ts": df["ts"].to_numpy(),
         "open": df["open"].to_numpy(float),

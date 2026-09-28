@@ -678,7 +678,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
   function checkValue(c) {
     const f = c.fmt === "pct" ? (x) => pct(x, 2) : c.fmt === "int" ? (x) => String(Math.round(x)) : (x) => fmt(x, 2);
-    return `${f(c.value)} / ${c.key === "mc_dd" ? "≤" : "≥"} ${f(c.threshold)}`;
+    return `${f(c.value)} / ${["mc_dd", "div_corr"].includes(c.key) ? "≤" : c.key === "div_sharpe" ? ">" : "≥"} ${f(c.threshold)}`;
   }
 
   function renderBoard() {

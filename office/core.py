@@ -143,7 +143,10 @@ class Office:
             if st:
                 params = (st["validation"] or {}).get("chosen_params") or {}
                 if params:
-                    sig = st["module"].generate(df, params)
+                    sigs = self.scanner.strategy_signals(snapshot, st["module"], params, tf) or {}
+                    if pos["symbol"] not in sigs:
+                        return                     # dati incompleti: si riprova al prossimo ciclo (lo stop resta attivo)
+                    sig = sigs[pos["symbol"]][1]
                     bars_held = len(since_entry)
                     if len(since_entry) and bool(sig["exit"].iloc[-1]):
                         reason = "segnale di uscita della strategia"

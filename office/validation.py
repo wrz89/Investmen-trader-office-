@@ -18,7 +18,7 @@ from statistics import NormalDist
 import numpy as np
 import pandas as pd
 
-from .backtest import CostModel, prepare, simulate, with_costs
+from .backtest import CostModel, prepare, signals, simulate, with_costs
 from .strategies import param_combinations
 
 YEAR_MS = 365.25 * 86_400_000
@@ -121,7 +121,7 @@ def sized_returns(trades: list[dict], net: np.ndarray, risk_per_trade: float, ca
 
 def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gates: dict,
              research: dict, alloc: float, n_trials_total: int, timeframe: str | None = None,
-             risk_per_trade: float | None = None) -> dict:
+             risk_per_trade: float | None = None, extra_checks=None) -> dict:
     min_trades = (gates.get("min_oos_trades_by_timeframe") or {}).get(timeframe, gates["min_oos_trades"])
     combos = param_combinations(strategy.PARAM_GRID)
     symbols = list(datasets)
@@ -138,8 +138,11 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
     def idx(df: pd.DataFrame, t: float) -> int:
         return int(np.searchsorted(df["ts"].to_numpy(), t))
 
-    prepared = {(ci, s): prepare(datasets[s], strategy, combo)
-                for ci, combo in enumerate(combos) for s in symbols}
+    prepared = {}
+    for ci, combo in enumerate(combos):
+        sigs = signals(strategy, datasets, combo)
+        for s in symbols:
+            prepared[(ci, s)] = prepare(datasets[s], strategy, combo, sigs[s])
 
     def run(ci: int, t0: float, t1: float, cm: CostModel = costs) -> list[dict]:
         out = []
@@ -221,6 +224,8 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
         wpf = by_symbol[worst]["profit_factor"] if by_symbol[worst]["trades"] else 0.0
         checks.append(check("every_symbol", f"Ogni asset in utile (peggiore: {worst})", wpf, 1.0,
                             all(v["trades"] > 0 and v["profit_factor"] >= 1.0 for v in by_symbol.values())))
+    if extra_checks is not None:
+        checks.extend(extra_checks(oos))
     wf_passed = all(c["passed"] for c in checks)
 
     # 3) hold-out: si consuma solo se il walk-forward è superato
@@ -260,3 +265,22 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
         "by_symbol": by_symbol,
         "universe": symbols,
     }
+
+
+def run_trades(strategy, datasets: dict, params: dict, t0: float, t1: float, costs: CostModel) -> list[dict]:
+    """Trade di una combinazione di parametri su un intervallo di tempo (tutti gli asset)."""
+    sigs = signals(strategy, datasets, params)
+    out = []
+    for s, df in datasets.items():
+        ts = df["ts"].to_numpy()
+        p = prepare(df, strategy, params, sigs[s])
+        out += [{**t, "symbol": s} for t in simulate(p, int(np.searchsorted(ts, t0)), int(np.searchsorted(ts, t1)), costs)]
+    return sorted(out, key=lambda t: t["exit_ts"])
+
+
+def reconstruct_oos(strategy, validation: dict, datasets: dict, costs: CostModel) -> list[dict]:
+    """Ricostruisce i trade fuori campione di una validazione salvata (finestre e parametri scelti)."""
+    trades = []
+    for w in validation["windows"]:
+        trades += run_trades(strategy, datasets, w["params"], w["test"][0], w["test"][1], costs)
+    return sorted(trades, key=lambda t: t["exit_ts"])

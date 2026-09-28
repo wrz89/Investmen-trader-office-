@@ -30,6 +30,13 @@ holdout_min_profit_factor: 1.10  # hold-out finale, usato UNA sola volta
 # funzionare su OGNI asset (profit factor netto ≥ 1), non solo in media.
 require_every_symbol_profitable: true
 
+# Criterio per le strategie DIVERSIFICANTI (quelle che dichiarano DIVERSIFIER_OF),
+# fissato il 28/09/2026 prima di testare STRATEGY_04 e STRATEGY_05.
+# Rendimenti mensili fuori campione con la size reale del Risk Manager.
+diversification:
+  max_monthly_correlation: 0.50            # correlazione con la strategia di riferimento
+  require_portfolio_sharpe_improvement: true   # riferimento + nuova > riferimento da sola
+
 # Regole di sospensione durante il paper trading
 paper_min_trades_for_review: 30
 paper_suspend_profit_factor: 0.90

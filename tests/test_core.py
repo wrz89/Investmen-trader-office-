@@ -87,3 +87,20 @@ def test_strategy_timeframes():
 def test_version_split():
     from office.agents.portfolio_manager import _split
     assert _split("STRATEGY_01_v12") == ("STRATEGY_01", 12)
+
+
+def test_rotation_holds_one_asset_at_a_time():
+    from office.strategies import by_id
+    rot = by_id("STRATEGY_04_v1")
+    ts = pd.date_range("2024-01-01", periods=1500, freq="4h", tz="UTC").astype("int64") // 10**6
+    rng = np.random.default_rng(0)
+    data = {}
+    for i, s in enumerate(["A/USDC", "B/USDC", "C/USDC"]):
+        close = 100 * np.exp(np.cumsum(rng.normal(0.0005 * (i + 1), 0.01, len(ts))))
+        data[s] = pd.DataFrame({"ts": ts, "open": close, "high": close * 1.01, "low": close * 0.99,
+                                "close": close, "volume": 1.0})
+    sig = rot.generate_multi(data, {"lookback": 84, "trend": 100, "stop_atr": 4.0})
+    entries = sum(sig[s]["entry"].astype(int) for s in data)
+    assert entries.max() <= 1                       # mai più di un asset scelto per ribilanciamento
+    rebal = pd.to_datetime(ts, unit="ms", utc=True)
+    assert all(rebal[i].weekday() == 0 and rebal[i].hour == 0 for i in np.flatnonzero(entries.to_numpy()))

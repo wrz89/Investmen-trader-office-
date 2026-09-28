@@ -12,7 +12,9 @@ from .. import registry
 from ..backtest import CostModel
 from ..market import DataError, MarketData
 from ..strategies import param_combinations, timeframe_of
-from ..validation import validate
+from ..portfolio import diversification
+from ..strategies import by_id
+from ..validation import reconstruct_oos, validate
 from .base import Agent
 
 
@@ -76,11 +78,38 @@ class QuantResearcher(Agent):
                     f"Validazione completata: {passed}/{len(results)} strategie approvate per il paper trading.")
         return results
 
+    def _diversification(self, module, datasets, costs, tf, alloc):
+        """Per le strategie diversificanti: confronto con la strategia di riferimento sugli stessi mesi."""
+        ref_id = getattr(module, "DIVERSIFIER_OF", None)
+        cfg = self.office.gates.get("diversification")
+        if not ref_id or not cfg:
+            return None
+        ref_val = registry.load_validation(ref_id)
+        risk = self.office.risk.limits["risk_per_trade"]
+        if ref_val is None or ref_val["verdict"] != "PASSED" or timeframe_of(by_id(ref_id), tf) != tf:
+            return lambda oos: [{"key": "div_ref", "label": f"Riferimento {ref_id} disponibile", "value": 0,
+                                 "threshold": 1, "passed": False, "fmt": "int"}]
+        ref_trades = reconstruct_oos(by_id(ref_id), ref_val, datasets, costs)
+
+        def checks(oos):
+            d = diversification(ref_trades, oos, risk, alloc)
+            corr = d["correlation"] if d["correlation"] == d["correlation"] else 1.0   # NaN = nessuna prova
+            out = [{"key": "div_corr", "label": f"Correlazione mensile con {ref_id}", "value": corr,
+                    "threshold": cfg["max_monthly_correlation"], "passed": corr <= cfg["max_monthly_correlation"],
+                    "fmt": "num"}]
+            if cfg.get("require_portfolio_sharpe_improvement"):
+                out.append({"key": "div_sharpe", "label": f"Sharpe {ref_id} + nuova > {ref_id} da sola",
+                            "value": d["sharpe_combined"], "threshold": d["sharpe_ref"],
+                            "passed": d["sharpe_combined"] > d["sharpe_ref"], "fmt": "num"})
+            return out
+        return checks
+
     def _validate_one(self, module, datasets, costs, gates, alloc, tf, history_exchange) -> dict:
         s = self.settings
         self.status("working", f"Walk-forward su {module.STRATEGY_ID} ({module.NAME}, {tf})…")
         result = validate(module, datasets, costs, gates, s["research"], alloc, registry.total_trials() + self.extra_trials, tf,
-                          self.office.risk.limits["risk_per_trade"])
+                          self.office.risk.limits["risk_per_trade"],
+                          self._diversification(module, datasets, costs, tf, alloc))
         result["data_source"] = history_exchange
         result["timeframe"] = tf
         result["validated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")

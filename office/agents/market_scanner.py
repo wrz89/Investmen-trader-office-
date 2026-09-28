@@ -175,6 +175,17 @@ class MarketScanner(Agent):
             cache[key] = df
         return cache[key]
 
+    def strategy_signals(self, snapshot: dict, module, params: dict, tf: str) -> dict | None:
+        """Segnali di una strategia su tutti gli asset. Per le multi-asset servono i dati di TUTTI:
+        se ne manca uno la classifica sarebbe falsata, quindi niente segnali in questo ciclo."""
+        data = {s: self.candles_for(snapshot, s, tf) for s in snapshot["symbols"]}
+        if hasattr(module, "generate_multi"):
+            if any(df is None or len(df) < 250 for df in data.values()):
+                self.log(f"{module.STRATEGY_ID}: dati incompleti su almeno un asset, nessun segnale.", "WARN", "anomaly")
+                return None
+            return {s: (data[s], sig) for s, sig in module.generate_multi(data, params).items()}
+        return {s: (df, module.generate(df, params)) for s, df in data.items() if df is not None and len(df) >= 250}
+
     # ── da segnale a opportunità ─────────────────────────────
     def opportunities(self, snapshot: dict, strategies: list[dict]) -> list[dict]:
         costs = self.settings["costs"]
@@ -184,13 +195,11 @@ class MarketScanner(Agent):
             module, validation = st["module"], st["validation"]
             params = (validation or {}).get("chosen_params") or _first_combo(module.PARAM_GRID)
             tf = timeframe_of(module, self.settings["timeframe"])
+            sigs = self.strategy_signals(snapshot, module, params, tf) or {}
             for symbol, info in snapshot["symbols"].items():
-                if not info.get("mid"):
+                if not info.get("mid") or symbol not in sigs:
                     continue
-                df = self.candles_for(snapshot, symbol, tf)
-                if df is None or len(df) < 250:
-                    continue
-                sig = module.generate(df, params)
+                df, sig = sigs[symbol]
                 if not bool(sig["entry"].iloc[-1]):
                     continue
                 key = f"{module.STRATEGY_ID}|{symbol}|{int(df['ts'].iloc[-1])}"
