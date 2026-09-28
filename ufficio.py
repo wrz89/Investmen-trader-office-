@@ -17,6 +17,17 @@ import webbrowser
 
 
 def main() -> None:
+    # console di Windows: mai bloccarsi per un carattere non stampabile
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+    try:
+        import ccxt, numpy, pandas, yaml, tzdata  # noqa: F401
+    except ImportError as exc:
+        print(f"Libreria mancante: {exc.name}. Esegui di nuovo installa.bat e controlla che finisca senza errori.")
+        return 1
     parser = argparse.ArgumentParser(description="Crypto Trading Office")
     parser.add_argument("comando", choices=["ricerca", "avvia", "ciclo", "dashboard", "report", "stato",
                                             "reset-kill-switch", "snapshot"])
