@@ -19,6 +19,8 @@ from .agents.risk_manager import RiskManager
 from .agents.strategy_researcher import StrategyResearcher
 from .config import DB_PATH, ensure_dirs, load_settings, load_yaml
 from .market import DataError, MarketData
+from . import local_settings, system
+from .notifier import Notifier
 from .store import Store
 from .strategies import timeframe_of
 
@@ -37,6 +39,7 @@ class Office:
         dctx = ex.get("derivatives_context")
         self.derivatives = MarketData(dctx, timeout_ms=5000) if (dctx and connect_market) else None
         self.account = PaperAccount(self.store, self.settings["capital"]["initial"])
+        self.notifier = Notifier(self.store)
 
         self.pm = PortfolioManager(self)
         self.scanner = MarketScanner(self)
@@ -168,6 +171,7 @@ class Office:
 
     def run_forever(self) -> None:
         while True:
+            system.keep_awake(local_settings.load().get("keep_awake", True))
             try:
                 self.run_cycle()
             except Exception as exc:          # un errore non deve mai portare a operare "alla cieca"

@@ -195,6 +195,27 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .demo-note { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; min-height: 20px; }
 .demo-note b { color: var(--warn); font-weight: 600; }
 
+
+/* ── pannello impostazioni ─────────────────── */
+.top-right { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; justify-content: flex-end; }
+.set-sec { display: grid; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--wall); }
+.set-sec:last-child { border-bottom: 0; }
+.set-sec h3 { font-size: 15px; font-weight: 700; font-stretch: 85%; text-transform: uppercase; letter-spacing: .03em; }
+.set-sec p, .set-sec li { font-size: 13px; color: var(--muted); margin: 0; }
+.set-sec ol { margin: 0; padding-left: 20px; display: grid; gap: 10px; }
+.set-sec li b, .set-sec p b { color: var(--ink); }
+.set-sec code { font: 12px var(--f-data); background: var(--paper); border: 1px solid var(--wall); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+.field { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.field input[type="text"], .field input[type="password"] { flex: 1 1 200px; min-width: 0; font: 13px var(--f-data); padding: 7px 9px; border: 1px solid var(--wall); border-radius: var(--r); background: var(--paper); color: var(--ink); }
+.check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--ink); cursor: pointer; }
+.check-row input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.check-row small { display: block; color: var(--muted); }
+.check-row.disabled { opacity: .5; cursor: default; }
+.conn { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+.set-msg { font-size: 13px; padding: 8px 10px; border-radius: var(--r); background: var(--accent-soft); color: var(--ink); }
+.set-msg.err { background: var(--bad-soft); color: var(--bad); }
+.set-note { font-size: 12.5px; padding: 8px 10px; border-radius: var(--r); background: var(--warn-soft); color: var(--ink); }
+
 /* ── sezioni sotto la pianta ─────────────────── */
 .two { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 .panel { display: grid; gap: 12px; min-width: 0; }
@@ -275,7 +296,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <p id="subtitle">Sette colleghi, sette uffici. Clicca su una stanza per leggere tutto quello che ha fatto il suo agente.</p>
       <div class="chips" id="chips"></div>
     </div>
-    <div class="source" id="source"><span class="dot"></span><span>Caricamento…</span></div>
+    <div class="top-right">
+      <div class="source" id="source"><span class="dot"></span><span>Caricamento…</span></div>
+      <button class="btn" id="btn-settings" type="button">Impostazioni</button>
+    </div>
   </header>
 
   <section class="kpis" id="kpis" aria-label="Conto"></section>
@@ -322,6 +346,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <button class="close" id="dr-close" type="button" aria-label="Chiudi">×</button>
   </header>
   <div class="body" id="dr-body"></div>
+</aside>
+
+<aside class="drawer" id="settings" aria-hidden="true" aria-labelledby="set-title">
+  <header>
+    <div><div class="eyebrow">Configurazione dell'ufficio</div><h2 id="set-title">Impostazioni</h2><div class="role">Le modifiche valgono subito, senza riavviare.</div></div>
+    <button class="close" id="set-close" type="button" aria-label="Chiudi">×</button>
+  </header>
+  <div class="body" id="set-body"></div>
 </aside>
 
 <script id="office-snapshot" type="application/json">null</script>
@@ -743,6 +775,109 @@ button { font: inherit; color: inherit; cursor: pointer; }
   }
   $("#dr-close").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+
+  // ── impostazioni (solo sulla dashboard del PC) ─────────
+  let SET = null, setMsg = null;
+  async function post(path, body) {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Office": "1" }, body: JSON.stringify(body || {}) });
+    const d = await r.json().catch(() => ({}));
+    if (d.settings) SET = d.settings;
+    if (!r.ok) throw new Error(d.error || `Errore ${r.status}`);
+    return d;
+  }
+  async function act(path, body) {
+    try { setMsg = { ok: true, text: (await post(path, body)).message }; }
+    catch (err) { setMsg = { ok: false, text: err.message }; }
+    renderSettings();
+  }
+  function box(id, label, hint, checked, disabled) {
+    return `<label class="check-row${disabled ? " disabled" : ""}" for="${id}"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${label}${hint ? `<small>${hint}</small>` : ""}</span></label>`;
+  }
+  function renderSettings() {
+    const body = $("#set-body");
+    if (!live) {
+      body.innerHTML = `<div class="set-note">Questa è l'anteprima online. Le impostazioni si cambiano dalla dashboard sul tuo PC: avvia l'ufficio e apri <b>http://localhost:8765</b>.</div>`;
+      return;
+    }
+    if (!SET) { body.innerHTML = `<p class="empty">Caricamento…</p>`; return; }
+    const tg = SET.telegram, n = SET.notify, as = SET.autostart, P = SET.promotion || {};
+    const off = !live;
+    body.innerHTML = `
+      ${setMsg ? `<div class="set-msg ${setMsg.ok ? "" : "err"}" role="status">${esc(setMsg.text)}</div>` : ""}
+      <section class="set-sec">
+        <h3>Notifiche Telegram</h3>
+        <div class="conn"><span class="dot ${tg.configured ? "live" : ""}"></span>${tg.configured ? `Collegato a <b>${esc(tg.chat_name || tg.chat_id)}</b>` : tg.has_token ? "Token salvato, manca la chat (passo 3)" : "Non collegato"}</div>
+        <ol>
+          <li>Su Telegram cerca <b>@BotFather</b>, scrivi <code>/newbot</code>, scegli un nome (es. <i>Il mio Trading Office</i>) e un nome utente che finisca in <code>bot</code>.</li>
+          <li>BotFather ti risponde con un <b>token</b> (tipo <code>123456789:AAH…</code>). Copialo e incollalo qui:
+            <div class="field"><input type="password" id="tg-token" autocomplete="off" placeholder="${tg.has_token ? `salvato: ${esc(tg.token)}` : "incolla qui il token"}"><button class="btn primary" id="tg-save" type="button">Salva token</button></div></li>
+          <li>Apri il tuo nuovo bot su Telegram e premi <b>AVVIA</b>. Poi:
+            <div class="field"><button class="btn" id="tg-detect" type="button" ${tg.has_token ? "" : "disabled"}>Trova la mia chat</button></div></li>
+          <li>Controlla che tutto funzioni:
+            <div class="field"><button class="btn" id="tg-test" type="button" ${tg.configured ? "" : "disabled"}>Invia messaggio di prova</button>${tg.has_token ? `<button class="btn" id="tg-clear" type="button">Scollega</button>` : ""}</div></li>
+        </ol>
+      </section>
+      <section class="set-sec">
+        <h3>Cosa ricevere</h3>
+        ${box("n-trades", "Trade", "Acquisti, vendite e trade chiusi con il risultato", n.trades, off)}
+        ${box("n-vetoes", "Veti sulle strategie autorizzate", "Quando Franco blocca un segnale che avrebbe potuto operare", n.vetoes, off)}
+        ${box("n-vetoes_all", "Anche i veti sulle strategie rifiutate", "Tanti messaggi: utile solo per curiosità", n.vetoes_all, off)}
+        ${box("n-daily_report", "Report giornaliero", "Il riepilogo di Elena a fine giornata", n.daily_report, off)}
+        ${box("n-alerts", "Allarmi", "Kill switch, errori, dati anomali (al massimo uno all'ora per tipo)", n.alerts, off)}
+      </section>
+      <section class="set-sec">
+        <h3>Accensione</h3>
+        ${box("as-enabled", "Avvia l'ufficio quando accedo a Windows", as.supported ? "Parte da solo, ridotto a icona, dopo che hai inserito la password di Windows." : "Disponibile solo su Windows.", as.enabled, !as.supported)}
+        ${box("keep-awake", "Tieni sveglio il PC mentre l'ufficio lavora", "Il PC non va in sospensione finché l'ufficio è acceso. Lo schermo può comunque spegnersi.", SET.keep_awake, off)}
+        <p>Se chiudi la finestra nera dell'ufficio, l'ufficio si ferma. Riaprendo <b>avvia_ufficio.bat</b> mentre è già acceso, si apre solo questa pagina: non parte un secondo ufficio.</p>
+      </section>
+      <section class="set-sec">
+        <h3>Criteri per il capitale reale</h3>
+        <p>Fissati prima del primo trade in paper. Anche se tutti superati, il passaggio al reale resta una tua decisione.</p>
+        <dl class="kv">
+          <dt>Durata minima del paper</dt><dd>${P.min_weeks} settimane</dd>
+          <dt>Trade chiusi</dt><dd>≥ ${P.min_closed_trades}</dd>
+          <dt>Profit factor netto</dt><dd>≥ ${fmt(P.min_profit_factor, 1)}</dd>
+          <dt>Risultato vs Monte Carlo</dt><dd>≥ ${P.mc_lower_percentile}° percentile</dd>
+          <dt>Costi reali vs modello</dt><dd>≤ ${fmt(P.max_cost_vs_model, 1)}×</dd>
+          <dt>Candele 4h elaborate</dt><dd>≥ ${pct(P.min_coverage, 0)}</dd>
+          <dt>Errori critici</dt><dd>${P.max_critical_errors}</dd>
+        </dl>
+      </section>`;
+    const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+    bind("tg-save", () => { const v = $("#tg-token").value.trim(); if (v) act("/api/settings/telegram", { token: v }); else { setMsg = { ok: false, text: "Incolla prima il token ricevuto da BotFather." }; renderSettings(); } });
+    bind("tg-detect", () => act("/api/telegram/detect"));
+    bind("tg-test", () => act("/api/telegram/test"));
+    bind("tg-clear", () => act("/api/settings/telegram", { clear: true }));
+    ["trades", "vetoes", "vetoes_all", "daily_report", "alerts"].forEach((k) => {
+      const el = document.getElementById(`n-${k}`);
+      if (el) el.addEventListener("change", () => act("/api/settings/notify", { [k]: el.checked }));
+    });
+    const ka = document.getElementById("keep-awake");
+    if (ka) ka.addEventListener("change", () => act("/api/settings/notify", { keep_awake: ka.checked }));
+    const ae = document.getElementById("as-enabled");
+    if (ae) ae.addEventListener("change", () => act("/api/settings/autostart", { enabled: ae.checked }));
+  }
+  async function openSettings() {
+    setMsg = null;
+    const d = $("#settings");
+    d.classList.add("open");
+    d.setAttribute("aria-hidden", "false");
+    renderSettings();
+    if (live) {
+      try { SET = await (await fetch("/api/settings", { cache: "no-store" })).json(); } catch (e) { setMsg = { ok: false, text: "Impostazioni non raggiungibili: l'ufficio è acceso?" }; }
+      renderSettings();
+    }
+    $("#set-close").focus();
+  }
+  function closeSettings() {
+    $("#settings").classList.remove("open");
+    $("#settings").setAttribute("aria-hidden", "true");
+  }
+  $("#btn-settings").addEventListener("click", openSettings);
+  $("#set-close").addEventListener("click", closeSettings);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSettings(); });
 
   // ── il ticket che gira per l'ufficio ───────────
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

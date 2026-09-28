@@ -20,6 +20,12 @@ class Agent:
     def log(self, message: str, level: str = "INFO", kind: str = "info",
             payload: dict | None = None) -> None:
         self.store.event(self.key, message, level, kind, payload)
+        notifier = getattr(self.office, "notifier", None)
+        if notifier is not None:
+            try:
+                notifier.on_event(self.key, level, kind, message, payload)
+            except Exception:
+                pass                                   # una notifica non ferma mai l'ufficio
 
     def say(self, message: str, state: str = "working", kind: str = "info",
             payload: dict | None = None, level: str = "INFO", stats: dict | None = None) -> None:

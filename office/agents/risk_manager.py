@@ -151,7 +151,8 @@ class RiskManager(Agent):
         if failed:
             self.say(f"BLOCK {sym} ({opp['strategy_id']}): {failed[0]['label'].lower()} — "
                      f"{failed[0]['detail']}" + (f" (+{len(failed) - 1} altri motivi)" if len(failed) > 1 else ""),
-                     "blocked", "veto", payload={"opportunity": opp["id"], "checks": checks})
+                     "blocked", "veto", payload={"opportunity": opp["id"], "checks": checks,
+                                                 "strategy_status": opp["strategy_status"]})
         else:
             self.say(f"APPROVE {sym} {qty} @ {price:,.2f} — rischio {L['risk_per_trade']:.1%} del capitale, "
                      f"stop {opp['stop']:,.2f}", "ok", "approve",

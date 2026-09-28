@@ -1,0 +1,12 @@
+# ─────────────────────────────────────────────────────────────
+#  CRITERI PER PASSARE DAL PAPER AL CAPITALE REALE
+#  Fissati il 28/09/2026, PRIMA di qualsiasi trade in paper della
+#  STRATEGY_01_v5. Il passaggio al reale resta comunque una decisione umana.
+# ─────────────────────────────────────────────────────────────
+min_weeks: 12                  # durata minima del paper trading
+min_closed_trades: 20          # trade chiusi in paper
+min_profit_factor: 1.0         # profit factor netto in paper
+mc_lower_percentile: 5         # risultato netto non peggiore del 5° percentile atteso dal Monte Carlo
+max_cost_vs_model: 1.5         # commissioni + slippage reali ≤ 1,5 × modello
+min_coverage: 0.80             # quota di candele 4h elaborate (PC acceso)
+max_critical_errors: 0         # errori critici non gestiti o regole di rischio violate

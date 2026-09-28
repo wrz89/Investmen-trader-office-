@@ -123,6 +123,9 @@ class Auditor(Agent):
             (day, json.dumps(report, default=str), md))
         self.say(f"Report del {day} pronto: netto {report['pnl_netto']:+.2f}, {len(trades)} trade.",
                  "ok", "report")
+        notifier = getattr(self.office, "notifier", None)
+        if notifier is not None:
+            notifier.daily_report(report)
         return report
 
     def _analysis(self, r: dict, statuses: list[dict], blocks: list[dict]) -> dict:

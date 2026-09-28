@@ -41,7 +41,7 @@ def main() -> None:
 
     from office.config import load_settings
     from office.core import Office
-    from office.server import serve
+    from office.server import office_running, serve
 
     overrides = {"exchange.data": args.exchange, "exchange.history": args.storico}
     if args.exchange:
@@ -58,6 +58,14 @@ def main() -> None:
     if args.comando == "mercati":
         return list_markets(args.exchange or load_settings()["exchange"]["data"],
                             load_settings()["exchange"]["history"])
+
+    port = load_settings()["dashboard_port"]
+    if args.comando in ("avvia", "ciclo") and office_running(port):
+        # un solo ufficio alla volta: due uffici accesi raddoppierebbero le operazioni
+        print("L'ufficio è già acceso (magari dall'avvio automatico): apro la dashboard.")
+        if not args.no_browser:
+            webbrowser.open(f"http://localhost:{port}")
+        return 0
 
     offline = args.comando in ("report", "stato", "reset-kill-switch", "snapshot")
     office = Office(overrides, connect_market=not offline)
@@ -83,7 +91,11 @@ def main() -> None:
         print(office.run_cycle())
     elif args.comando == "avvia":
         port = office.settings["dashboard_port"]
-        serve(port, background=True)
+        try:
+            serve(port, background=True)
+        except OSError:
+            print(f"La porta {port} è occupata: l'ufficio è probabilmente già acceso. Chiudo questo avvio.")
+            return 1
         print(f"Ufficio avviato in modalità {office.settings['mode'].upper()}.")
         print(f"Dashboard: http://localhost:{port}   (CTRL+C per fermare)")
         if not args.no_browser:

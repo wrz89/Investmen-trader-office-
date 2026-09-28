@@ -36,6 +36,18 @@ python ufficio.py mercati       # coppie EUR/USDC più liquide su Bybit
 
 Tutti i dati prodotti (database, storico, registro strategie, report) finiscono in `runtime/`.
 
+## Impostazioni dal browser
+
+Nella dashboard, il pulsante **Impostazioni** in alto a destra permette di:
+
+- **collegare Telegram**, seguendo i 4 passi guidati: si crea il bot con @BotFather, si incolla il token, si preme AVVIA sul bot e si invia un messaggio di prova. Arrivano notifiche su trade, veti, allarmi e il report serale;
+- **scegliere quali notifiche ricevere**;
+- **attivare l'avvio automatico**: l'ufficio parte da solo, ridotto a icona, quando accedi a Windows;
+- **tenere sveglio il PC** mentre l'ufficio lavora;
+- consultare i **criteri per passare al capitale reale** (`config/promotion_criteria.yaml`).
+
+Il token del bot resta in `runtime/local_settings.json`, solo sul tuo PC. Può esistere un solo ufficio acceso alla volta: se lo riavvii mentre è già acceso, si apre solo la dashboard.
+
 ## Regole applicate dal codice
 
 - **Una strategia opera solo se supera tutti i criteri** di `config/quant_gates.yaml`, calcolati fuori campione e al netto dei costi.
