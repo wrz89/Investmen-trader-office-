@@ -47,12 +47,20 @@ class QuantResearcher(Agent):
             datasets = {}
             for symbol in s["universe"]:
                 try:
-                    datasets[symbol] = md.history(symbol, tf, s["research"]["history_days"])
+                    hist_symbol = (s["research"].get("history_symbols") or {}).get(symbol, symbol)
+                    datasets[symbol] = md.history(hist_symbol, tf, s["research"]["history_days"])
                 except DataError as exc:
                     self.say(f"Storico {symbol} {tf} non disponibile: {exc}", "alert", "error", level="ERROR")
                     datasets = None
                     break
-                self.log(f"Storico {symbol}: {len(datasets[symbol])} candele {tf}", kind="research")
+                self.log(f"Storico {symbol} (da {hist_symbol}): {len(datasets[symbol])} candele {tf}",
+                         kind="research")
+                if len(datasets[symbol]) < 1000:
+                    # l'universo è deciso prima: niente esclusioni silenziose di un asset
+                    self.say(f"Storico {symbol} {tf} insufficiente ({len(datasets[symbol])} candele): "
+                             "validazione rinviata.", "alert", "error", level="ERROR")
+                    datasets = None
+                    break
             if datasets is None:
                 continue
             for entry in group:

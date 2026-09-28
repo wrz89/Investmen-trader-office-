@@ -122,6 +122,9 @@ class MarketData:
         while since < now_ms - tf_ms:
             raw = self._call(self.ex.fetch_ohlcv, symbol, timeframe, since=since, limit=1000)
             if not raw:
+                if not chunks:                    # asset quotato dopo la data richiesta: vado avanti
+                    since += 1000 * tf_ms
+                    continue
                 break
             chunk = to_frame(raw)
             chunks.append(chunk)

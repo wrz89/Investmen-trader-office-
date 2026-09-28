@@ -119,7 +119,8 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
     symbols = list(datasets)
 
     # confini temporali comuni
-    t_first = max(int(df["ts"].iloc[min(WARMUP_BARS, len(df) - 1)]) for df in datasets.values())
+    # gli asset con storico più corto entrano nelle finestre da quando esistono
+    t_first = min(int(df["ts"].iloc[min(WARMUP_BARS, len(df) - 1)]) for df in datasets.values())
     t_last = min(int(df["ts"].iloc[-1]) for df in datasets.values())
     t_hold = int(t_first + (t_last - t_first) * (1 - research["holdout_fraction"]))
     windows_n = research["walk_forward_windows"]
@@ -204,6 +205,12 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
         check("dsr", "Deflated Sharpe (test multipli)", dsr, gates["min_deflated_sharpe"],
               dsr >= gates["min_deflated_sharpe"], "pct"),
     ]
+    by_symbol = {s: summarize([t for t in oos if t["symbol"] == s], oos_years) for s in symbols}
+    if gates.get("require_every_symbol_profitable"):
+        worst = min(by_symbol, key=lambda s: (by_symbol[s]["trades"] > 0, by_symbol[s]["profit_factor"]))
+        wpf = by_symbol[worst]["profit_factor"] if by_symbol[worst]["trades"] else 0.0
+        checks.append(check("every_symbol", f"Ogni asset in utile (peggiore: {worst})", wpf, 1.0,
+                            all(v["trades"] > 0 and v["profit_factor"] >= 1.0 for v in by_symbol.values())))
     wf_passed = all(c["passed"] for c in checks)
 
     # 3) hold-out: si consuma solo se il walk-forward è superato
@@ -237,5 +244,6 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
         "alloc": alloc,
         "equity_oos": [round(float(x), 5) for x in curve[::step]],
         "exit_reasons": dict(Counter(t["reason"] for t in oos)),
-        "by_symbol": {s: summarize([t for t in oos if t["symbol"] == s], oos_years) for s in symbols},
+        "by_symbol": by_symbol,
+        "universe": symbols,
     }

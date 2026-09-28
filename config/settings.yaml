@@ -7,8 +7,8 @@
 mode: paper
 
 capital:
-  initial: 130          # capitale iniziale (in valuta di quotazione)
-  currency: EUR
+  initial: 147          # = 130 EUR convertiti in USDC (cambio 0,8795 del 28/09/2026)
+  currency: USDC
 
 exchange:
   # Exchange usato per prezzi live, order book e (in futuro) esecuzione.
@@ -25,12 +25,14 @@ exchange:
   # nessuna operazione in derivati. Lascia vuoto per disattivare.
   derivatives_context: bybit
 
-# Universo iniziale: pochi asset, molto liquidi.
-# Bybit EU: se le coppie EUR risultano poco liquide (spread alto),
-# lo Scanner lo segnala e il Risk Manager blocca: valuta /USDC.
+# Universo: coppie in USDC, dove su Bybit EU c'è la liquidità (28/09/2026:
+# BTC/USDC 115 mln di volume e spread 0,0 bp, contro BTC/EUR 0,6 mln e 5,4 bp).
+# XRP e SOL scelti PRIMA di vedere risultati: volume alto, spread < 1 bp, storico disponibile.
 universe:
-  - BTC/EUR
-  - ETH/EUR
+  - BTC/USDC
+  - ETH/USDC
+  - XRP/USDC
+  - SOL/USDC
 
 timeframe: 1h          # timeframe predefinito; una strategia può dichiararne uno suo (TIMEFRAME)
 
@@ -48,6 +50,13 @@ research:
   holdout_fraction: 0.20
   walk_forward_windows: 6
   train_fraction: 0.40  # quota dello storico di sviluppo usata come finestra di training
+  # Coppia da usare per lo storico sull'exchange di ricerca (USDC ha poca storia:
+  # si usa USD, praticamente lo stesso prezzo).
+  history_symbols:
+    BTC/USDC: BTC/USD
+    ETH/USDC: ETH/USD
+    XRP/USDC: XRP/USD
+    SOL/USDC: SOL/USD
 
 # Ciclo operativo
 cycle_seconds: 300      # un ciclo ogni 5 minuti

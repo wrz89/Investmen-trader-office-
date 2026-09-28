@@ -21,6 +21,9 @@ max_mc_drawdown_95: 0.10         # drawdown al 95° percentile (Monte Carlo) sul
 min_param_stability: 0.50        # quota di combinazioni di parametri in utile (no "picco isolato")
 min_deflated_sharpe: 0.90        # probabilità che lo Sharpe non sia frutto di test multipli
 holdout_min_profit_factor: 1.10  # hold-out finale, usato UNA sola volta
+# Aggiunto il 28/09/2026 prima di validare STRATEGY_01_v3: la strategia deve
+# funzionare su OGNI asset (profit factor netto ≥ 1), non solo in media.
+require_every_symbol_profitable: true
 
 # Regole di sospensione durante il paper trading
 paper_min_trades_for_review: 30

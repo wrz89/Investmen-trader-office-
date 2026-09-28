@@ -71,6 +71,9 @@ class RiskManager(Agent):
             + ("" if opp["strategy_status"] == "PAPER" else " — solo le strategie validate possono operare"))
         chk("Validazione statistica superata", bool(validation and validation["verdict"] == "PASSED"),
             (validation or {}).get("verdict", "mai validata"))
+        validated_on = list((validation or {}).get("by_symbol", {}))
+        chk("Asset validato per la strategia", sym in validated_on,
+            "ok" if sym in validated_on else f"validata solo su {', '.join(validated_on) or 'nessun asset'}")
         chk("Dati di mercato affidabili", info.get("ok", False) and not info.get("anomalies"),
             "; ".join(info.get("anomalies", [])) or "nessuna anomalia")
         err = snapshot["health"].get("error_rate", 0)

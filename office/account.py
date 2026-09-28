@@ -16,7 +16,11 @@ def today() -> str:
 class PaperAccount:
     def __init__(self, store: Store, initial_capital: float):
         self.store = store
-        if store.get("cash") is None:
+        untouched = (not store.query("SELECT 1 FROM trades LIMIT 1")
+                     and not store.query("SELECT 1 FROM positions LIMIT 1"))
+        changed = store.get("initial_capital") not in (None, float(initial_capital))
+        if store.get("cash") is None or (changed and untouched):
+            # capitale nuovo o cambiato prima di qualsiasi operazione: si riparte puliti
             store.set("cash", float(initial_capital))
             store.set("initial_capital", float(initial_capital))
             store.set("peak_equity", float(initial_capital))
