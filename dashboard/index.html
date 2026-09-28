@@ -31,6 +31,10 @@
   --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --f-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --r: 6px;
+  --sc-wall: #e4e9ef; --sc-wall2: #d5dce5; --sc-floor: #cdb697; --sc-plank: rgba(60, 40, 20, .14);
+  --sc-desktop: #b8875b; --sc-desk: #9a6a42; --sc-chair: #3a4757; --sc-metal: #56626f; --sc-screen: #16202b;
+  --sc-window: #bfe3f6; --sc-frame: #f7f9fb; --sc-sun: #ffd35c; --sc-paper: #ffffff; --sc-ink: #1d2833;
+  --sc-pot: #c46b4a; --sc-plant: #3f8f5a;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -39,6 +43,10 @@
     --ok: #4cc48f; --ok-soft: rgba(76, 196, 143, .13); --warn: #e2ad52; --warn-soft: rgba(226, 173, 82, .13);
     --bad: #f07a70; --bad-soft: rgba(240, 122, 112, .13); --idle: #8190a0; --idle-soft: rgba(129, 144, 160, .15);
     --shadow: 0 1px 0 rgba(0, 0, 0, .2), 0 10px 26px -18px rgba(0, 0, 0, .8);
+    --sc-wall: #1d2834; --sc-wall2: #18212c; --sc-floor: #3a3128; --sc-plank: rgba(255, 255, 255, .06);
+    --sc-desktop: #6e5038; --sc-desk: #58402c; --sc-chair: #0e141b; --sc-metal: #4a5664; --sc-screen: #070b10;
+    --sc-window: #0f2444; --sc-frame: #3a4b5e; --sc-sun: #e9eef4; --sc-paper: #d8dee5; --sc-ink: #0d141b;
+    --sc-pot: #8c4d36; --sc-plant: #3b7a52;
     color-scheme: dark;
   }
 }
@@ -48,6 +56,10 @@
   --ok: #4cc48f; --ok-soft: rgba(76, 196, 143, .13); --warn: #e2ad52; --warn-soft: rgba(226, 173, 82, .13);
   --bad: #f07a70; --bad-soft: rgba(240, 122, 112, .13); --idle: #8190a0; --idle-soft: rgba(129, 144, 160, .15);
   --shadow: 0 1px 0 rgba(0, 0, 0, .2), 0 10px 26px -18px rgba(0, 0, 0, .8);
+  --sc-wall: #1d2834; --sc-wall2: #18212c; --sc-floor: #3a3128; --sc-plank: rgba(255, 255, 255, .06);
+  --sc-desktop: #6e5038; --sc-desk: #58402c; --sc-chair: #0e141b; --sc-metal: #4a5664; --sc-screen: #070b10;
+  --sc-window: #0f2444; --sc-frame: #3a4b5e; --sc-sun: #e9eef4; --sc-paper: #d8dee5; --sc-ink: #0d141b;
+  --sc-pot: #8c4d36; --sc-plant: #3b7a52;
   color-scheme: dark;
 }
 
@@ -96,19 +108,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas: "scan res quant pm" "risk risk exec audit";
 }
-.room { position: relative; cursor: pointer; background: var(--room); border: 1px solid var(--wall); border-radius: 3px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; text-align: left; box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; }
+.room { position: relative; cursor: pointer; background: var(--room); border: 1px solid var(--wall); border-radius: 4px; padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; text-align: left; box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; container-type: inline-size; }
 .room:hover { border-color: var(--accent); }
 .room.speaking { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
 .room[data-k="market_scanner"] { grid-area: scan; }
 .room[data-k="strategy_researcher"] { grid-area: res; }
 .room[data-k="quant_researcher"] { grid-area: quant; }
 .room[data-k="portfolio_manager"] { grid-area: pm; }
-.room[data-k="risk_manager"] { grid-area: risk; }
+.room[data-k="risk_manager"] { grid-area: risk; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); column-gap: 16px; }
+.room[data-k="risk_manager"] .plate { grid-column: 1 / -1; }
+.room[data-k="risk_manager"] .mini { border-top: 0; padding-top: 0; align-content: start; }
 .room[data-k="execution"] { grid-area: exec; }
 .room[data-k="auditor"] { grid-area: audit; }
-.room-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.room-head h3 { font-size: 17px; font-weight: 700; font-stretch: 82%; text-transform: uppercase; letter-spacing: .01em; line-height: 1.1; margin-top: 2px; }
-.role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.plate { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.plate .nick { display: block; font: 800 22px/1 var(--f-sign); font-stretch: 76%; text-transform: uppercase; letter-spacing: .01em; }
+.plate .job { display: block; margin-top: 4px; font: 600 11px/1.3 var(--f-sign); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.role { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .pill { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font: 600 11px/1.6 var(--f-sign); letter-spacing: .06em; text-transform: uppercase; }
 .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .st-working { color: var(--accent); background: var(--accent-soft); }
@@ -117,17 +132,43 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .st-alert { color: var(--warn); background: var(--warn-soft); }
 .st-idle { color: var(--idle); background: var(--idle-soft); }
 
-.desk { display: flex; align-items: flex-end; gap: 12px; min-width: 0; }
-.desk svg { flex: none; width: 64px; height: 52px; }
-.desk .monitor { fill: var(--paper); stroke: var(--muted); }
-.desk .screen { fill: var(--accent-soft); }
-.room.speaking .desk .screen, .room[data-state="working"] .desk .screen { animation: flicker 1.1s steps(2) infinite; }
-@keyframes flicker { 50% { fill: var(--accent); opacity: .35; } }
-.desk .person { fill: var(--muted); }
-.desk .table { fill: var(--wall); }
-.bubble { position: relative; flex: 1; min-width: 0; background: var(--paper); border: 1px solid var(--wall); border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
-.bubble::after { content: ""; position: absolute; left: -6px; bottom: 12px; width: 10px; height: 10px; background: var(--paper); border-left: 1px solid var(--wall); border-bottom: 1px solid var(--wall); transform: rotate(45deg); }
-.bubble time { display: block; margin-top: 4px; font: 11px/1.2 var(--f-data); color: var(--muted); }
+/* ── la stanza disegnata ─────────────────────── */
+.office { position: relative; border: 1px solid var(--wall); border-radius: 3px; overflow: hidden; background: var(--sc-wall); }
+.office svg.scene { display: block; width: 100%; height: auto; }
+.bubble { position: absolute; left: 3%; top: 5%; width: 45%; background: var(--room); color: var(--ink); border: 1px solid var(--wall); border-radius: 10px; padding: 7px 9px; font-size: 12.5px; line-height: 1.35; box-shadow: var(--shadow); overflow-wrap: anywhere; }
+.bubble .say { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.bubble::after { content: ""; position: absolute; right: -6px; top: 24px; width: 10px; height: 10px; background: var(--room); border-right: 1px solid var(--wall); border-top: 1px solid var(--wall); transform: rotate(45deg); }
+.bubble time { display: block; margin-top: 3px; font: 10.5px/1.2 var(--f-data); color: var(--muted); }
+@container (max-width: 300px) {
+  .bubble { position: static; width: auto; margin: 0; border-width: 1px 0 0; border-radius: 0; box-shadow: none; }
+  .bubble::after { display: none; }
+}
+.scene .w { fill: var(--sc-wall); } .scene .w2 { fill: var(--sc-wall2); }
+.scene .fl { fill: var(--sc-floor); } .scene .pl { stroke: var(--sc-plank); stroke-width: 1; }
+.scene .dt { fill: var(--sc-desktop); } .scene .dk { fill: var(--sc-desk); } .scene .dkl { stroke: var(--sc-plank); stroke-width: 1.2; fill: none; }
+.scene .ch { fill: var(--sc-chair); } .scene .mt { fill: var(--sc-metal); } .scene .sc { fill: var(--sc-screen); }
+.scene .wn { fill: var(--sc-window); } .scene .fr { fill: var(--sc-frame); } .scene .sun { fill: var(--sc-sun); }
+.scene .pp { fill: var(--sc-paper); } .scene .ink { fill: var(--sc-ink); } .scene .inks { stroke: var(--sc-ink); fill: none; }
+.scene .plate-t { font: 700 8.5px var(--f-sign); letter-spacing: 1.2px; fill: #3a2a0e; text-anchor: middle; }
+.scene .lbl { font: 600 6px var(--f-data); fill: var(--sc-ink); text-anchor: middle; }
+.scene .part { transform-box: fill-box; transform-origin: 50% 100%; }
+.room[data-state="working"] .arm-l { animation: type .3s ease-in-out infinite alternate; }
+.room[data-state="working"] .arm-r { animation: type .3s ease-in-out .15s infinite alternate; }
+@keyframes type { to { transform: translateY(-2.5px); } }
+.room[data-state="working"] .head { animation: bob 1.8s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(1.2px); } }
+.room[data-state="working"] .glow { animation: glow 1.4s steps(3) infinite; }
+@keyframes glow { 50% { opacity: .55; } }
+.steam { opacity: 0; }
+.room[data-state="idle"] .steam { animation: steam 2.6s ease-in infinite; }
+.room[data-state="idle"] .steam.s2 { animation-delay: 1.3s; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(3px); } 35% { opacity: .75; } 100% { opacity: 0; transform: translateY(-9px); } }
+.room[data-state="idle"] .body { animation: breathe 3.6s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: translateY(.8px); } }
+.alert-mark { animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.paddle { transform-box: fill-box; transform-origin: 50% 100%; animation: wave .5s ease-in-out 3 alternate; }
+@keyframes wave { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
 .mini { display: grid; gap: 6px; font-size: 12px; color: var(--muted); border-top: 1px dashed var(--wall); padding-top: 10px; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; }
 .row .num { color: var(--ink); }
@@ -142,7 +183,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tag { font: 500 11px/1.5 var(--f-data); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--wall); color: var(--muted); background: var(--room); }
 .tag.ok { color: var(--ok); border-color: var(--ok); } .tag.bad { color: var(--bad); border-color: var(--bad); } .tag.warn { color: var(--warn); border-color: var(--warn); }
 
-.stamp { position: absolute; right: 130px; top: 12px; font: 800 30px/1 var(--f-sign); font-stretch: 70%; letter-spacing: .08em; color: var(--bad); border: 3px solid var(--bad); padding: 4px 10px; border-radius: 4px; transform: rotate(-8deg); opacity: 0; pointer-events: none; }
+.stamp { position: absolute; right: 4%; bottom: 9%; z-index: 2; font: 800 28px/1 var(--f-sign); font-stretch: 70%; letter-spacing: .08em; color: var(--bad); border: 3px solid var(--bad); padding: 4px 10px; border-radius: 4px; transform: rotate(-8deg); opacity: 0; pointer-events: none; }
 .room[data-state="blocked"] .stamp { opacity: .9; }
 .stamp.hit { animation: stamp .45s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes stamp { from { transform: rotate(-8deg) scale(1.9); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: .9; } }
@@ -217,7 +258,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 620px) {
   .floor { grid-template-columns: minmax(0, 1fr); grid-template-areas: "scan" "res" "quant" "risk" "exec" "audit" "pm"; padding: 10px; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stamp { font-size: 22px; top: auto; bottom: 14px; right: 14px; }
+  .stamp { font-size: 22px; }
+  .room[data-k="risk_manager"] { grid-template-columns: minmax(0, 1fr); }
+  .room[data-k="risk_manager"] .mini { border-top: 1px dashed var(--wall); padding-top: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -229,7 +272,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div class="brand">
       <div class="eyebrow">Ufficio quantitativo · 7 agenti</div>
       <h1>Crypto Trading Office</h1>
-      <p id="subtitle">Ogni stanza è un agente. Clicca su una stanza per leggere tutto quello che ha fatto.</p>
+      <p id="subtitle">Sette colleghi, sette uffici. Clicca su una stanza per leggere tutto quello che ha fatto il suo agente.</p>
       <div class="chips" id="chips"></div>
     </div>
     <div class="source" id="source"><span class="dot"></span><span>Caricamento…</span></div>
@@ -296,8 +339,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   };
   const ORDER = ["market_scanner", "strategy_researcher", "quant_researcher", "portfolio_manager", "risk_manager", "execution", "auditor"];
   const STATE_LABEL = { working: "Al lavoro", ok: "Operativo", blocked: "Veto", alert: "Allerta", idle: "In attesa" };
-  const STATUS_LABEL = { RESEARCH: "In ricerca", PAPER: "Paper trading", REJECTED: "Rifiutata", SUSPENDED: "Sospesa", BLOCKED: "Bloccata", LIVE: "Live" };
-  const STATUS_CLASS = { RESEARCH: "st-working", PAPER: "st-ok", REJECTED: "st-blocked", SUSPENDED: "st-alert", BLOCKED: "st-blocked", LIVE: "st-ok" };
+  const STATUS_LABEL = { RESEARCH: "In ricerca", PAPER: "Paper trading", REJECTED: "Rifiutata", SUSPENDED: "Sospesa", BLOCKED: "Bloccata", LIVE: "Live", RETIRED: "Ritirata", SUPERSEDED: "Sostituita" };
+  const STATUS_CLASS = { RESEARCH: "st-working", PAPER: "st-ok", REJECTED: "st-blocked", SUSPENDED: "st-alert", BLOCKED: "st-blocked", LIVE: "st-ok", RETIRED: "st-idle", SUPERSEDED: "st-idle" };
 
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -339,14 +382,127 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <path class="l ${last >= 1 ? "up" : "dn"}" d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
   }
 
-  function deskSvg() {
-    return `<svg viewBox="0 0 64 52" aria-hidden="true">
-      <rect class="table" x="2" y="40" width="60" height="5" rx="1"/>
-      <rect class="monitor" x="30" y="14" width="28" height="19" rx="2" stroke-width="1.5"/>
-      <rect class="screen" x="33" y="17" width="22" height="13" rx="1"/>
-      <rect class="table" x="42" y="33" width="4" height="7"/>
-      <circle class="person" cx="15" cy="16" r="6"/>
-      <path class="person" d="M5 40c0-9 4.5-15 10-15s10 6 10 15z"/></svg>`;
+  // ── gli omini e le loro stanze ─────────────────
+  const PEOPLE = {
+    portfolio_manager:   { nick: "Marco",  skin: "#e3b08a", hair: "#3b2a20", style: "short", shirt: "#2f4a7a", tie: "#c9463d", prop: "lamp",  wall: "org",     screen: "pie" },
+    market_scanner:      { nick: "Sofia",  skin: "#f1c7a3", hair: "#8a5226", style: "pony",  shirt: "#d9962f", prop: "tablet", wall: "tv",      screen: "candles" },
+    strategy_researcher: { nick: "Luca",   skin: "#c68a5f", hair: "#1d1a17", style: "curly", shirt: "#6c5fc7", prop: "books", wall: "board",   screen: "code" },
+    quant_researcher:    { nick: "Giulia", skin: "#f3d2b6", hair: "#b3743a", style: "bun",   shirt: "#2f9a6a", glasses: true, prop: "calc", wall: "bell", screen: "equity" },
+    risk_manager:        { nick: "Franco", skin: "#d9a07a", hair: "#a3a9ae", style: "bald",  beard: true, shirt: "#b83b35", brows: true, paddle: true, prop: "stamp", wall: "shield", screen: "gauges" },
+    execution:           { nick: "Paolo",  skin: "#8d5b3e", hair: "#161412", style: "short", shirt: "#2c8fa3", headset: true, prop: "phone", wall: "clocks", screen: "book" },
+    auditor:             { nick: "Elena",  skin: "#eec3a0", hair: "#2a1d18", style: "long",  shirt: "#5b6472", glasses: true, prop: "ledger", wall: "binders", screen: "table" },
+  };
+  const G = "#2fbf71", R = "#e5534b", Y = "#f2c14e";
+
+  function hairSvg(p) {
+    const c = p.hair;
+    const cap = `<path fill="${c}" d="M200.5 64C200 50 208 47 215 47s16 4 14.5 17c-3.5-7-10-9-16.5-8s-10.5 3-12.5 8z"/>`;
+    if (p.style === "short") return cap;
+    if (p.style === "pony") return cap + `<path fill="${c}" d="M228 57c10 2 13 16 7 27-1-9-3-17-8-21z"/>`;
+    if (p.style === "bun") return cap + `<circle fill="${c}" cx="215" cy="45" r="6.5"/>`;
+    if (p.style === "long") return cap + `<path fill="${c}" d="M201 60c-4 10-3 22 2 30l4-2c-3-8-4-18-3-26zM229 60c4 10 3 22-2 30l-4-2c3-8 4-18 3-26z"/>`;
+    if (p.style === "curly") return [[203, 58, 5.5], [208.5, 51.5, 6], [216, 49, 6.5], [223.5, 51.5, 6], [228, 58, 5]]
+      .map(([x, y, r]) => `<circle fill="${c}" cx="${x}" cy="${y}" r="${r}"/>`).join("");
+    return `<path fill="${c}" d="M201 62c0-3 1-5 2-6v7zM229 62c0-3-1-5-2-6v7z"/>`;  // calvo: solo le tempie
+  }
+
+  function faceSvg(p, state) {
+    const lx = state === "working" ? -2.2 : 0;
+    const eyes = `<circle class="ink" cx="${210 + lx}" cy="65" r="1.8"/><circle class="ink" cx="${220 + lx}" cy="65" r="1.8"/>`;
+    const stern = state === "blocked" || p.brows;
+    const brows = stern ? `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M205.5 59.5l6 1.8M224.5 59.5l-6 1.8"/>` : "";
+    const mouth = state === "ok" ? `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M209.5 72.5q5.5 5 11 0"/>`
+      : state === "blocked" ? `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M209.5 75.5q5.5-4 11 0"/>`
+      : state === "alert" ? `<ellipse class="ink" cx="215" cy="74.5" rx="2.4" ry="3"/>`
+      : `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M210.5 74h9"/>`;
+    const beard = p.beard ? `<path fill="${p.hair}" d="M202.5 69c1 15 24 15 25 0-3 7-7 9-12.5 9s-9.5-2-12.5-9z"/>` : "";
+    const glasses = p.glasses ? `<g class="inks" stroke-width="1.2"><circle cx="210" cy="65" r="4.3"/><circle cx="220" cy="65" r="4.3"/><path d="M214.3 65h1.4M205.7 64.5l-4.5-1M224.3 64.5l4.5-1"/></g>` : "";
+    const cheeks = `<circle cx="205.5" cy="71" r="2.3" fill="#f08a7a" opacity=".35"/><circle cx="224.5" cy="71" r="2.3" fill="#f08a7a" opacity=".35"/>`;
+    return cheeks + beard + eyes + brows + mouth + glasses;
+  }
+
+  function personSvg(p, state) {
+    const skin = p.skin, shirt = p.shirt;
+    const tie = p.tie ? `<path fill="#fff" opacity=".9" d="M209 87l6 7 6-7z"/><path fill="${p.tie}" d="M215 93l-3 5 3 16 3-16z"/>` : `<path fill="#000" opacity=".12" d="M209 87l6 6 6-6z"/>`;
+    const headset = p.headset ? `<path fill="none" stroke="#1d242c" stroke-width="2.6" d="M200 66c0-22 30-22 30 0"/><rect x="197" y="61" width="6" height="10" rx="2" fill="#1d242c"/><rect x="227" y="61" width="6" height="10" rx="2" fill="#1d242c"/><path fill="none" stroke="#1d242c" stroke-width="1.6" d="M200 70q2 9 10 8"/><circle cx="211" cy="78" r="1.8" fill="#1d242c"/>` : "";
+    const armL = `<g class="part arm-l"><path fill="none" stroke="${shirt}" stroke-width="8.5" stroke-linecap="round" d="M197 96c-5 11-2 21 7 25"/><circle fill="${skin}" cx="205" cy="121" r="4.2"/></g>`;
+    const armR = state === "blocked" && p.paddle
+      ? `<g><path fill="none" stroke="${shirt}" stroke-width="8.5" stroke-linecap="round" d="M233 96c8-6 13-17 15-29"/><g class="paddle"><path stroke="#6b4a2b" stroke-width="3" d="M249 66l2-24"/><circle cx="251.5" cy="33" r="12.5" fill="#d33c32" stroke="#fff" stroke-width="2"/><text x="251.5" y="35.6" fill="#fff" font-family="Archivo, Arial, sans-serif" font-weight="800" font-size="7.5" text-anchor="middle">STOP</text></g><circle fill="${skin}" cx="248.5" cy="66" r="4.4"/></g>`
+      : `<g class="part arm-r"><path fill="none" stroke="${shirt}" stroke-width="8.5" stroke-linecap="round" d="M233 96c5 11 2 21-7 25"/><circle fill="${skin}" cx="225" cy="121" r="4.2"/></g>`;
+    const nope = state === "blocked" && !p.paddle ? `<g class="alert-mark"><circle cx="240" cy="42" r="8.5" fill="${R}"/><path stroke="#fff" stroke-width="2.4" stroke-linecap="round" d="M236.5 38.5l7 7m0-7l-7 7"/></g>` : "";
+    const alert = state === "alert" ? `<g class="alert-mark"><circle cx="240" cy="42" r="8.5" fill="${Y}"/><path stroke="#3a2a0e" stroke-width="2.4" stroke-linecap="round" d="M240 37.5v5.5M240 47v.1"/></g>` : "";
+    return `
+      <g class="part body"><path fill="${shirt}" d="M189 126c0-25 7-38 26-38s26 13 26 38z"/>${tie}</g>
+      <rect x="210" y="76" width="10" height="12" rx="3" fill="${skin}"/>
+      <g class="part head">
+        <circle cx="200.5" cy="67" r="3" fill="${skin}"/><circle cx="229.5" cy="67" r="3" fill="${skin}"/>
+        <circle cx="215" cy="66" r="14.5" fill="${skin}"/>${hairSvg(p)}${faceSvg(p, state)}${headset}
+      </g>
+      <rect class="mt" x="194" y="118" width="44" height="6" rx="1.5"/>
+      <path stroke="#000" stroke-opacity=".25" stroke-dasharray="2 1.5" d="M197 121h38"/>
+      ${armL}${armR}${alert}${nope}`;
+  }
+
+  function screenSvg(kind) {
+    // area schermo: x 132-184, y 74-108
+    if (kind === "candles") return [[138, 92, 100, 1], [145, 88, 97, 1], [152, 90, 96, 0], [159, 84, 93, 1], [166, 80, 88, 1], [173, 83, 90, 0], [180, 78, 86, 1]]
+      .map(([x, t, b, up]) => `<path stroke="${up ? G : R}" stroke-width="1" d="M${x} ${t - 3}v${b - t + 6}"/><rect x="${x - 2}" y="${t}" width="4" height="${b - t}" fill="${up ? G : R}"/>`).join("");
+    if (kind === "code") return [[136, 78, 24, "#86a8ff"], [140, 84, 30, Y], [140, 90, 18, G], [144, 96, 26, "#c792ea"], [136, 102, 14, "#86a8ff"]]
+      .map(([x, y, w, c]) => `<rect x="${x}" y="${y}" width="${w}" height="2.6" rx="1" fill="${c}"/>`).join("");
+    if (kind === "equity") return `<path fill="none" stroke="${G}" stroke-width="1.6" d="M135 104l7-4 6 2 7-8 6 3 7-9 6 2 7-10"/><path stroke="#fff" stroke-opacity=".25" d="M134 106h48"/>`;
+    if (kind === "pie") return `<circle cx="158" cy="91" r="13" fill="#86a8ff"/><path fill="${G}" d="M158 91V78a13 13 0 0 1 12.4 17z"/><path fill="${Y}" d="M158 91l12.4 4a13 13 0 0 1-9 8.6z"/>`;
+    if (kind === "gauges") return [[80, 30, G], [89, 20, G], [98, 40, Y]].map(([y, w, c]) => `<rect x="136" y="${y}" width="44" height="4" rx="2" fill="#fff" fill-opacity=".15"/><rect x="136" y="${y}" width="${w}" height="4" rx="2" fill="${c}"/>`).join("") + `<path stroke="${R}" stroke-width="1.4" d="M172 77v29"/>`;
+    if (kind === "book") return [0, 1, 2, 3, 4].map((i) => `<rect x="136" y="${77 + i * 6}" width="${20 - i * 3}" height="3.5" fill="${G}" opacity=".85"/><rect x="${180 - (8 + i * 3)}" y="${77 + i * 6}" width="${8 + i * 3}" height="3.5" fill="${R}" opacity=".85"/>`).join("");
+    return [0, 1, 2, 3, 4].map((i) => `<rect x="136" y="${77 + i * 6}" width="44" height="3" rx="1" fill="#fff" fill-opacity="${i ? .2 : .45}"/>`).join("");  // tabella
+  }
+
+  function wallProp(kind) {
+    if (kind === "tv") return `<rect class="mt" x="248" y="12" width="64" height="40" rx="3"/><rect class="sc" x="251" y="15" width="58" height="34"/>` +
+      [[256, 36, 42, 1], [263, 32, 40, 1], [270, 34, 39, 0], [277, 27, 35, 1], [284, 24, 31, 1], [291, 26, 33, 0], [298, 20, 28, 1], [305, 18, 25, 1]]
+        .map(([x, t, b, up]) => `<rect x="${x - 1.8}" y="${t}" width="3.6" height="${b - t}" fill="${up ? G : R}"/>`).join("") + `<rect class="mt" x="277" y="52" width="6" height="6"/>`;
+    if (kind === "board") return `<rect class="mt" x="246" y="10" width="68" height="50" rx="2"/><rect class="pp" x="249" y="13" width="62" height="44"/><rect x="254" y="18" width="12" height="12" fill="${Y}"/><rect x="270" y="20" width="12" height="12" fill="#f4a6c0"/><rect x="286" y="17" width="12" height="12" fill="#9fd3f2"/><path class="inks" stroke-width="1" d="M255 40h40M255 46h28M255 52h34"/><path stroke="${R}" stroke-width="1.4" d="M300 40l6 6m0-6l-6 6"/>`;
+    if (kind === "bell") return `<rect class="pp" x="252" y="10" width="58" height="50" rx="2"/><path fill="none" stroke="#2f5bd3" stroke-width="1.8" d="M257 52c10 0 12-34 24-34s14 34 24 34"/><path class="inks" stroke-width=".8" d="M256 53h50M281 18v35"/><text class="lbl" x="281" y="16">σ</text>`;
+    if (kind === "org") return `<rect class="mt" x="248" y="10" width="64" height="48" rx="2"/><rect class="pp" x="251" y="13" width="58" height="42"/><rect x="273" y="17" width="14" height="8" fill="#2f4a7a"/><path class="inks" stroke-width="1" d="M280 25v6M259 31h42M259 31v5M280 31v5M301 31v5"/>` + [253, 274, 295].map((x) => `<rect x="${x}" y="36" width="12" height="8" fill="#86a8ff"/>`).join("") + [253, 263, 274, 284, 295].map((x) => `<rect x="${x}" y="47" width="8" height="5" fill="#c3cfe0"/>`).join("");
+    if (kind === "shield") return `<path fill="#c9463d" d="M280 10l20 6v14c0 13-9 21-20 25-11-4-20-12-20-25V16z"/><path fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" d="M271 32l6 6 12-13"/><rect class="pp" x="262" y="60" width="36" height="11" rx="2"/><text class="lbl" x="280" y="67.5">MAX DD 10%</text>`;
+    if (kind === "clocks") return [[259, "LDN", 0], [281, "NYC", 1], [303, "TKY", 2]].map(([x, l, i]) => `<circle class="pp" cx="${x}" cy="28" r="9.5"/><circle class="inks" stroke-width="1.2" cx="${x}" cy="28" r="9.5"/><path class="inks" stroke-width="1.4" stroke-linecap="round" d="M${x} 28v-6M${x} 28l${[4, -3, 5][i]} ${[2, 3, -2][i]}"/><text class="lbl" x="${x}" y="46">${l}</text>`).join("");
+    if (kind === "binders") return `<rect class="mt" x="246" y="48" width="68" height="3"/>` + ["#2f5bd3", "#c9463d", "#2f9a6a", "#d9962f", "#6c5fc7", "#2c8fa3", "#5b6472"].map((c, i) => `<rect x="${250 + i * 9}" y="${20 + (i % 3) * 2}" width="7.5" height="${28 - (i % 3) * 2}" rx="1" fill="${c}"/><rect x="${251.5 + i * 9}" y="${26 + (i % 3) * 2}" width="4.5" height="6" class="pp" opacity=".85"/>`).join("");
+    return "";
+  }
+
+  function deskProp(kind) {
+    if (kind === "lamp") return `<rect class="mt" x="283" y="120" width="18" height="4" rx="1.5"/><path style="stroke:var(--sc-metal)" fill="none" stroke-width="2" d="M292 120l-6-18 10-8"/><path fill="#f2c14e" d="M293 88l14 4-6 9z"/>`;
+    if (kind === "tablet") return `<rect x="279" y="116" width="26" height="7" rx="1.5" fill="#1d242c"/><rect x="281" y="117.5" width="22" height="4" fill="#86a8ff" opacity=".7"/>`;
+    if (kind === "books") return `<rect x="280" y="116" width="26" height="8" fill="#6c5fc7"/><rect x="282" y="109" width="22" height="7" fill="#d9962f"/><rect x="279" y="103" width="24" height="6" fill="#2f9a6a"/>`;
+    if (kind === "calc") return `<rect x="283" y="106" width="18" height="18" rx="2" fill="#39424d"/><rect x="285.5" y="108.5" width="13" height="4" fill="#bfe3a8"/>` + [0, 1, 2].map((r) => [0, 1, 2].map((c) => `<rect x="${286 + c * 4.5}" y="${114.5 + r * 3}" width="3" height="2" fill="#c3cfe0"/>`).join("")).join("");
+    if (kind === "stamp") return `<rect x="279" y="119" width="16" height="5" rx="1" fill="#6b4a2b"/><rect x="280.5" y="120" width="13" height="3" fill="#d33c32"/><rect x="298" y="112" width="8" height="8" fill="#6b4a2b"/><rect x="299.5" y="104" width="5" height="8" rx="2" fill="#8a6440"/><rect x="297" y="120" width="10" height="4" fill="#d33c32"/>`;
+    if (kind === "phone") return `<rect x="281" y="114" width="24" height="10" rx="2" fill="#1d242c"/><path fill="#1d242c" d="M281 114c0-6 24-6 24 0z"/><rect x="287" y="117" width="12" height="4" fill="${G}" opacity=".8"/>`;
+    if (kind === "ledger") return `<path class="pp" d="M276 116l15 3 15-3v8l-15 2-15-2z"/><path class="inks" stroke-width=".7" d="M291 119v7M279 119h9M279 121.5h9M294 119h9M294 121.5h9"/><path stroke="#2f5bd3" stroke-width="2" stroke-linecap="round" d="M300 110l5 8"/>`;
+    return "";
+  }
+
+  function sceneSvg(k, state) {
+    const p = PEOPLE[k];
+    const planks = [0, 40, 80, 120, 160, 200, 240, 280].map((x) => `<path class="pl" d="M${x} 132l-10 48"/>`).join("");
+    return `<svg class="scene" viewBox="0 0 320 180" role="img" aria-label="${esc(p.nick)}, ${esc(AG[k].name)}, alla sua scrivania">
+      <rect class="w" width="320" height="132"/><rect class="w2" y="112" width="320" height="20"/>
+      <rect class="fr" x="150" y="8" width="58" height="44" rx="2"/><rect class="wn" x="153" y="11" width="52" height="38"/>
+      <circle class="sun" cx="192" cy="22" r="6"/><path class="fr" d="M178 11h2.5v38H178zM153 29h52v2.5h-52z"/>
+      ${wallProp(p.wall)}
+      <rect class="fl" y="132" width="320" height="48"/>${planks}
+      <g><rect x="22" y="152" width="24" height="22" rx="3" style="fill:var(--sc-pot)"/><ellipse cx="28" cy="140" rx="5" ry="13" style="fill:var(--sc-plant)" transform="rotate(-20 28 140)"/><ellipse cx="40" cy="138" rx="5" ry="14" style="fill:var(--sc-plant)" transform="rotate(18 40 138)"/><ellipse cx="34" cy="134" rx="5" ry="16" style="fill:var(--sc-plant)"/></g>
+      <rect class="ch" x="191" y="62" width="48" height="70" rx="10"/><rect class="ch" x="207" y="132" width="16" height="16"/>
+      ${personSvg(p, state)}
+      <rect class="dt" x="108" y="124" width="208" height="7" rx="1.5"/><rect class="dk" x="114" y="131" width="196" height="41"/>
+      <path class="dkl" d="M140 138h30M140 152h30M270 138h30M270 152h30"/>
+      <rect x="178" y="141" width="74" height="16" rx="2" fill="#d8b25a"/><text class="plate-t" x="215" y="152">${esc(p.nick.toUpperCase())}</text>
+      <rect class="mt" x="128" y="70" width="60" height="42" rx="3"/><rect class="sc" x="131" y="73" width="54" height="36"/>
+      <g class="glow">${screenSvg(p.screen)}</g>
+      <rect class="mt" x="154" y="112" width="8" height="10"/><rect class="mt" x="145" y="121" width="26" height="3" rx="1.5"/>
+      <g><rect x="252" y="111" width="11" height="13" rx="2" fill="#f4f1ea"/><path fill="none" stroke="#f4f1ea" stroke-width="2" d="M263 114c5 0 5 7 0 7"/>
+        <path class="steam" fill="none" style="stroke:var(--sc-ink)" stroke-opacity=".5" stroke-width="1.2" stroke-linecap="round" d="M255 108c-2-3 2-5 0-8"/>
+        <path class="steam s2" fill="none" style="stroke:var(--sc-ink)" stroke-opacity=".5" stroke-width="1.2" stroke-linecap="round" d="M260 108c-2-3 2-5 0-8"/></g>
+      ${deskProp(p.prop)}
+    </svg>`;
   }
 
   // ── contenuti specifici di ogni stanza ─────────
@@ -358,7 +514,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
       const syms = st.symbols || {};
       const rows = Object.entries(syms).map(([s, v]) => `<div class="row"><span>${esc(s)}</span>${spark(v.spark)}<span class="num">${fmt(v.mid, v.mid > 1000 ? 0 : 2)}</span></div>
         <div class="row"><span>spread ${fmt(v.spread_bps, 1)} bp · 24h <span class="${v.momentum_24h >= 0 ? "pos" : "neg"}">${spct(v.momentum_24h, 1)}</span></span>${v.anomalies?.length ? `<span class="tag warn">anomalia</span>` : `<span class="tag ok">dati ok</span>`}</div>`).join("");
-      const corr = Object.entries(st.correlations || {}).map(([p, c]) => `<div class="row"><span>correlazione ${esc(p.replace("|", " / "))}</span><span class="num">${fmt(c, 2)}</span></div>`).join("");
+      const cs = Object.values(st.correlations || {}).filter((c) => c != null);
+      const corr = cs.length ? `<div class="row"><span>Correlazione media tra gli asset</span><span class="num">${fmt(cs.reduce((a, b) => a + b, 0) / cs.length, 2)}</span></div>` : "";
       return rows + corr || "Nessun dato ancora.";
     }
     if (k === "strategy_researcher") {
@@ -371,7 +528,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       const val = S.strategies.filter((s) => s.validation);
       const passed = val.filter((s) => s.validation.verdict === "PASSED").length;
       return `<div class="row"><span>Validate / approvate</span><span class="num">${val.length} / ${passed}</span></div>
-        <div class="badges">${S.strategies.map((s) => `<span class="tag ${s.validation ? (s.validation.verdict === "PASSED" ? "ok" : "bad") : ""}">${esc(s.strategy_id.replace("STRATEGY_", "S"))} ${s.validation ? (s.validation.verdict === "PASSED" ? "✔" : "✘") : "…"}</span>`).join("")}</div>`;
+        <div class="badges">${S.strategies.map((s) => `<span class="tag ${s.validation ? (s.validation.verdict === "PASSED" ? "ok" : "bad") : ""}">${esc(s.strategy_id.replace("STRATEGY_", "S"))} ${s.status === "RETIRED" ? "ritirata" : s.validation ? (s.validation.verdict === "PASSED" ? "✔" : "✘") : "…"}</span>`).join("")}</div>`;
     }
     if (k === "risk_manager") {
       const g = (label, value, limit, fmtv) => {
@@ -425,15 +582,31 @@ button { font: inherit; color: inherit; cursor: pointer; }
       }
       if (busy && el.dataset.hold) return;          // durante la riproduzione non sovrascrivere
       const a = agents[k] || { state: "idle", message: "In attesa del primo ciclo." };
-      el.dataset.state = a.state;
-      el.setAttribute("aria-label", `${AG[k].name}: ${STATE_LABEL[a.state] || a.state}. ${a.message}`);
-      el.innerHTML = `
-        <div class="room-head"><div><div class="eyebrow">Agente ${String(AG[k].n).padStart(2, "0")}</div><h3>${AG[k].name}</h3><div class="role">${AG[k].role}</div></div>
-          <span class="pill st-${esc(a.state)}">${esc(STATE_LABEL[a.state] || a.state)}</span></div>
-        ${k === "risk_manager" ? `<div class="stamp">VETO</div>` : ""}
-        <div class="desk">${deskSvg()}<div class="bubble"><span class="say">${esc(a.message)}</span><time>${esc(ago(a.updated))}</time></div></div>
-        <div class="mini">${miniFor(k, a)}</div>`;
+      const who = PEOPLE[k];
+      el.setAttribute("aria-label", `${who.nick}, ${AG[k].name}: ${STATE_LABEL[a.state] || a.state}. ${a.message}`);
+      if (!el.querySelector(".office")) {
+        el.innerHTML = `
+          <div class="plate"><div><span class="nick">${esc(who.nick)}</span><span class="job">Agente ${String(AG[k].n).padStart(2, "0")} · ${esc(AG[k].name)}</span><div class="role">${esc(AG[k].role)}</div></div>
+            <span class="pill"></span></div>
+          <div class="office"><div class="svgwrap"></div>${k === "risk_manager" ? `<div class="stamp">VETO</div>` : ""}
+            <div class="bubble"><span class="say"></span><time></time></div></div>
+          <div class="mini"></div>`;
+      }
+      setRoom(el, k, a.state, a.message, ago(a.updated));
+      el.querySelector(".mini").innerHTML = miniFor(k, a);
     });
+  }
+
+  function setRoom(el, k, state, message, when) {
+    if (el.dataset.state !== state || !el.querySelector(".svgwrap").firstChild) {
+      el.dataset.state = state;
+      el.querySelector(".svgwrap").innerHTML = sceneSvg(k, state);
+      const pill = el.querySelector(".pill");
+      pill.className = `pill st-${state}`;
+      pill.textContent = STATE_LABEL[state] || state;
+    }
+    el.querySelector(".say").textContent = message;
+    el.querySelector(".bubble time").textContent = when;
   }
 
   function renderHeader() {
@@ -505,13 +678,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
   }
 
   function feedItems(list) {
-    return list.map((e) => `<li class="lv-${esc(e.level)} k-${esc(e.kind)}"><time>${esc(hhmm(e.ts))}</time><span class="who">${esc(AG[e.agent]?.name || e.agent)}</span><span class="msg">${esc(e.message)}</span></li>`).join("");
+    return list.map((e) => `<li class="lv-${esc(e.level)} k-${esc(e.kind)}"><time>${esc(hhmm(e.ts))}</time><span class="who">${esc(PEOPLE[e.agent] ? `${PEOPLE[e.agent].nick} · ${AG[e.agent].name}` : e.agent)}</span><span class="msg">${esc(e.message)}</span></li>`).join("");
   }
 
   function renderFeed() {
     const counts = {};
     (S.events || []).forEach((e) => { counts[e.agent] = (counts[e.agent] || 0) + 1; });
-    $("#filters").innerHTML = [["all", "Tutti"], ...ORDER.map((k) => [k, AG[k].name])]
+    $("#filters").innerHTML = [["all", "Tutti"], ...ORDER.map((k) => [k, `${PEOPLE[k].nick} · ${AG[k].name}`])]
       .map(([k, l]) => `<button type="button" data-f="${k}" aria-pressed="${filter === k}">${esc(l)}${k !== "all" && counts[k] ? ` · ${counts[k]}` : ""}</button>`).join("");
     const list = (S.events || []).filter((e) => filter === "all" || e.agent === filter).slice(0, 120);
     $("#feed").innerHTML = feedItems(list) || `<li class="empty">Ancora nessun evento.</li>`;
@@ -528,7 +701,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     openAgent = k;
     const a = (S.agents || []).find((x) => x.agent === k) || {};
     $("#dr-eyebrow").textContent = `Agente ${String(AG[k].n).padStart(2, "0")} · ${STATE_LABEL[a.state] || ""}`;
-    $("#dr-title").textContent = AG[k].name;
+    $("#dr-title").textContent = `${PEOPLE[k].nick} · ${AG[k].name}`;
     $("#dr-role").textContent = AG[k].role;
     let extra = "";
     if (k === "risk_manager") {
@@ -587,14 +760,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     if (!room) return;
     room.dataset.hold = "1";
     room.classList.add("speaking");
-    if (state) {
-      room.dataset.state = state;
-      const pill = room.querySelector(".pill");
-      pill.className = `pill st-${state}`;
-      pill.textContent = STATE_LABEL[state];
-    }
-    room.querySelector(".say").textContent = message;
-    room.querySelector(".bubble time").textContent = "adesso";
+    setRoom(room, k, state || room.dataset.state, message, "adesso");
     if (state === "blocked") {
       const s = room.querySelector(".stamp");
       if (s) { s.classList.remove("hit"); void s.offsetWidth; s.classList.add("hit"); }
@@ -639,7 +805,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     const sym = (S.meta.universe || ["BTC/EUR"])[0];
     const sc = (S.agents.find((a) => a.agent === "market_scanner")?.stats?.symbols || {})[sym] || {};
     const px = sc.ask || sc.mid || 0;
-    const strat = S.strategies[0];
+    const strat = S.strategies.find((x) => x.status === "REJECTED") || S.strategies[0];
     const m = strat?.validation?.metrics || {};
     const rt = (strat?.validation?.costs?.round_trip ?? 0.003);
     const steps = [
