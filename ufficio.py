@@ -61,15 +61,19 @@ def main() -> None:
 
     if args.comando == "ricerca":
         results = office.research(args.storico)
+        if not results:
+            from office import registry, strategies
+            print("Nessuna nuova strategia da validare. Esiti gia' registrati:")
+            results = [v for m in strategies.discover() if (v := registry.load_validation(m.STRATEGY_ID))]
         for r in results:
             m = r["metrics"]
-            print(f"\n{r['strategy_id']}: {r['verdict']}")
+            print(f"\n{r['strategy_id']}: {r['verdict']}  (dati {r.get('data_source')}, {r.get('timeframe')})")
             print(f"  trade OOS {m['trades']} | PF {m['profit_factor']:.2f} | Sharpe {m['sharpe_annual']:.2f} | "
                   f"win {m['win_rate']:.0%} | netto medio {m['expectancy_net'] * 100:+.3f}%")
             for c in r["checks"]:
                 print(f"   {'✔' if c['passed'] else '✘'} {c['label']}: {c['value']:.4g} (soglia {c['threshold']})")
         if not results:
-            print("Nessuna nuova strategia da validare.")
+            print("Nessuna strategia validata finora.")
     elif args.comando == "ciclo":
         print(office.run_cycle())
     elif args.comando == "avvia":
