@@ -112,8 +112,16 @@ def _objective(trades: list[dict]) -> float:
     return float(net.mean() * math.sqrt(len(net)))
 
 
+def sized_returns(trades: list[dict], net: np.ndarray, risk_per_trade: float, cap: float) -> np.ndarray:
+    """Rendimento sul CAPITALE di ogni trade, con la size che userebbe il Risk Manager:
+    rischio per trade / distanza dello stop, mai oltre il tetto per asset."""
+    alloc = np.array([min(risk_per_trade / max(t.get("stop_dist", 0.0), 1e-6), cap) for t in trades])
+    return alloc * net
+
+
 def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gates: dict,
-             research: dict, alloc: float, n_trials_total: int, timeframe: str | None = None) -> dict:
+             research: dict, alloc: float, n_trials_total: int, timeframe: str | None = None,
+             risk_per_trade: float | None = None) -> dict:
     min_trades = (gates.get("min_oos_trades_by_timeframe") or {}).get(timeframe, gates["min_oos_trades"])
     combos = param_combinations(strategy.PARAM_GRID)
     symbols = list(datasets)
@@ -176,7 +184,9 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
     windows_with_trades = [w for w in windows if w["trades"] > 0]
     profitable_windows = (np.mean([w["net_return"] > 0 for w in windows_with_trades])
                           if windows_with_trades else 0.0)
-    mc_dd = mc_drawdown(net, alloc)
+    risk_based = gates.get("mc_sizing") == "risk_based" and risk_per_trade
+    equity_r = sized_returns(oos, net, risk_per_trade, alloc) if risk_based else alloc * net
+    mc_dd = mc_drawdown(equity_r, 1.0)
     dsr = deflated_sharpe(net, trial_srs, max(n_trials_total, len(combos)))
 
     def check(key, label, value, threshold, passed, fmt="num"):
@@ -198,7 +208,7 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
         check("cost_stress", f"Utile con costi × {gates['cost_stress_multiplier']}",
               float(stressed.mean()) if len(stressed) else 0.0, 0.0,
               len(stressed) > 0 and stressed.mean() > 0, "pct"),
-        check("mc_dd", "Drawdown Monte Carlo 95°", mc_dd, gates["max_mc_drawdown_95"],
+        check("mc_dd", "Drawdown Monte Carlo 95°" + (" (size reale)" if risk_based else ""), mc_dd, gates["max_mc_drawdown_95"],
               len(net) > 0 and mc_dd <= gates["max_mc_drawdown_95"], "pct"),
         check("stability", "Stabilità parametri", stability, gates["min_param_stability"],
               stability >= gates["min_param_stability"], "pct"),
@@ -227,7 +237,7 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
                             ho["trades"] > 0 and ho["profit_factor"] >= gates["holdout_min_profit_factor"]))
 
     passed = all(c["passed"] for c in checks)
-    curve = equity_curve(net, alloc)
+    curve = equity_curve(equity_r, 1.0)
     step = max(1, len(curve) // 120)
     return {
         "strategy_id": strategy.STRATEGY_ID,
@@ -242,6 +252,9 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
         "period": {"start": t_first, "holdout_start": t_hold, "end": t_last},
         "costs": {"per_side": costs.per_side, "round_trip": costs.round_trip},
         "alloc": alloc,
+        "sizing": "risk_based" if risk_based else "fixed",
+        "avg_alloc": float(np.mean(equity_r[net != 0] / net[net != 0])) if len(net) else 0.0,
+        "equity_dd_history": max_drawdown(equity_r, 1.0),
         "equity_oos": [round(float(x), 5) for x in curve[::step]],
         "exit_reasons": dict(Counter(t["reason"] for t in oos)),
         "by_symbol": by_symbol,

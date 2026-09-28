@@ -1,0 +1,8 @@
+# ─────────────────────────────────────────────────────────────
+#  VERSIONI RITIRATE
+#  Non vengono validate né usate. Restano nel registro e contano
+#  comunque nella correzione per i test multipli (sono state provate).
+# ─────────────────────────────────────────────────────────────
+retired:
+  STRATEGY_01_v3: "Codice identico alla v5; validata il 28/09/2026 con il vecchio test del drawdown (allocazione fissa 20%)"
+  STRATEGY_01_v4: "Codice identico alla v5; validata il 28/09/2026 con rischio per trade 0,5% (drawdown MC 10,8%)"

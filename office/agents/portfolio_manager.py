@@ -22,11 +22,23 @@ class PortfolioManager(Agent):
 
     def authorize(self, entries: list[dict]) -> list[dict]:
         out = []
+        retired = self.office.retired
+        # di ogni strategia (STRATEGY_01, ...) opera solo l'ultima versione approvata
+        latest_passed: dict[str, int] = {}
+        for e in entries:
+            sid = e["module"].STRATEGY_ID
+            v = registry.load_validation(sid)
+            if v and v["verdict"] == "PASSED" and sid not in retired:
+                base, ver = _split(sid)
+                latest_passed[base] = max(latest_passed.get(base, 0), ver)
         for e in entries:
             sid = e["module"].STRATEGY_ID
             validation = registry.load_validation(sid)
             current = self.store.strategy_status(sid)
-            if e["registry"]["status"] == "tampered":
+            base, ver = _split(sid)
+            if sid in retired:
+                new, reason = "RETIRED", retired[sid]
+            elif e["registry"]["status"] == "tampered":
                 new, reason = "BLOCKED", "codice modificato senza nuova versione"
             elif validation is None:
                 new, reason = "RESEARCH", "in attesa di validazione"
@@ -34,6 +46,8 @@ class PortfolioManager(Agent):
                 new, reason = "REJECTED", "validazione fuori campione non superata"
             elif current in ("SUSPENDED", "BLOCKED"):
                 new, reason = current, "sospesa: riattivazione solo manuale"
+            elif ver < latest_passed.get(base, 0):
+                new, reason = "SUPERSEDED", f"sostituita da {base}_v{latest_passed[base]}"
             else:
                 new, reason = "PAPER", "validata: autorizzata al paper trading"
             if new != current:
@@ -76,3 +90,8 @@ class PortfolioManager(Agent):
             msg = (f"{len(active)} strategie attive in paper. Equity {risk_state['equity']:.2f}, "
                    f"esposizione {risk_state['total_exposure']:.2f}. Opportunità {n_opps}, eseguite {n_fills}.")
         self.status(state, msg, stats={"active": active, "equity": risk_state.get("equity")})
+
+
+def _split(strategy_id: str) -> tuple[str, int]:
+    base, _, ver = strategy_id.rpartition("_v")
+    return base, int(ver) if ver.isdigit() else 0

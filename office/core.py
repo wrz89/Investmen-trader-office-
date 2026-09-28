@@ -28,6 +28,7 @@ class Office:
         ensure_dirs()
         self.settings = load_settings(overrides)
         self.gates = load_yaml("quant_gates.yaml")
+        self.retired = (load_yaml("strategy_lifecycle.yaml").get("retired") or {})
         self.store = Store(DB_PATH)
         self.cycle_id = None
         self.last_risk_state: dict | None = None

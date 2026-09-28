@@ -78,6 +78,7 @@ def simulate(p: dict, start: int, end: int, costs: CostModel) -> list[dict]:
             "entry_ts": int(p["ts"][entry_i]), "exit_ts": int(p["ts"][i]),
             "entry": entry_px, "exit": px, "gross": gross, "net": net,
             "bars": i - entry_i, "reason": reason,
+            "stop_dist": (entry_px - stop) / entry_px,
         })
 
     for i in range(start, end):

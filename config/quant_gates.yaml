@@ -18,6 +18,11 @@ min_gross_edge_vs_costs: 2.0     # guadagno lordo medio per trade ≥ 2 × costo
 min_profitable_windows: 0.65     # quota di finestre walk-forward in utile netto
 cost_stress_multiplier: 1.5      # deve restare in utile con costi × 1,5
 max_mc_drawdown_95: 0.10         # drawdown al 95° percentile (Monte Carlo) sul capitale allocato
+# Correzione del 28/09/2026 (decisa dall'utente, vale da STRATEGY_01_v4 in poi):
+# il Monte Carlo simula il dimensionamento REALE del Risk Manager, cioè
+# size = rischio per trade / distanza dello stop, con tetto all'esposizione per asset.
+# Prima usava un'allocazione fissa del 20% per ogni trade.
+mc_sizing: risk_based
 min_param_stability: 0.50        # quota di combinazioni di parametri in utile (no "picco isolato")
 min_deflated_sharpe: 0.90        # probabilità che lo Sharpe non sia frutto di test multipli
 holdout_min_profit_factor: 1.10  # hold-out finale, usato UNA sola volta

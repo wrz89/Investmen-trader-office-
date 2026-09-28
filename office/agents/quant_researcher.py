@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from .. import registry
 from ..backtest import CostModel
 from ..market import DataError, MarketData
-from ..strategies import timeframe_of
+from ..strategies import param_combinations, timeframe_of
 from ..validation import validate
 from .base import Agent
 
@@ -23,8 +23,13 @@ class QuantResearcher(Agent):
 
     def research(self, entries: list[dict], history_exchange: str) -> list[dict]:
         s = self.settings
+        retired = self.office.retired
         pending = [e for e in entries if registry.load_validation(e["module"].STRATEGY_ID) is None
-                   and e["registry"]["status"] != "tampered"]
+                   and e["registry"]["status"] != "tampered" and e["module"].STRATEGY_ID not in retired]
+        # le versioni ritirate mai validate qui sono state comunque provate: contano come tentativi
+        self.extra_trials = sum(len(param_combinations(e["module"].PARAM_GRID)) for e in entries
+                                if e["module"].STRATEGY_ID in retired
+                                and registry.load_validation(e["module"].STRATEGY_ID) is None)
         if not pending:
             self.say("Nessuna nuova versione da validare.", "idle", "research")
             return []
@@ -74,7 +79,8 @@ class QuantResearcher(Agent):
     def _validate_one(self, module, datasets, costs, gates, alloc, tf, history_exchange) -> dict:
         s = self.settings
         self.status("working", f"Walk-forward su {module.STRATEGY_ID} ({module.NAME}, {tf})…")
-        result = validate(module, datasets, costs, gates, s["research"], alloc, registry.total_trials(), tf)
+        result = validate(module, datasets, costs, gates, s["research"], alloc, registry.total_trials() + self.extra_trials, tf,
+                          self.office.risk.limits["risk_per_trade"])
         result["data_source"] = history_exchange
         result["timeframe"] = tf
         result["validated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")

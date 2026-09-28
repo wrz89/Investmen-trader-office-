@@ -82,3 +82,8 @@ def test_strategy_timeframes():
     from office.strategies import by_id, timeframe_of
     assert timeframe_of(by_id("STRATEGY_01_v1"), "1h") == "1h"
     assert timeframe_of(by_id("STRATEGY_01_v2"), "1h") == "4h"
+
+
+def test_version_split():
+    from office.agents.portfolio_manager import _split
+    assert _split("STRATEGY_01_v12") == ("STRATEGY_01", 12)

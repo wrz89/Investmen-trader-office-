@@ -7,7 +7,9 @@
 leverage_allowed: false
 short_allowed: false
 
-risk_per_trade: 0.005            # 0,5% del capitale a rischio per trade (distanza dallo stop)
+# 28/09/2026: da 0,5% a 0,35%. Con 0,5% il drawdown Monte Carlo (size reale) della
+# strategia momentum 4h era 10,8% (limite 10%); 0,35% lo riporta con margine sotto il limite.
+risk_per_trade: 0.0035           # 0,35% del capitale a rischio per trade (distanza dallo stop)
 max_exposure_per_asset: 0.20     # max 20% del capitale su un singolo asset
 max_total_exposure: 0.50         # max 50% del capitale investito in totale
 max_daily_loss: 0.02             # -2% nel giorno → stop fino al giorno dopo
