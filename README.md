@@ -31,6 +31,7 @@ python ufficio.py ciclo         # un solo ciclo
 python ufficio.py report        # report del giorno
 python ufficio.py stato         # riepilogo veloce
 python ufficio.py reset-kill-switch
+python ufficio.py mercati       # coppie EUR/USDC più liquide su Bybit
 ```
 
 Tutti i dati prodotti (database, storico, registro strategie, report) finiscono in `runtime/`.
@@ -40,6 +41,7 @@ Tutti i dati prodotti (database, storico, registro strategie, report) finiscono 
 - **Una strategia opera solo se supera tutti i criteri** di `config/quant_gates.yaml`, calcolati fuori campione e al netto dei costi.
 - **I limiti di rischio** stanno in `config/risk_limits.yaml` e vengono sigillati all'avvio: se il file cambia mentre l'ufficio è acceso, tutto viene bloccato.
 - **Kill switch**: con un drawdown del 10% l'ufficio si ferma. Il reset è solo manuale.
+- **Timeframe per strategia**: una strategia può dichiarare `TIMEFRAME = "4h"`; ricerca, scanner e gestione posizioni usano le sue candele.
 - **Mai sovrascrivere una strategia**: ogni versione è un file (`s01_momentum_v1.py`). Se il codice di una versione registrata cambia, la strategia viene bloccata. Per modificarla si crea `s01_momentum_v2.py`.
 - **Registro immutabile**: il database rifiuta modifiche e cancellazioni dei trade.
 - **Dati dubbi = nessuna operazione**: candele vecchie, buchi, prezzi incoerenti, API instabile o movimenti anomali bloccano l'operatività.

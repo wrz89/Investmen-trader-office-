@@ -11,7 +11,7 @@ from .base import Agent
 # Idee in coda di ricerca: diventano nuove versioni solo dopo essere state scritte
 # come file separati (mai modificando una versione esistente).
 BACKLOG = [
-    {"idea": "Momentum su timeframe 4h (meno trade, costi relativi più bassi)", "family": "momentum"},
+    {"idea": "Momentum 4h: IN VALIDAZIONE come STRATEGY_01_v2", "family": "momentum"},
     {"idea": "Filtro funding: niente long quando il funding perpetuo è estremo", "family": "filtro"},
     {"idea": "Mean reversion solo in regime di bassa volatilità", "family": "mean_reversion"},
     {"idea": "Pairs BTC/ETH — BLOCCATA: richiede short (non autorizzato)", "family": "stat_arb"},

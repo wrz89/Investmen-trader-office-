@@ -14,7 +14,10 @@ exchange:
   # Exchange usato per prezzi live, order book e (in futuro) esecuzione.
   data: bybit
   # Exchange da cui scaricare lo storico per la ricerca/backtest.
-  history: bybit
+  # Bitstamp: storico EUR dal 2017-2018 (Bybit EUR ne ha molto meno).
+  # I prezzi a 1h/4h sono praticamente identici tra exchange; i COSTI usati
+  # nel backtest restano quelli di Bybit (sezione costs).
+  history: bitstamp
   # Opzioni ccxt. Se il tuo conto è Bybit EU e i dati pubblici non
   # rispondono, prova a scommentare: hostname: bybit.eu
   options: {}
@@ -29,7 +32,7 @@ universe:
   - BTC/EUR
   - ETH/EUR
 
-timeframe: 1h
+timeframe: 1h          # timeframe predefinito; una strategia può dichiararne uno suo (TIMEFRAME)
 
 # Modello di costo usato in backtest e nelle stime dello Scanner.
 # Verifica le TUE commissioni reali nella pagina fee dell'exchange.
@@ -37,11 +40,11 @@ costs:
   taker_fee: 0.0010     # 0,10% per lato (Bybit spot, livello base)
   maker_fee: 0.0010
   slippage_bps: 3       # slippage extra stimato, in punti base (0,03%)
-  default_spread_bps: 4 # usato in backtest quando lo spread reale non è noto
+  default_spread_bps: 6 # usato in backtest; misurato su Bybit EUR: 4-7 bp (28/09/2026)
 
 # Ricerca
 research:
-  history_days: 1095    # ~3 anni di storico
+  history_days: 3000    # ~8 anni: include i mercati ribassisti 2018 e 2022
   holdout_fraction: 0.20
   walk_forward_windows: 6
   train_fraction: 0.40  # quota dello storico di sviluppo usata come finestra di training

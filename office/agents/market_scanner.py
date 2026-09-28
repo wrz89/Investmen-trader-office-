@@ -14,6 +14,7 @@ import pandas as pd
 
 from ..indicators import atr
 from ..market import DataError
+from ..strategies import timeframe_of
 from .base import Agent
 
 
@@ -35,7 +36,7 @@ class MarketScanner(Agent):
         for symbol in self.settings["universe"]:
             info: dict = {"symbol": symbol, "anomalies": [], "ok": False}
             try:
-                df = md.candles(symbol, tf, limit=400)
+                df = md.candles(symbol, tf, limit=1000)
                 tk = md.ticker(symbol)
                 ob = md.order_book(symbol, 50)
             except DataError as exc:
@@ -148,6 +149,32 @@ class MarketScanner(Agent):
                 "symbols": syms, "correlations": snapshot["correlations"],
                 "context": snapshot["context"], "health": snapshot["health"]}
 
+    # ── candele per il timeframe di ogni strategia ──────────
+    def candles_for(self, snapshot: dict, symbol: str, tf: str):
+        """Candele chiuse del timeframe richiesto (in cache per il ciclo). None = dati non affidabili."""
+        info = snapshot["symbols"].get(symbol, {})
+        if tf == snapshot["timeframe"]:
+            return info.get("candles")
+        cache = snapshot.setdefault("extra_candles", {})
+        key = f"{symbol}|{tf}"
+        if key not in cache:
+            md = self.office.market
+            try:
+                df = md.candles(symbol, tf, limit=1000)
+            except DataError as exc:
+                self.log(f"{symbol} {tf}: dati non disponibili ({exc})", "ERROR", "error")
+                cache[key] = None
+                return None
+            tf_s = md.ex.parse_timeframe(tf)
+            age = time.time() - (int(df["ts"].iloc[-1]) / 1000 + tf_s) if len(df) else 1e9
+            if len(df) < 250 or age > 2 * tf_s:
+                msg = f"candele {tf} non aggiornate o insufficienti"
+                info.setdefault("anomalies", []).append(msg)
+                info["ok"] = False
+                self.log(f"{symbol}: ANOMALIA — {msg}", "WARN", "anomaly")
+            cache[key] = df
+        return cache[key]
+
     # ── da segnale a opportunità ─────────────────────────────
     def opportunities(self, snapshot: dict, strategies: list[dict]) -> list[dict]:
         costs = self.settings["costs"]
@@ -156,10 +183,13 @@ class MarketScanner(Agent):
         for st in strategies:
             module, validation = st["module"], st["validation"]
             params = (validation or {}).get("chosen_params") or _first_combo(module.PARAM_GRID)
+            tf = timeframe_of(module, self.settings["timeframe"])
             for symbol, info in snapshot["symbols"].items():
-                if not info.get("mid") or "candles" not in info:
+                if not info.get("mid"):
                     continue
-                df = info["candles"]
+                df = self.candles_for(snapshot, symbol, tf)
+                if df is None or len(df) < 250:
+                    continue
                 sig = module.generate(df, params)
                 if not bool(sig["entry"].iloc[-1]):
                     continue
@@ -168,6 +198,7 @@ class MarketScanner(Agent):
                     continue            # segnale di questa candela già valutato
                 seen.add(key)
 
+                atr_now = float(atr(df, 14).iloc[-1])
                 m = (validation or {}).get("metrics", {})
                 gross = m.get("avg_gross")
                 fees = 2 * costs["taker_fee"]
@@ -180,20 +211,21 @@ class MarketScanner(Agent):
                     "strategy_id": module.STRATEGY_ID,
                     "strategy_status": st["status"],
                     "params": params,
-                    "stop": info["ask"] - params["stop_atr"] * info["atr"],
+                    "timeframe": tf,
+                    "stop": info["ask"] - params["stop_atr"] * atr_now,
                     "probability": m.get("win_rate"),
                     "gross_pct": gross,
                     "fees_pct": fees,
                     "slippage_pct": slip,
                     "net_pct": (gross - fees - slip) if gross is not None else None,
-                    "risk_pct": params["stop_atr"] * info["atr"] / info["ask"],
+                    "risk_pct": params["stop_atr"] * atr_now / info["ask"],
                     "confidence": _confidence(validation),
                     "signal": f"{module.NAME}: segnale di ingresso sulla candela chiusa",
                 }
                 opps.append(opp)
                 est = (f"netto atteso {opp['net_pct'] * 100:+.2f}%" if opp["net_pct"] is not None
                        else "nessuna stima: strategia non validata")
-                self.say(f"Opportunità {symbol} LONG da {module.STRATEGY_ID} @ {info['ask']:,.2f} — {est}",
+                self.say(f"Opportunità {symbol} LONG da {module.STRATEGY_ID} ({tf}) @ {info['ask']:,.2f} — {est}",
                          "ok", "opportunity", payload=_clean(opp))
         self.store.set("seen_signals", sorted(seen)[-500:])
         if not opps:

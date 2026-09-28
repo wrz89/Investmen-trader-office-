@@ -6,6 +6,12 @@
 # ─────────────────────────────────────────────────────────────
 
 min_oos_trades: 200              # campione minimo fuori campione (tutti gli asset insieme)
+# Soglia per timeframe, fissata il 28/09/2026 PRIMA di validare le strategie a 4h:
+# a parità di storico una strategia 4h produce ~4 volte meno trade. Gli altri criteri
+# (Deflated Sharpe, che dipende dal numero di trade, PF, Sharpe, Monte Carlo) restano identici.
+min_oos_trades_by_timeframe:
+  1h: 200
+  4h: 100
 min_profit_factor: 1.20
 min_sharpe_annual: 1.00
 min_gross_edge_vs_costs: 2.0     # guadagno lordo medio per trade ≥ 2 × costo di un giro completo

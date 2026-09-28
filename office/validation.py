@@ -113,7 +113,8 @@ def _objective(trades: list[dict]) -> float:
 
 
 def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gates: dict,
-             research: dict, alloc: float, n_trials_total: int) -> dict:
+             research: dict, alloc: float, n_trials_total: int, timeframe: str | None = None) -> dict:
+    min_trades = (gates.get("min_oos_trades_by_timeframe") or {}).get(timeframe, gates["min_oos_trades"])
     combos = param_combinations(strategy.PARAM_GRID)
     symbols = list(datasets)
 
@@ -182,8 +183,8 @@ def validate(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gate
                 "passed": bool(passed), "fmt": fmt}
 
     checks = [
-        check("oos_trades", "Trade fuori campione", m["trades"], gates["min_oos_trades"],
-              m["trades"] >= gates["min_oos_trades"], "int"),
+        check("oos_trades", "Trade fuori campione", m["trades"], min_trades,
+              m["trades"] >= min_trades, "int"),
         check("profit_factor", "Profit factor netto", m["profit_factor"], gates["min_profit_factor"],
               m["profit_factor"] >= gates["min_profit_factor"]),
         check("sharpe", "Sharpe annuo netto", m["sharpe_annual"], gates["min_sharpe_annual"],

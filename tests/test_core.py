@@ -76,3 +76,9 @@ def test_risk_manager_blocks_unvalidated_strategy(tmp_path, monkeypatch):
     decision = office_.risk.evaluate(opp, snapshot, office_.account, None)
     assert not decision["approved"]
     assert any("Strategia autorizzata" in r for r in decision["reasons"])
+
+
+def test_strategy_timeframes():
+    from office.strategies import by_id, timeframe_of
+    assert timeframe_of(by_id("STRATEGY_01_v1"), "1h") == "1h"
+    assert timeframe_of(by_id("STRATEGY_01_v2"), "1h") == "4h"

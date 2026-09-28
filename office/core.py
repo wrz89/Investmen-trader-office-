@@ -20,6 +20,7 @@ from .agents.strategy_researcher import StrategyResearcher
 from .config import DB_PATH, ensure_dirs, load_settings, load_yaml
 from .market import DataError, MarketData
 from .store import Store
+from .strategies import timeframe_of
 
 
 class Office:
@@ -119,11 +120,13 @@ class Office:
 
     def _manage_position(self, pos: dict, snapshot: dict, by_id: dict) -> None:
         info = snapshot["symbols"].get(pos["symbol"], {})
-        if not info.get("bid") or "candles" not in info:
+        st = by_id.get(pos["strategy_id"])
+        tf = timeframe_of(st["module"], self.settings["timeframe"]) if st else self.settings["timeframe"]
+        df = self.scanner.candles_for(snapshot, pos["symbol"], tf) if info.get("bid") else None
+        if df is None:
             self.execution.say(f"Posizione {pos['symbol']}: dati mancanti, non posso gestirla ora.",
                                "alert", "error", level="ERROR")
             return
-        df = info["candles"]
         entry_ms = _iso_to_ms(pos["entry_ts"])
         since_entry = df[df["ts"] >= entry_ms]
         reason, stop_px = None, None
@@ -133,7 +136,6 @@ class Office:
         elif info["bid"] <= pos["stop"]:
             reason = "stop loss"
         else:
-            st = by_id.get(pos["strategy_id"])
             if st:
                 params = (st["validation"] or {}).get("chosen_params") or {}
                 if params:

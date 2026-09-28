@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from .. import registry
 from ..backtest import CostModel
 from ..market import DataError, MarketData
+from ..strategies import timeframe_of
 from ..validation import validate
 from .base import Agent
 
@@ -28,42 +29,55 @@ class QuantResearcher(Agent):
             self.say("Nessuna nuova versione da validare.", "idle", "research")
             return []
 
-        self.say(f"Scarico {s['research']['history_days']} giorni di storico da {history_exchange}…",
-                 "working", "research")
         md = MarketData(history_exchange, s["exchange"].get("options") if history_exchange == s["exchange"]["history"]
                         else None, timeout_ms=30000)
-        datasets = {}
-        for symbol in s["universe"]:
-            try:
-                datasets[symbol] = md.history(symbol, s["timeframe"], s["research"]["history_days"])
-            except DataError as exc:
-                self.say(f"Storico {symbol} non disponibile: {exc}", "alert", "error", level="ERROR")
-                return []
-            self.log(f"Storico {symbol}: {len(datasets[symbol])} candele {s['timeframe']}", kind="research")
-
         costs = CostModel.from_settings(s)
         gates = self.office.gates
         alloc = self.office.risk.limits["max_exposure_per_asset"]
+
+        # ogni strategia può avere il proprio timeframe: storico scaricato una volta per timeframe
+        by_tf: dict[str, list[dict]] = {}
+        for e in pending:
+            by_tf.setdefault(timeframe_of(e["module"], s["timeframe"]), []).append(e)
+
         results = []
-        for entry in pending:
-            module = entry["module"]
-            self.status("working", f"Walk-forward su {module.STRATEGY_ID} ({module.NAME})…")
-            result = validate(module, datasets, costs, gates, s["research"], alloc, registry.total_trials())
-            result["data_source"] = history_exchange
-            result["timeframe"] = s["timeframe"]
-            result["validated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            registry.save_validation(module.STRATEGY_ID, result)
-            failed = [c["label"] for c in result["checks"] if not c["passed"]]
-            m = result["metrics"]
-            summary = (f"{module.STRATEGY_ID}: {result['verdict']} — {m['trades']} trade OOS, "
-                       f"PF {m['profit_factor']:.2f}, Sharpe {m['sharpe_annual']:.2f}, "
-                       f"netto medio {m['expectancy_net'] * 100:+.2f}%/trade")
-            if failed:
-                summary += f". Non superati: {', '.join(failed[:3])}" + ("…" if len(failed) > 3 else "")
-            self.say(summary, "ok" if result["verdict"] == "PASSED" else "blocked", "validation",
-                     payload={"strategy_id": module.STRATEGY_ID, "verdict": result["verdict"]})
-            results.append(result)
+        for tf, group in by_tf.items():
+            self.say(f"Scarico {s['research']['history_days']} giorni di storico {tf} da {history_exchange}…",
+                     "working", "research")
+            datasets = {}
+            for symbol in s["universe"]:
+                try:
+                    datasets[symbol] = md.history(symbol, tf, s["research"]["history_days"])
+                except DataError as exc:
+                    self.say(f"Storico {symbol} {tf} non disponibile: {exc}", "alert", "error", level="ERROR")
+                    datasets = None
+                    break
+                self.log(f"Storico {symbol}: {len(datasets[symbol])} candele {tf}", kind="research")
+            if datasets is None:
+                continue
+            for entry in group:
+                results.append(self._validate_one(entry["module"], datasets, costs, gates, alloc, tf,
+                                                  history_exchange))
         passed = sum(r["verdict"] == "PASSED" for r in results)
         self.status("ok" if passed else "idle",
                     f"Validazione completata: {passed}/{len(results)} strategie approvate per il paper trading.")
         return results
+
+    def _validate_one(self, module, datasets, costs, gates, alloc, tf, history_exchange) -> dict:
+        s = self.settings
+        self.status("working", f"Walk-forward su {module.STRATEGY_ID} ({module.NAME}, {tf})…")
+        result = validate(module, datasets, costs, gates, s["research"], alloc, registry.total_trials(), tf)
+        result["data_source"] = history_exchange
+        result["timeframe"] = tf
+        result["validated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        registry.save_validation(module.STRATEGY_ID, result)
+        failed = [c["label"] for c in result["checks"] if not c["passed"]]
+        m = result["metrics"]
+        summary = (f"{module.STRATEGY_ID}: {result['verdict']} — {m['trades']} trade OOS, "
+                   f"PF {m['profit_factor']:.2f}, Sharpe {m['sharpe_annual']:.2f}, "
+                   f"netto medio {m['expectancy_net'] * 100:+.2f}%/trade")
+        if failed:
+            summary += f". Non superati: {', '.join(failed[:3])}" + ("…" if len(failed) > 3 else "")
+        self.say(summary, "ok" if result["verdict"] == "PASSED" else "blocked", "validation",
+                 payload={"strategy_id": module.STRATEGY_ID, "verdict": result["verdict"]})
+        return result

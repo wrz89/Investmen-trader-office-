@@ -13,6 +13,7 @@ Ogni modulo espone:
                             della candela successiva)
     params obbligatori: stop_atr (stop = ingresso - stop_atr × ATR14)
     params facoltativi: max_hold (uscita forzata dopo N candele)
+    TIMEFRAME facoltativo (es. "4h"); se assente vale il timeframe di settings.yaml
 """
 from __future__ import annotations
 
@@ -43,3 +44,7 @@ def by_id(strategy_id: str):
 def param_combinations(grid: dict) -> list[dict]:
     keys = list(grid)
     return [dict(zip(keys, values)) for values in itertools.product(*(grid[k] for k in keys))]
+
+
+def timeframe_of(module, default: str) -> str:
+    return getattr(module, "TIMEFRAME", None) or default

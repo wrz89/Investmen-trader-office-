@@ -7,6 +7,7 @@
     python ufficio.py report             genera il report giornaliero di oggi
     python ufficio.py stato              riepilogo veloce nel terminale
     python ufficio.py reset-kill-switch  riattiva l'ufficio dopo un kill switch (decisione umana)
+    python ufficio.py mercati            elenca le coppie EUR/USDC più liquide dell'exchange
 """
 from __future__ import annotations
 
@@ -30,7 +31,7 @@ def main() -> None:
         return 1
     parser = argparse.ArgumentParser(description="Crypto Trading Office")
     parser.add_argument("comando", choices=["ricerca", "avvia", "ciclo", "dashboard", "report", "stato",
-                                            "reset-kill-switch", "snapshot"])
+                                            "reset-kill-switch", "snapshot", "mercati"])
     parser.add_argument("--exchange", help="sovrascrive l'exchange dei dati live (es. kraken)")
     parser.add_argument("--storico", help="sovrascrive l'exchange per lo storico (es. bitstamp)")
     parser.add_argument("--giorno", help="giorno del report, AAAA-MM-GG")
@@ -53,6 +54,10 @@ def main() -> None:
             webbrowser.open(f"http://localhost:{port}")
         serve(port)
         return
+
+    if args.comando == "mercati":
+        return list_markets(args.exchange or load_settings()["exchange"]["data"],
+                            load_settings()["exchange"]["history"])
 
     offline = args.comando in ("report", "stato", "reset-kill-switch", "snapshot")
     office = Office(overrides, connect_market=not offline)
@@ -114,6 +119,34 @@ def main() -> None:
         with open(args.file, "w", encoding="utf-8") as fh:
             json.dump(build_state(office.store), fh, default=str, ensure_ascii=False)
         print(f"Snapshot salvato in {args.file}")
+
+
+def list_markets(exchange_id: str, history_id: str) -> None:
+    """Coppie spot in EUR/USDC ordinate per volume, con spread e disponibilità di storico."""
+    from office.market import MarketData
+    md = MarketData(exchange_id, timeout_ms=20000)
+    markets = md.load_markets()
+    symbols = [s for s, m in markets.items()
+               if m.get("spot") and m.get("active", True) and m.get("quote") in ("EUR", "USDC")
+               and m.get("base") not in ("USDC", "USDT", "EURC", "EURT", "DAI", "PYUSD", "FDUSD", "EURI")]
+    tickers = md.ex.fetch_tickers(symbols)
+    try:
+        hist = set(MarketData(history_id, timeout_ms=20000).load_markets())
+    except Exception:
+        hist = set()
+    rows = []
+    for s, t in tickers.items():
+        bid, ask = t.get("bid"), t.get("ask")
+        if not bid or not ask:
+            continue
+        spread = (ask - bid) / ((ask + bid) / 2) * 10_000
+        vol = t.get("quoteVolume") or 0
+        rows.append((vol, s, spread))
+    rows.sort(reverse=True)
+    print(f"Coppie spot su {exchange_id} (storico su {history_id}: 'si' se disponibile)\n")
+    print(f"{'coppia':<14}{'volume 24h':>16}{'spread bp':>11}  storico")
+    for vol, s, spread in rows[:25]:
+        print(f"{s:<14}{vol:>16,.0f}{spread:>11.1f}  {'si' if s in hist else 'no'}")
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ def register(module) -> dict:
         "family": module.FAMILY,
         "description": module.DESCRIPTION,
         "param_grid": module.PARAM_GRID,
+        "timeframe": getattr(module, "TIMEFRAME", None),
         "code_file": Path(module.__file__).name,
         "code_sha256": current,
         "registered_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
