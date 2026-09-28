@@ -43,3 +43,17 @@ def donchian_high(df: pd.DataFrame, length: int) -> pd.Series:
 
 def donchian_low(df: pd.DataFrame, length: int) -> pd.Series:
     return df["low"].rolling(length).min()
+
+
+def adx(df: pd.DataFrame, length: int = 14) -> pd.Series:
+    """Average Directional Index (Wilder): forza del trend, qualunque direzione. < 20-25 = mercato laterale."""
+    up = df["high"].diff()
+    down = -df["low"].diff()
+    plus_dm = pd.Series(np.where((up > down) & (up > 0), up, 0.0), index=df.index)
+    minus_dm = pd.Series(np.where((down > up) & (down > 0), down, 0.0), index=df.index)
+    a = atr(df, length)
+    smooth = dict(alpha=1 / length, adjust=False, min_periods=length)
+    plus_di = 100 * plus_dm.ewm(**smooth).mean() / a
+    minus_di = 100 * minus_dm.ewm(**smooth).mean() / a
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
+    return dx.ewm(**smooth).mean()
