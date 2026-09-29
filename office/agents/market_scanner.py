@@ -14,7 +14,7 @@ import pandas as pd
 
 from ..indicators import atr
 from ..market import DataError
-from ..strategies import timeframe_of
+from ..strategies import timeframe_of, universe_of
 from .base import Agent
 
 
@@ -178,7 +178,8 @@ class MarketScanner(Agent):
     def strategy_signals(self, snapshot: dict, module, params: dict, tf: str) -> dict | None:
         """Segnali di una strategia su tutti gli asset. Per le multi-asset servono i dati di TUTTI:
         se ne manca uno la classifica sarebbe falsata, quindi niente segnali in questo ciclo."""
-        data = {s: self.candles_for(snapshot, s, tf) for s in snapshot["symbols"]}
+        own = universe_of(module, list(snapshot["symbols"]))
+        data = {s: self.candles_for(snapshot, s, tf) for s in own}
         if hasattr(module, "generate_multi"):
             if any(df is None or len(df) < 250 for df in data.values()):
                 self.log(f"{module.STRATEGY_ID}: dati incompleti su almeno un asset, nessun segnale.", "WARN", "anomaly")
@@ -202,6 +203,9 @@ class MarketScanner(Agent):
                 df, sig = sigs[symbol]
                 if not bool(sig["entry"].iloc[-1]):
                     continue
+                if any(p["symbol"] == symbol and p["strategy_id"] == module.STRATEGY_ID
+                       for p in self.office.account.open_positions()):
+                    continue            # già investita: il segnale "sopra la media" resta vero ogni giorno
                 key = f"{module.STRATEGY_ID}|{symbol}|{int(df['ts'].iloc[-1])}"
                 if key in seen:
                     continue            # segnale di questa candela già valutato
@@ -228,6 +232,7 @@ class MarketScanner(Agent):
                     "slippage_pct": slip,
                     "net_pct": (gross - fees - slip) if gross is not None else None,
                     "risk_pct": params["stop_atr"] * atr_now / info["ask"],
+                    "sizing": getattr(module, "SIZING", "risk"),
                     "confidence": _confidence(validation),
                     "signal": f"{module.NAME}: segnale di ingresso sulla candela chiusa",
                 }

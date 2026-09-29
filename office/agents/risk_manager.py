@@ -106,14 +106,18 @@ class RiskManager(Agent):
         # ── dimensionamento ─────────────────────────────────
         price = opp["price"]
         stop_dist = max(opp["risk_pct"], 1e-6)
-        risk_notional = L["risk_per_trade"] * equity / stop_dist
+        if opp.get("sizing") == "allocation":
+            # strategie lente: size fissa al tetto per asset (come nella validazione)
+            risk_notional = L["max_exposure_per_asset"] * equity
+        else:
+            risk_notional = L["risk_per_trade"] * equity / stop_dist
         correlated = sum(v for s, v in pf["exposure"].items()
                          if s == sym or self._corr(snapshot, s, sym) > L["correlation_threshold"])
         cap_asset = L["max_exposure_per_asset"] * equity - correlated
         cap_total = L["max_total_exposure"] * equity - pf["total_exposure"]
         cap_cash = pf["cash"] / (1 + costs["taker_fee"]) * 0.99
         cap_book = L["max_book_participation"] * info.get("depth_ask", 0)
-        caps = {"rischio": risk_notional, "asset/correlazione": cap_asset,
+        caps = {("allocazione" if opp.get("sizing") == "allocation" else "rischio"): risk_notional, "asset/correlazione": cap_asset,
                 "esposizione totale": cap_total, "liquidità conto": cap_cash, "order book": cap_book}
         binding = min(caps, key=caps.get)
         notional = max(0.0, caps[binding])

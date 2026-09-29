@@ -11,10 +11,10 @@ from datetime import datetime, timezone
 from .. import registry
 from ..backtest import CostModel
 from ..market import DataError, MarketData
-from ..strategies import param_combinations, timeframe_of
+from ..strategies import param_combinations, timeframe_of, universe_of
 from ..portfolio import diversification
 from ..strategies import by_id
-from ..validation import reconstruct_oos, validate
+from ..validation import reconstruct_oos, validate, validate_allocation
 from .base import Agent
 
 
@@ -53,7 +53,8 @@ class QuantResearcher(Agent):
             self.say(f"Scarico {s['research']['history_days']} giorni di storico {tf} da {history_exchange}…",
                      "working", "research")
             datasets = {}
-            for symbol in s["universe"]:
+            needed = [x for x in s["universe"] if any(x in universe_of(e["module"], s["universe"]) for e in group)]
+            for symbol in needed:
                 try:
                     hist_symbol = (s["research"].get("history_symbols") or {}).get(symbol, symbol)
                     datasets[symbol] = md.history(hist_symbol, tf, s["research"]["history_days"])
@@ -72,17 +73,18 @@ class QuantResearcher(Agent):
             if datasets is None:
                 continue
             for entry in group:
-                results.append(self._validate_one(entry["module"], datasets, costs, gates, alloc, tf,
+                own = {k: v for k, v in datasets.items() if k in universe_of(entry["module"], s["universe"])}
+                results.append(self._validate_one(entry["module"], own, costs, gates, alloc, tf,
                                                   history_exchange))
         passed = sum(r["verdict"] == "PASSED" for r in results)
         self.status("ok" if passed else "idle",
                     f"Validazione completata: {passed}/{len(results)} strategie approvate per il paper trading.")
         return results
 
-    def _datasets(self, md, tf: str) -> dict | None:
+    def _datasets(self, md, tf: str, symbols: list[str]) -> dict | None:
         s = self.settings
         datasets = {}
-        for symbol in s["universe"]:
+        for symbol in symbols:
             hist_symbol = (s["research"].get("history_symbols") or {}).get(symbol, symbol)
             try:
                 datasets[symbol] = md.history(hist_symbol, tf, s["research"]["history_days"])
@@ -116,16 +118,17 @@ class QuantResearcher(Agent):
         out, cache = [], {}
         for module, v in todo:
             tf = v.get("timeframe") or timeframe_of(module, s["timeframe"])
-            if tf not in cache:
+            syms = universe_of(module, s["universe"])
+            key = (tf, tuple(syms))
+            if key not in cache:
                 self.say(f"Costi cambiati: riverifico le strategie approvate con {costs.per_side * 100:.2f}% per lato "
                          f"(prima {v['costs']['per_side'] * 100:.2f}%).", "working", "research")
-                cache[tf] = self._datasets(md, tf)
-            if cache[tf] is None:
+                cache[key] = self._datasets(md, tf, syms)
+            if cache[key] is None:
                 continue
             self.status("working", f"Verifica costi reali su {module.STRATEGY_ID}…")
-            r = validate(module, cache[tf], costs, self.office.gates, s["research"],
-                         self.office.risk.limits["max_exposure_per_asset"], v["n_trials_total"], tf,
-                         self.office.risk.limits["risk_per_trade"], None)
+            r = self._run_validation(module, cache[key], costs, self.office.gates,
+                                     self.office.risk.limits["max_exposure_per_asset"], v["n_trials_total"], tf, None)
             r.update({"strategy_id": module.STRATEGY_ID, "data_source": history_exchange, "timeframe": tf,
                       "audit_of": "validation", "validated_costs": v["costs"],
                       "audited_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
@@ -164,12 +167,20 @@ class QuantResearcher(Agent):
             return out
         return checks
 
+    def _run_validation(self, module, datasets, costs, gates, alloc, n_trials, tf, extra_checks):
+        """Strategie a size fissa (lente) → criteri `slow`; tutte le altre → criteri per trade."""
+        s = self.settings
+        if getattr(module, "SIZING", None) == "allocation":
+            return validate_allocation(module, datasets, costs, gates, s["research"], alloc, n_trials, tf)
+        return validate(module, datasets, costs, gates, s["research"], alloc, n_trials, tf,
+                        self.office.risk.limits["risk_per_trade"], extra_checks)
+
     def _validate_one(self, module, datasets, costs, gates, alloc, tf, history_exchange) -> dict:
         s = self.settings
         self.status("working", f"Walk-forward su {module.STRATEGY_ID} ({module.NAME}, {tf})…")
-        result = validate(module, datasets, costs, gates, s["research"], alloc, registry.total_trials() + self.extra_trials, tf,
-                          self.office.risk.limits["risk_per_trade"],
-                          self._diversification(module, datasets, costs, tf, alloc))
+        result = self._run_validation(module, datasets, costs, gates, alloc,
+                                      registry.total_trials() + self.extra_trials, tf,
+                                      self._diversification(module, datasets, costs, tf, alloc))
         result["data_source"] = history_exchange
         result["timeframe"] = tf
         result["validated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")

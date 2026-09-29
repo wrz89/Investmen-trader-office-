@@ -14,6 +14,9 @@ Ogni modulo espone:
     params obbligatori: stop_atr (stop = ingresso - stop_atr × ATR14)
     params facoltativi: max_hold (uscita forzata dopo N candele)
     TIMEFRAME facoltativo (es. "4h"); se assente vale il timeframe di settings.yaml
+    UNIVERSE facoltativo (es. ["BTC/USDC"]); se assente, tutti gli asset di settings.yaml
+    SIZING facoltativo: "allocation" = size fissa al tetto per asset del Risk Manager
+                        (strategie lente, validate con i criteri `slow`)
 """
 from __future__ import annotations
 
@@ -44,6 +47,12 @@ def by_id(strategy_id: str):
 def param_combinations(grid: dict) -> list[dict]:
     keys = list(grid)
     return [dict(zip(keys, values)) for values in itertools.product(*(grid[k] for k in keys))]
+
+
+def universe_of(module, default: list[str]) -> list[str]:
+    """Asset su cui opera la strategia: UNIVERSE facoltativo, altrimenti tutto l'universo di settings.yaml."""
+    own = getattr(module, "UNIVERSE", None)
+    return [s for s in default if s in own] if own else list(default)
 
 
 def timeframe_of(module, default: str) -> str:

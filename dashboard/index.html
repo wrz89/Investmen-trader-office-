@@ -632,7 +632,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
   function checkValue(c) {
     const f = c.fmt === "pct" ? (x) => pct(x, 2) : c.fmt === "int" ? (x) => String(Math.round(x)) : (x) => fmt(x, 2);
-    return `${f(c.value)} / ${["mc_dd", "div_corr"].includes(c.key) ? "≤" : c.key === "div_sharpe" ? ">" : "≥"} ${f(c.threshold)}`;
+    return `${f(c.value)} / ${["mc_dd", "div_corr", "dd_vs_bh", "ho_dd"].includes(c.key) ? "≤" : c.key === "div_sharpe" ? ">" : "≥"} ${f(c.threshold)}`;
   }
 
   function shadowBlock(sh) {
@@ -686,6 +686,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <div class="metric"><small>Netto medio / trade</small><b class="${m.expectancy_net >= 0 ? "pos" : "neg"}">${spct(m.expectancy_net)}</b></div>
           <div class="metric"><small>Win rate</small><b>${pct(m.win_rate, 0)}</b></div>
         </div>
+        ${v.sizing === "allocation" ? `<div class="metrics">
+          <div class="metric"><small>Rendimento annuo (piena esposizione)</small><b class="${m.cagr >= 0 ? "pos" : "neg"}">${spct(m.cagr, 1)}</b></div>
+          <div class="metric"><small>Compra e tieni, stessi giorni</small><b>${spct(m.cagr_buy_hold, 1)}</b></div>
+          <div class="metric"><small>Drawdown max strategia / compra e tieni</small><b>${pct(m.max_dd, 0)} / ${pct(m.max_dd_buy_hold, 0)}</b></div>
+          <div class="metric"><small>Tempo investito</small><b>${pct(m.time_in_market, 0)}</b></div>
+        </div>` : ""}
         <div><div class="row"><span class="eyebrow">Equity fuori campione (${v.sizing === "risk_based" ? "size reale" : `allocazione ${pct(v.alloc ?? S.limits?.max_exposure_per_asset, 0)}`})</span><span class="num">${spct((v.equity_oos?.at(-1) ?? 1) - 1)}</span></div>${curve(v.equity_oos)}</div>
         <div class="checks">${v.checks.map((c) => `<div class="check ${c.passed ? "pass" : "fail"}"><span class="mk">${c.passed ? "✔" : "✘"}</span><span>${esc(c.label)}</span><span>${checkValue(c)}</span></div>`).join("")}</div>
         <p>${v.verdict === "PASSED" ? (s.cost_audit && !["PASSED", "PENDING"].includes(s.cost_audit.verdict) ? `Validazione originale (costi ${pct(v.costs?.per_side, 2)} per lato): criteri superati, ma conta la verifica con i costi reali qui sopra.` : "Tutti i criteri superati: autorizzata al paper trading.") : `${failed} criteri su ${v.checks.length} non superati. ${esc(v.holdout?.note || "")}`} Dati: ${esc(v.data_source)} · ${esc(v.timeframe)} · ${v.n_trials_total} combinazioni di parametri testate in totale.</p>`

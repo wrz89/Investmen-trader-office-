@@ -284,3 +284,180 @@ def reconstruct_oos(strategy, validation: dict, datasets: dict, costs: CostModel
     for w in validation["windows"]:
         trades += run_trades(strategy, datasets, w["params"], w["test"][0], w["test"][1], costs)
     return sorted(trades, key=lambda t: t["exit_ts"])
+
+
+# ── strategie LENTE (SIZING = "allocation") ───────────────────
+# Poche decine di trade: si giudicano sui rendimenti GIORNALIERI fuori campione
+# (una osservazione per candela) e sul confronto con "compra e tieni" negli stessi giorni.
+def bar_returns(p: dict, trades: list[dict], i0: int, i1: int, fee: float) -> tuple[np.ndarray, np.ndarray]:
+    """Rendimento per candela [i0, i1) della strategia a piena esposizione e di "compra e tieni".
+
+    Candela i = dall'apertura di i all'apertura di i+1 (l'ultima fino alla chiusura).
+    Costi: una commissione (per lato) il giorno di ingresso e una il giorno di uscita."""
+    o, c, ts = p["open"], p["close"], p["ts"]
+    nxt = np.append(o[1:], c[-1])
+    bh = (nxt / o - 1)[i0:i1]
+    bh = np.where(np.isfinite(bh), bh, 0.0)
+    r = np.zeros(len(o))
+    for t in trades:
+        a = int(np.searchsorted(ts, t["entry_ts"]))
+        b = int(np.searchsorted(ts, t["exit_ts"]))
+        r[a:b] = nxt[a:b] / o[a:b] - 1
+        r[b] += t["exit"] / o[b] - 1
+        r[a] -= fee
+        r[b] -= fee
+    return r[i0:i1], bh
+
+
+def _sharpe_daily(x: np.ndarray, per_year: float) -> float:
+    return sharpe_per_trade(x) * math.sqrt(per_year) if len(x) > 2 else 0.0
+
+
+def _ann_return(x: np.ndarray, per_year: float) -> float:
+    return float(np.prod(1 + x) ** (per_year / len(x)) - 1) if len(x) else 0.0
+
+
+def validate_allocation(strategy, datasets: dict[str, pd.DataFrame], costs: CostModel, gates: dict,
+                        research: dict, alloc: float, n_trials_total: int, timeframe: str) -> dict:
+    """Walk-forward + hold-out per le strategie a size fissa (criteri `slow` di quant_gates.yaml)."""
+    G = gates["slow"]
+    combos = param_combinations(strategy.PARAM_GRID)
+    symbols = list(datasets)
+    per_year = 365.0 if timeframe == "1d" else 365.0 * 86_400 / _tf_seconds(timeframe)
+
+    t_first = min(int(df["ts"].iloc[min(WARMUP_BARS, len(df) - 1)]) for df in datasets.values())
+    t_last = min(int(df["ts"].iloc[-1]) for df in datasets.values())
+    t_hold = int(t_first + (t_last - t_first) * (1 - research["holdout_fraction"]))
+    windows_n = research["walk_forward_windows"]
+    train_len = (t_hold - t_first) * research["train_fraction"]
+    test_len = (t_hold - t_first - train_len) / windows_n
+
+    prepared = {}
+    for ci, combo in enumerate(combos):
+        sigs = signals(strategy, datasets, combo)
+        for s in symbols:
+            prepared[(ci, s)] = prepare(datasets[s], strategy, combo, sigs[s])
+
+    def run(ci: int, t0: float, t1: float, cm: CostModel = costs):
+        """Trade e rendimenti giornalieri (media degli asset, pesi uguali) su [t0, t1)."""
+        trades, rs, bhs = [], [], []
+        for s in symbols:
+            p = prepared[(ci, s)]
+            i0, i1 = int(np.searchsorted(p["ts"], t0)), int(np.searchsorted(p["ts"], t1))
+            tr = simulate(p, i0, i1, cm)
+            trades += [{**t, "symbol": s} for t in tr]
+            r, bh = bar_returns(p, tr, i0, i1, cm.per_side)
+            rs.append(r); bhs.append(bh)
+        n = min(len(x) for x in rs) if rs else 0
+        return trades, np.mean([x[:n] for x in rs], axis=0), np.mean([x[:n] for x in bhs], axis=0)
+
+    oos, oos_r, oos_bh, stress_r, windows = [], [], [], [], []
+    stressed_costs = costs.scaled(G["cost_stress_multiplier"])
+    for w in range(windows_n):
+        tr0 = t_first + w * test_len
+        tr1 = tr0 + train_len
+        te1 = tr1 + test_len
+        scores = [_sharpe_daily(run(ci, tr0, tr1)[1], per_year) for ci in range(len(combos))]
+        best = int(np.argmax(scores))
+        trades, r, bh = run(best, tr1, te1)
+        for t in trades:
+            t["window"] = w
+        oos += trades; oos_r.append(r); oos_bh.append(bh)
+        stress_r.append(run(best, tr1, te1, stressed_costs)[1])
+        windows.append({"window": w + 1, "train": [int(tr0), int(tr1)], "test": [int(tr1), int(te1)],
+                        "params": combos[best], "trades": len(trades),
+                        "net_return": float(np.prod(1 + r) - 1) if len(r) else 0.0,
+                        "buy_hold": float(np.prod(1 + bh) - 1) if len(bh) else 0.0})
+
+    oos.sort(key=lambda t: t["exit_ts"])
+    r, bh, rs = np.concatenate(oos_r), np.concatenate(oos_bh), np.concatenate(stress_r)
+    oos_years = (t_hold - (t_first + train_len)) / YEAR_MS
+    m = summarize(oos, oos_years)
+    net = np.array([t["net"] for t in oos])
+    sh, sh_bh = _sharpe_daily(r, per_year), _sharpe_daily(bh, per_year)
+    dd, dd_bh = max_drawdown(r), max_drawdown(bh)
+    m.update({"sharpe_annual": sh, "sharpe_buy_hold": sh_bh, "max_dd": dd, "max_dd_buy_hold": dd_bh,
+              "cagr": _ann_return(r, per_year), "cagr_buy_hold": _ann_return(bh, per_year),
+              "time_in_market": float(np.mean(r != 0)) if len(r) else 0.0})
+
+    dev = [run(ci, t_first, t_hold) for ci in range(len(combos))]
+    stability = float(np.mean([np.prod(1 + d[1]) > 1 for d in dev]))
+    trial_srs = [sharpe_per_trade(d[1]) for d in dev]
+    dsr = deflated_sharpe(r, trial_srs, max(n_trials_total, len(combos)))
+    windows_with_trades = [w for w in windows if w["trades"] > 0]
+    profitable_windows = (float(np.mean([w["net_return"] > 0 for w in windows_with_trades]))
+                          if windows_with_trades else 0.0)
+    mc_dd = mc_drawdown(alloc * net, 1.0)
+
+    def check(key, label, value, threshold, passed, fmt="num"):
+        return {"key": key, "label": label, "value": value, "threshold": threshold,
+                "passed": bool(passed), "fmt": fmt}
+
+    checks = [
+        check("oos_trades", "Trade fuori campione", m["trades"], G["min_oos_trades"], m["trades"] >= G["min_oos_trades"], "int"),
+        check("profit_factor", "Profit factor netto", m["profit_factor"], G["min_profit_factor"],
+              m["profit_factor"] >= G["min_profit_factor"]),
+        check("sharpe", "Sharpe annuo netto (giornaliero)", sh, G["min_sharpe_annual"], sh >= G["min_sharpe_annual"]),
+        check("sharpe_bh", "Sharpe vs compra e tieni", sh, sh_bh,
+              sh >= sh_bh or not G.get("require_sharpe_vs_buy_hold")),
+        check("dd_vs_bh", "Drawdown vs compra e tieni", dd, G["max_dd_vs_buy_hold"] * dd_bh,
+              dd <= G["max_dd_vs_buy_hold"] * dd_bh, "pct"),
+        check("gross_edge", "Guadagno lordo medio vs costo giro", m["avg_gross"],
+              G["min_gross_edge_vs_costs"] * costs.round_trip,
+              m["avg_gross"] >= G["min_gross_edge_vs_costs"] * costs.round_trip, "pct"),
+        check("windows", "Finestre walk-forward in utile", profitable_windows, G["min_profitable_windows"],
+              profitable_windows >= G["min_profitable_windows"], "pct"),
+        check("cost_stress", f"Utile con costi × {G['cost_stress_multiplier']}", float(np.prod(1 + rs) - 1), 0.0,
+              len(rs) > 0 and np.prod(1 + rs) > 1, "pct"),
+        check("mc_dd", f"Drawdown Monte Carlo 95° (size {alloc:.0%})", mc_dd, G["max_mc_drawdown_95"],
+              len(net) > 0 and mc_dd <= G["max_mc_drawdown_95"], "pct"),
+        check("stability", "Stabilità parametri", stability, G["min_param_stability"],
+              stability >= G["min_param_stability"], "pct"),
+        check("dsr", "Deflated Sharpe (test multipli)", dsr, G["min_deflated_sharpe"], dsr >= G["min_deflated_sharpe"], "pct"),
+    ]
+    wf_passed = all(c["passed"] for c in checks)
+
+    chosen_params = dict(Counter(tuple(sorted(w["params"].items())) for w in windows).most_common(1)[0][0])
+    holdout = {"evaluated": False, "note": "Non eseguito: cancello walk-forward non superato. Hold-out preservato."}
+    if wf_passed:
+        ci = combos.index(chosen_params)
+        ho_trades, ho_r, ho_bh = run(ci, t_hold, t_last + 1)
+        ho = summarize(ho_trades, (t_last - t_hold) / YEAR_MS)
+        ho.update({"return": float(np.prod(1 + ho_r) - 1), "buy_hold": float(np.prod(1 + ho_bh) - 1),
+                   "max_dd": max_drawdown(ho_r), "max_dd_buy_hold": max_drawdown(ho_bh)})
+        holdout = {"evaluated": True, **ho, "note": "Hold-out consumato: non riutilizzabile per questa versione."}
+        checks.append(check("ho_dd", "Hold-out: drawdown vs compra e tieni", ho["max_dd"],
+                            G["holdout_max_dd_vs_buy_hold"] * ho["max_dd_buy_hold"],
+                            ho["max_dd"] <= G["holdout_max_dd_vs_buy_hold"] * ho["max_dd_buy_hold"], "pct"))
+        checks.append(check("ho_ret", "Hold-out: risultato", ho["return"], G["holdout_min_return"],
+                            ho["return"] >= G["holdout_min_return"], "pct"))
+
+    passed = all(c["passed"] for c in checks)
+    curve = equity_curve(r, alloc)
+    step = max(1, len(curve) // 120)
+    return {
+        "strategy_id": strategy.STRATEGY_ID,
+        "verdict": "PASSED" if passed else "REJECTED",
+        "checks": checks,
+        "metrics": m,
+        "chosen_params": chosen_params,
+        "windows": windows,
+        "holdout": holdout,
+        "n_combos": len(combos),
+        "n_trials_total": max(n_trials_total, len(combos)),
+        "period": {"start": t_first, "holdout_start": t_hold, "end": t_last},
+        "costs": {"per_side": costs.per_side, "round_trip": costs.round_trip},
+        "alloc": alloc,
+        "sizing": "allocation",
+        "avg_alloc": alloc,
+        "equity_dd_history": max_drawdown(r, alloc),
+        "equity_oos": [round(float(x), 5) for x in curve[::step]],
+        "exit_reasons": dict(Counter(t["reason"] for t in oos)),
+        "by_symbol": {s: summarize([t for t in oos if t["symbol"] == s], oos_years) for s in symbols},
+        "universe": symbols,
+    }
+
+
+def _tf_seconds(tf: str) -> float:
+    unit = {"m": 60, "h": 3600, "d": 86_400, "w": 604_800}[tf[-1]]
+    return float(tf[:-1]) * unit
