@@ -214,7 +214,17 @@ def pick_s05(row: dict, p: dict) -> list[dict]:
     return out
 
 
-PICKERS = {"NAIVE_80": pick_naive, "S05_favoriti_exchange_v1": pick_s05}
+def pick_s05_v2(row: dict, p: dict) -> list[dict]:
+    """Come pick_s05, con i parametri per sport della v2 (fascia di quota, probabilità minima, esclusioni)."""
+    import re
+    fam = "tennis" if row["sport"].startswith("tennis") else "basketball" if row["sport"].startswith("basketball") else "soccer"
+    sp = (p.get("sports") or {}).get(fam)
+    if not sp or (sp.get("exclude") and re.search(sp["exclude"], str(row.get("league", "")).lower())):
+        return []
+    return pick_s05(row, {**p, **sp})
+
+
+PICKERS = {"NAIVE_80": pick_naive, "S05_favoriti_exchange_v1": pick_s05, "S05_favoriti_exchange_v2": pick_s05_v2}
 
 
 @dataclass

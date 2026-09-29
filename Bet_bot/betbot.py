@@ -9,6 +9,7 @@
     python betbot.py replay [--da AAAA-MM-GG] [--a AAAA-MM-GG]
                                           fa girare TUTTE le strategie sui prezzi registrati (feed.record: true)
     python betbot.py diagnosi             controlla installazione, configurazione, Telegram, chiavi e Betfair
+    python betbot.py mercurius            verifica il metodo "alla Mercurius" (modello dei gol proprio) sui prezzi Betfair
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
     python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
     python betbot.py dashboard [--simulazione | --replay]   apre solo la dashboard
@@ -58,7 +59,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico"])
+                                       "ferma", "avvio-automatico", "mercurius"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -98,6 +99,24 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "mercurius":
+        from betbot import backtest_mercurius as bm
+        from betbot.config import REPORTS_DIR
+        print("Metodo alla Mercurius: modello Dixon-Coles stimato giornata per giornata, peso scelto sul 2024/25, "
+              "prova fuori campione sulle stagioni successive con i prezzi Betfair (qualche minuto)…")
+        parts = ["# Metodo alla Mercurius su prezzi Betfair Exchange\n",
+                 "Mercurius (Mercurius BI srl, 2017-2021) non ha mai pubblicato il suo algoritmo: qui se ne ricostruisce "
+                 "l'architettura dichiarata con strumenti pubblici (modello dei gol proprio → confronto con l'exchange).\n"]
+        for title, kw in (("Tutte le quote, EV netto ≥ 2%", {}), ("Solo favoriti ≥ 70%", {"min_prob": 0.70}),
+                          ("Tutte le quote, EV netto ≥ 0%", {"min_edge": 0.0})):
+            res = bm.run(**kw)
+            parts.append(bm.report(res, title))
+        md = "\n".join(parts)
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        (REPORTS_DIR / "backtest_mercurius.md").write_text(md, encoding="utf-8")
+        print(md)
         return 0
 
     if a.comando == "ferma":
@@ -182,7 +201,7 @@ def main() -> int:
         rows = load(paths)
         print(f"{len(rows)} partite con prezzo Betfair caricate. Simulo le strategie con {load_settings()['capital']['initial']} € "
               "e le regole di betfair.it…")
-        results = [run(rows, s, kill_switch=not a.senza_kill) for s in ("NAIVE_80", "S05_favoriti_exchange_v1")]
+        results = [run(rows, s, kill_switch=not a.senza_kill) for s in ("NAIVE_80", "S05_favoriti_exchange_v1", "S05_favoriti_exchange_v2")]
         path = save(results, rows, "ultimo")
         print(path.read_text(encoding="utf-8"))
         print(f"Report e CSV delle puntate in {path.parent}")

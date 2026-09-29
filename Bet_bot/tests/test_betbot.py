@@ -62,7 +62,7 @@ def office(tmp_path, monkeypatch):
 
 
 def _proposal(**kw):
-    p = {"strategy_id": "S05_favoriti_exchange_v1", "strategy_status": "ATTIVA", "match_id": "M1", "market_id": "M1",
+    p = {"strategy_id": "S05_favoriti_exchange_v2", "strategy_status": "ATTIVA", "match_id": "M1", "market_id": "M1",
          "league": "Serie A", "label": "Inter - Lecce · Inter", "market": "h2h", "selection": "home", "bookmaker": "Betfair",
          "odds": 1.25, "fair_prob": 0.85, "edge": 0.0625, "commission": 0.05, "n_books": 5, "dispersion": 0.01,
          "live": False, "odds_ts": 1000.0, "reason": "test"}
@@ -85,7 +85,7 @@ def test_min_stake_with_30_eur_only_when_edge_is_strong(office):
     weak = office.risk.evaluate(_proposal(fair_prob=0.815, edge=0.012), _snap(), state)
     assert not weak["approved"] and any("vantaggio non basta" in r for r in weak["reasons"])
     by = {s["id"]: s for s in office.direttore.strategies()}
-    assert by["S05_favoriti_exchange_v1"]["status"] == "ATTIVA"
+    assert by["S05_favoriti_exchange_v2"]["status"] == "ATTIVA"
     assert by["S04_greenup_cavalli_v2"]["status"] == "OSSERVAZIONE"             # niente ippica su betfair.it
 
 
@@ -405,3 +405,31 @@ def test_trade_strategy_exits_before_kickoff():
     snap = {"ts": 0, "sim_time": 1893520800 - 120, "matches": {"M1": m}}           # 2 minuti all'inizio
     acts = manage([bet], snap, {}, {})
     assert acts and acts[0]["action"] == "hedge" and "inizio" in acts[0]["reason"]
+
+
+def test_s05_v2_excludes_minor_tennis_and_needs_two_percent():
+    from betbot.strategies.s05_favoriti_exchange_v2 import propose
+    m = {"match_id": "M1", "sport": "tennis_atp", "league": "ATP Shanghai", "home": "Sinner", "away": "X",
+         "status": "SCHEDULED", "kickoff": "2030-01-01T18:00:00+00:00", "odds_ts": 1.0,
+         "books": {"Pinnacle": {"home": 1.20, "away": 4.8}, "Bet365": {"home": 1.18, "away": 4.5}},
+         "exchange": {"home": {"back": 1.30, "lay": 1.31, "back_size": 500, "lay_size": 500}}}
+    snap = {"ts": 0, "sim_time": 1893520800 - 3600, "matches": {"M1": m}}
+    assert len(propose(snap, {}, {})) == 1
+    m["league"] = "ATP Challenger Bergamo"
+    assert propose(snap, {}, {}) == []
+    m["league"] = "ATP Shanghai"
+    m["exchange"]["home"]["back"] = 1.25                             # EV netto sotto il 2%
+    assert propose(snap, {}, {}) == []
+
+
+def test_dixon_coles_prefers_stronger_team():
+    from betbot.models.dixon_coles import fit, outcome_probs
+    rows, t = [], 0.0
+    for i in range(120):
+        t += 86400
+        rows.append((t, "Forte", "Debole", 3, 0) if i % 2 else (t, "Debole", "Forte", 0, 2))
+        rows.append((t, "Medio", "Debole", 1, 0) if i % 2 else (t, "Debole", "Medio", 1, 1))
+        rows.append((t, "Forte", "Medio", 2, 1) if i % 2 else (t, "Medio", "Forte", 1, 2))
+    r = fit(rows, t + 1)
+    p = outcome_probs(r, "Forte", "Debole")
+    assert p["home"] > 0.8 and abs(sum(p.values()) - 1) < 1e-9

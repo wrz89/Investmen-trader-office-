@@ -25,7 +25,7 @@ live_strategies: []       # es. [S04_greenup_cavalli_v2] — vuota = nessuna str
 # Una strategia "attiva" punta solo se il bankroll basta per la puntata minima entro i limiti di
 # rischio; altrimenti lavora IN ATTESA (in ombra) e si sblocca da sola quando il bankroll cresce.
 active_strategies:
-  - S05_favoriti_exchange_v1   # favoriti netti pre-partita (calcio, tennis, basket) con EV netto positivo
+  - S05_favoriti_exchange_v2   # favoriti netti pre-partita (calcio, tennis, basket), EV netto ≥ 2%, parametri per sport
 observe_strategies:            # solo ombra, senza capitale: si attivano solo dopo prove sui dati veri di betfair.it
   - S06_live_exchange_v1       # in-play: serve un riferimento live aggiornato (piano a pagamento di The Odds API)
   - S07_scalping_prepartita_v1 # trade back→lay prima dell'inizio: da provare col registratore (feed.record)

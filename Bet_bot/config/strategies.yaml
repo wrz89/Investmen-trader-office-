@@ -3,16 +3,29 @@
 # settings.yaml (active_strategies / observe_strategies) sono ritirate e non girano.
 # commission e min_stake arrivano da settings.yaml → execution.
 
-S05_favoriti_exchange_v1:
-  description: Favoriti netti pre-partita (calcio, tennis, basket) su Betfair quando la quota, al netto della commissione, batte la probabilità
-    giusta dei bookmaker di riferimento.
-  odds_min: 1.1
-  odds_max: 1.4
-  min_fair_prob: 0.75
-  min_edge: 0.01
-  hours_before_kickoff: 36
-  min_hours_before_kickoff: 0.25
+S05_favoriti_exchange_v2:
+  description: Favoriti netti pre-partita (calcio, tennis ATP/WTA, basket) su Betfair quando la quota, al netto della commissione, batte di almeno
+    il 2% la probabilità giusta dei bookmaker di riferimento.
+  min_edge: 0.02
   min_reference_books: 2
+  min_book_eur: 3.0
+  max_spread_ticks: 2
+  max_minutes_before: 120
+  min_minutes_before: 15
+  sports:
+    soccer:
+      odds_min: 1.1
+      odds_max: 1.4
+      min_fair_prob: 0.75
+    tennis:
+      odds_min: 1.1
+      odds_max: 1.35
+      min_fair_prob: 0.75
+      exclude: challenger|itf|utr|m15|m25|w15|w35|w50|w75|w100|doppio|doubles
+    basketball:
+      odds_min: 1.1
+      odds_max: 1.3
+      min_fair_prob: 0.77
 S06_live_exchange_v1:
   description: Favorito in vantaggio nel finale, su Betfair in-play; chiusura con un lay se il vantaggio sparisce.
   min_minute: 70
@@ -64,6 +77,16 @@ S04_greenup_cavalli_v2:
   wom_min: 0.62
   min_book_multiple: 5.0
   min_net_target_return: 0.004
+S05_favoriti_exchange_v1:
+  description: Favoriti netti pre-partita (calcio, tennis, basket) su Betfair quando la quota, al netto della commissione, batte la probabilità
+    giusta dei bookmaker di riferimento.
+  odds_min: 1.1
+  odds_max: 1.4
+  min_fair_prob: 0.75
+  min_edge: 0.01
+  hours_before_kickoff: 36
+  min_hours_before_kickoff: 0.25
+  min_reference_books: 2
 S01_favoriti_v1:
   description: Favoriti netti pre-partita con quota migliore superiore alla probabilità di consenso.
   odds_min: 1.15
