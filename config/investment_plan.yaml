@@ -8,15 +8,15 @@ profile: Equilibrato
 platform: Bybit (spot, senza leva)
 currency: EUR
 start_capital: 140
-monthly: 50
+monthly: 70
 
 # Come lavorano i soldi dentro Bybit. Le quote sono il MASSIMO investito:
 # quando le strategie non hanno segnali, il capitale resta in USDC.
 sleeves:
-  - name: Accumulo automatico BTC
+  - name: Accumulo automatico · BTC 60% · ETH 30% · SOL 10%
     status: paper                 # scelta C del 29/09/2026 · primo acquisto paper dal 5 ottobre 2026
     max_share: 1.00
-    note: "50 € al mese in BTC dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), strada più economica (diretta o via USDC). Nessuna promessa di vantaggio: è una scelta di lungo periodo su BTC. Mai vendite automatiche"
+    note: "70 € al mese dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), prima alle monete sotto quota, strada più economica (diretta o via USDC). Nessuna promessa di vantaggio: è una scelta di lungo periodo sulle crypto. Mai vendite automatiche"
   - name: Motore trend (STRATEGY_01_v5)
     status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
     max_share: 0.0
@@ -38,10 +38,10 @@ sleeves:
 you_do:
   - Aprire il conto Bybit EU e fare il riconoscimento (KYC)
   - Creare le chiavi API solo trading (niente prelievi, IP del tuo PC)
-  - Impostare in banca un bonifico periodico di 50 € verso Bybit (una volta sola)
+  - Impostare in banca un bonifico periodico di 70 € verso Bybit (una volta sola)
   - Dichiarazione dei redditi (l'Auditor ti prepara il riepilogo annuale)
 office_does:
-  - Ogni mese compra BTC con 50 €, scegliendo la strada più economica (diretta o via USDC)
+  - Ogni mese investe 70 € in BTC, ETH e SOL secondo le quote, scegliendo la strada più economica
   - Rimanda l'acquisto (mai lo salta) con dati anomali, spread alto o allarmi di Nora
   - Segue in ombra, senza soldi, le strategie promettenti per raccogliere prove
   - Usa strategie di trading solo se superano la verifica con i costi reali
@@ -51,14 +51,15 @@ phases:
   - when: 29/09/2026
     what: "Verificate con i costi reali: v5 e BTC di lungo periodo non superano tutti i criteri. Nessuna strategia approvata"
   - when: 5 ottobre e 5 novembre 2026
-    what: "Primi due acquisti di accumulo in paper (deposito simulato, prezzi veri). I 50 € restano sul tuo conto"
+    what: "Primi due mesi di accumulo in paper (deposito simulato, prezzi veri). I 70 € restano sul tuo conto"
   - when: dicembre 2026
     what: "Se i due acquisti sono andati bene: attivazione dei soldi veri per l'accumulo (chiavi API solo trading, bonifico periodico). Decisione tua"
   - when: ottobre 2027
     what: "Revisione della strategia BTC di lungo periodo dopo 12 mesi in ombra: se supera, potrà decidere quando stare fuori da BTC"
 
 risks:
-  - "Accumulo in BTC: nei crolli (in passato fino a -77%) il valore scende e il piano continua a comprare; non esce da solo"
+  - "Accumulo: nei crolli il valore scende e il piano continua a comprare, non esce da solo. Cadute storiche dal massimo: BTC -77%, ETH -94%, SOL -96%"
+  - "BTC, ETH e SOL si muovono quasi sempre insieme (correlazione ~0,8): la diversificazione tra crypto riduce poco il rischio, aumenta il potenziale e le oscillazioni"
   - "Tutto su crypto: nessuna diversificazione fuori da questo mondo"
   - "Le proiezioni usano rendimenti costanti: BTC ha oscillazioni molto più ampie, gli scenari servono solo come ordine di grandezza"
   - "Rischio piattaforma: se Bybit ha problemi, i soldi sono lì (il kill switch non protegge da questo)"
@@ -67,7 +68,7 @@ risks:
   - "Tasse: plusvalenze crypto al 33% dal 2026, da dichiarare"
   - "Commissioni Bybit EU 0,25% per ordine a mercato: le strategie con molti scambi faticano a coprirle"
 
-# Proiezione a 10 anni con 140 € + 50 €/mese (6.140 € versati). Lordo tasse.
+# Proiezione a 10 anni con 140 € + 70 €/mese (8.540 € versati). Lordo tasse.
 projection:
   years: 10
   scenarios:

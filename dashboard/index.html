@@ -725,20 +725,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
       return A.due_now ? "oggi (appena i controlli di Franco sono ok)" : `dal ${A.day_of_month} ${new Date(y, mo - 1, 1).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}`;
     };
     const G = A?.gaps || {};
-    const accCard = A ? `<div class="card"><div class="card-head"><h3>Accumulo automatico BTC</h3><span class="tag ${A.buys ? "ok" : "warn"}">${esc((S.meta.mode || "paper"))} · ${fmt(A.amount_eur, 0)} €/mese</span></div>
+    const accCard = A ? `<div class="card"><div class="card-head"><h3>Accumulo automatico</h3><span class="tag ${A.buys ? "ok" : "warn"}">${esc((S.meta.mode || "paper"))} · ${fmt(A.amount_eur, 0)} €/mese</span></div>
         <div class="metrics">
           <div class="metric"><small>Versati</small><b>${fmt(A.eur_in, 0)} €</b></div>
-          <div class="metric"><small>BTC accumulati</small><b>${fmt(A.qty, 6)}</b></div>
-          <div class="metric"><small>Valore oggi</small><b class="${!A.qty ? "" : A.value >= A.eur_in ? "pos" : "neg"}">${!A.qty || A.value == null ? "—" : fmt(A.value, 2) + " €"}</b></div>
-          <div class="metric"><small>Prezzo medio</small><b>${A.avg_price ? fmt(A.avg_price, 0) + " €" : "—"}</b></div>
+          <div class="metric"><small>Valore oggi</small><b class="${!A.buys ? "" : A.value >= A.eur_in ? "pos" : "neg"}">${!A.buys || A.value == null ? "—" : fmt(A.value, 2) + " €"}</b></div>
+          <div class="metric"><small>Mesi completati</small><b>${A.months}</b></div>
+          <div class="metric"><small>Acquisti</small><b>${A.buys}</b></div>
         </div>
+        ${(A.assets || []).map((a) => `<div class="gauge"><div class="row"><span><b>${esc(a.symbol.split("/")[0])}</b> · obiettivo ${pct(a.target, 0)}${a.weight != null ? ` · oggi ${pct(a.weight, 0)}` : ""}</span><span class="num">${a.qty ? `${fmt(a.qty, a.qty < 1 ? 6 : 3)} · ${a.value == null ? "—" : fmt(a.value, 2) + " €"}` : "—"}</span></div><div class="bar"><i style="width:${((a.weight ?? a.target) * 100).toFixed(1)}%"></i></div></div>`).join("")}
         <div class="row"><span>Prossimo acquisto</span><span class="num">${fmt(A.next_amount, 0)} € · ${esc(nextBuy())}</span></div>
         ${A.initial_eur ? `<div class="row"><span>Capitale iniziale ${fmt(A.initial_eur, 0)} € a rate</span><span class="num">${Math.min(A.buys, A.initial_tranches)} / ${A.initial_tranches} rate da ${fmt(A.initial_eur / A.initial_tranches, 0)} €</span></div>` : ""}
-        ${(A.last || []).map((b) => `<div class="row"><span>${esc(b.month)} · ${esc(b.route)}</span><span class="num">${fmt(b.qty, 8)} BTC @ ${fmt(b.price_eur, 0)} €</span></div>`).join("")}
+        ${(A.last || []).map((b) => `<div class="row"><span>${esc(b.month)} · ${esc(b.asset.split("/")[0])} · ${esc(b.route)}</span><span class="num">${fmt(b.eur, 2)} € @ ${fmt(b.price_eur, 2)} €</span></div>`).join("")}
         <div class="eyebrow">Scambio tra crypto: conviene?</div>
-        <p>A ogni ciclo Paolo confronta la strada diretta (euro → BTC) con quella via USDC (euro → USDC → BTC), commissioni comprese, e all'acquisto usa la più economica.
+        <p>A ogni ciclo Paolo confronta, per ogni moneta, la strada diretta (euro → moneta) con quella via USDC (euro → USDC → moneta), commissioni comprese, e all'acquisto usa la più economica.
         ${G.n ? `Su ${G.n} confronti la via USDC è stata più conveniente ${G.via_usdc_better} volte; differenza tipica ${fmt(G.median_gap_bps, 0)} bp a favore della diretta (migliore ${fmt(G.best_gap_bps, 0)} bp).` : "Primi confronti al prossimo ciclo dell'ufficio sul tuo PC."}</p>
-        <p>Non vende mai e non compra di più dopo un calo. Soldi veri solo dopo ${A.go_live?.min_paper_buys ?? 2} acquisti paper riusciti e una tua decisione.</p></div>` : "";
+        <p>Ogni mese i soldi vanno prima alle monete sotto la loro quota: così si ribilancia senza mai vendere. Non compra di più dopo un calo. Soldi veri solo dopo ${A.go_live?.min_paper_buys ?? 2} mesi di prova riusciti e una tua decisione.</p></div>` : "";
     $("#plan").innerHTML = `
       <div>
         ${accCard}

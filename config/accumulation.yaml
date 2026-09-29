@@ -1,24 +1,34 @@
 # ─────────────────────────────────────────────────────────────
-#  PIANO DI ACCUMULO AUTOMATICO (scelta C dell'utente, 29/09/2026)
+#  PIANO DI ACCUMULO AUTOMATICO (scelta C dell'utente, 29/09/2026;
+#  70 €/mese e diversificazione BTC/ETH/SOL decise il 29/09/2026)
 #  Non è una strategia di trading e non promette un vantaggio: è una
-#  scelta d'investimento dell'utente su BTC nel lungo periodo.
+#  scelta d'investimento dell'utente sulle crypto nel lungo periodo.
 #  L'ufficio la esegue con disciplina: stesso importo, stesso giorno,
 #  senza mai comprare di più dopo un calo e senza mai vendere da solo.
 # ─────────────────────────────────────────────────────────────
 enabled: true
-symbol: BTC/EUR          # acquisto diretto in euro: una sola commissione (niente passaggio da USDC)
-amount_eur: 50           # importo FISSO: non aumenta mai dopo un calo (regole 3 e 4)
+# Quote obiettivo del portafoglio accumulato. Coppie in euro: una sola commissione
+# (la strada via USDC si usa solo se costa meno, commissioni comprese).
+allocation:
+  BTC/EUR: 0.60
+  ETH/EUR: 0.30
+  SOL/EUR: 0.10
+# Ribilanciamento SOLO con i nuovi acquisti: ogni mese l'importo va prima agli asset
+# sotto la loro quota. Mai vendite (niente commissioni e niente tasse in più).
+min_leg_eur: 5           # sotto questa cifra la quota del mese passa all'asset più sotto peso
+amount_eur: 70           # importo FISSO: non aumenta mai dopo un calo (regole 3 e 4)
 day_of_month: 5          # dal 5 del mese (dopo lo stipendio e il bonifico periodico)
 # Capitale iniziale (deciso dall'utente il 29/09/2026): 140 € entrati a rate, non in un
 # giorno solo. Calendario fissato prima di iniziare: 35 € in più nei primi 4 acquisti
-# (85 € al mese per 4 mesi, poi 50 €). Non dipende dall'andamento del prezzo.
+# (105 € al mese per 4 mesi, poi 70 €). Non dipende dall'andamento del prezzo.
 initial_eur: 140
 initial_tranches: 4
 start_month: "2026-10"
 
 # Si RIMANDA (mai si salta) al ciclo successivo se Franco vede: dati vecchi o
-# anomali, spread oltre il limite, API instabile, allarme notizie di Nora su BTC
-# o su tutto (es. Bybit). L'acquisto del mese resta dovuto.
+# anomali, spread oltre il limite, API instabile, allarme notizie di Nora su
+# quell'asset o su tutto (es. Bybit). Si rimanda solo la parte di quell'asset:
+# l'acquisto del mese resta dovuto.
 
 # Vendite: mai automatiche. Solo per tua decisione o, in futuro, se la
 # STRATEGY_06 (BTC sopra la media di lungo periodo) supererà la revisione
@@ -27,9 +37,9 @@ sells: never
 
 # Passaggio ai soldi veri, fissato prima del primo acquisto in paper:
 go_live:
-  min_paper_buys: 2      # due acquisti mensili in paper riusciti (ottobre e novembre 2026)
+  min_paper_buys: 2      # due mesi di acquisti in paper riusciti (ottobre e novembre 2026)
   max_errors: 0          # nessun errore o acquisto saltato per guasto
   requires:              # e in più, fatti da te:
-    - "conto Bybit EU verificato e bonifico periodico di 50 € impostato"
+    - "conto Bybit EU verificato e bonifico periodico di 70 € impostato"
     - "chiavi API solo trading, senza prelievi, legate all'IP del tuo PC"
     - "tua decisione esplicita"
