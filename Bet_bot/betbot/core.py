@@ -14,6 +14,7 @@ Ordine di un ciclo:
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import traceback
 import uuid
@@ -26,6 +27,7 @@ from .agents.quote import Quote
 from .agents.risk import RiskManager
 from .agents.sentiment import Sentiment
 from .agents.tesoriere import Tesoriere
+from . import clock
 from .bankroll import Bankroll, today
 from .execution import Executor, Gates
 from .config import DB_LIVE_PATH, DB_PATH, STOP_FILE, ensure_dirs, load_settings
@@ -34,6 +36,9 @@ from .feeds.base import FeedError
 from . import local_settings
 from .notifier import Notifier
 from .store import Store
+
+SHUTDOWN_REASON = "spegnimento richiesto"      # vecchie versioni: lo spegnimento si scriveva come kill switch
+ORDER_CHECK_AFTER_S = 120                      # un ordine dall'esito incerto si cerca su Betfair dopo 2 minuti
 
 
 class SportOffice:
@@ -49,12 +54,17 @@ class SportOffice:
             from .feeds.betfair import BetfairClient
             self.client = BetfairClient(local_settings.load()["betfair"])      # una sola sessione per tutto il bot
         initial = self.settings["capital"]["initial"]
-        if live and self.store.get("cash") is None and self.client is not None:
-            try:                                                                  # in live si parte dal saldo vero
-                initial = float(self.client.account_funds().get("availableToBetBalance") or initial)
+        allow_reset = not live            # in live il bankroll non torna MAI a capital.initial (riavvii, `stato`, …)
+        if live and self.client is not None and (
+                self.store.get("cash") is None or not self.store.query("SELECT 1 FROM bets WHERE mode!='shadow' LIMIT 1")):
+            try:                          # nessuna puntata vera ancora: il bankroll è il saldo vero di Betfair
+                balance = self.client.account_funds().get("availableToBetBalance")
+                if balance is not None:
+                    initial, allow_reset = float(balance), True
             except Exception:
                 pass
-        self.bankroll = Bankroll(self.store, initial)
+        self.bankroll = Bankroll(self.store, initial, allow_reset=allow_reset)
+        self.shutting_down = False        # spegnimento ordinato in corso: solo in memoria, mai nel database
         self.feed = feed or (make_feed(self.settings) if connect_feed else None)
         if self.client is not None:
             for f in (self.feed, getattr(self.feed, "primary", None)):
@@ -93,6 +103,7 @@ class SportOffice:
         self.direttore.status("working", f"Ciclo {cycle_id} in corso.")
         strategies = self.direttore.strategies()
         self._live_gate_notice(strategies)
+        self.resolve_orders()                 # ordini veri dall'esito incerto: si chiede a Betfair com'è andata
         self._watch_open_markets()
         try:
             snap = await self.quote.scan()
@@ -101,9 +112,10 @@ class SportOffice:
                            level="ERROR")
             self._end_cycle()
             return {"ok": False, "error": str(exc)}
+        fetched = time.monotonic()
 
-        try:
-            self.sentiment.run(snap)          # il sentiment non deve mai fermare il ciclo
+        try:                                  # in un thread: le letture RSS non bloccano il loop (stream, ciclo veloce)
+            await asyncio.to_thread(self.sentiment.run, snap)     # il sentiment non deve mai fermare il ciclo
         except Exception as exc:
             self.sentiment.say(f"Errore nella lettura del sentiment: {exc}. Nessun effetto sulle puntate.", "alert",
                                "sentiment", level="WARN")
@@ -118,8 +130,18 @@ class SportOffice:
         self._sync_live_balance()
         state = self.risk.portfolio_state()
 
-        # 4) nuove proposte
-        proposals = self.analista.propose(snap, strategies) + self.cavalli.propose(snap, strategies)
+        # 4) nuove proposte, mai su prezzi vecchi: se sentiment, chiusure e saldo hanno preso troppo tempo si rileggono
+        max_age = float(self.risk.limits.get("max_odds_age_seconds", 180))
+        if time.monotonic() - fetched > max_age:
+            try:
+                snap = await self.quote.scan()
+                self.quote.log(f"Ciclo lento (oltre {max_age:.0f} s): prezzi riletti prima delle nuove puntate.",
+                               "INFO", "scan")
+            except FeedError as exc:
+                self.quote.say(f"Prezzi non più freschi e non rileggibili ({exc}): nessuna nuova puntata in questo "
+                               "ciclo.", "alert", "no_data", level="WARN")
+                snap = None
+        proposals = [] if snap is None else self.analista.propose(snap, strategies) + self.cavalli.propose(snap, strategies)
         proposals.sort(key=lambda p: -p["edge"])
         placed = 0
         for p in proposals:
@@ -136,6 +158,8 @@ class SportOffice:
         if not proposals:
             self.risk.status("ok", "Nessuna proposta da valutare. Limiti e circuit breaker sotto controllo.")
 
+        self._watch_open_markets()            # il catalogo delle posizioni appena aperte si salva subito
+
         # 5) metriche e report
         state = self.risk.portfolio_state()
         self.store.set("risk_state", state)
@@ -147,39 +171,150 @@ class SportOffice:
                 "bankroll": state["bankroll"]}
 
     def _watch_open_markets(self) -> None:
-        """Le partite con posizioni aperte restano nel feed fino alla chiusura del mercato."""
+        """Le partite con posizioni aperte restano nel feed fino alla chiusura del mercato. La loro voce di catalogo
+        Betfair si salva nel database (kv 'bf_cat:<id>'): dopo un riavvio listMarketCatalogue non restituisce più i
+        mercati iniziati da ore o già chiusi, e senza catalogo la puntata non si regolerebbe mai."""
         feed = getattr(self.feed, "primary", self.feed)
-        if hasattr(feed, "watch"):
-            ids = {b["match_id"] for b in self.store.query("SELECT match_id FROM bets WHERE status='OPEN'")}
-            ids |= {b["match_id"] for b in self.store.query("SELECT match_id FROM shadow_bets WHERE status='OPEN'")}
-            feed.watch(ids)
+        if not hasattr(feed, "watch"):
+            return
+        ids = {b["match_id"] for b in self.store.query("SELECT match_id FROM bets WHERE status='OPEN'")}
+        ids |= {b["match_id"] for b in self.store.query("SELECT match_id FROM shadow_bets WHERE status='OPEN'")}
+        cat = getattr(feed, "cat", None) or {}
+        saved = {}
+        for mid in (i for i in ids if str(i).startswith("1.")):
+            key = f"bf_cat:{mid}"
+            if mid in cat:
+                if self.store.get(key) is None:
+                    self.store.set(key, cat[mid])
+                saved[mid] = cat[mid]
+            elif self.store.get(key) is not None:
+                saved[mid] = self.store.get(key)
+        for r in self.store.query("SELECT key FROM kv WHERE key LIKE 'bf_cat:%'"):
+            if r["key"][len("bf_cat:"):] not in ids:                   # mercato senza più posizioni: voce inutile
+                self.store.execute("DELETE FROM kv WHERE key=?", (r["key"],))
+        feed.watch(ids, saved)
+
+    def resolve_orders(self, min_age_s: float = ORDER_CHECK_AFTER_S) -> int:
+        """Ordini veri rimasti PENDING/UNKNOWN (risposta persa, crash a metà invio): passati 2 minuti si chiede a
+        Betfair com'è andata, per customerOrderRef.
+          • non esiste → NOT_FOUND: un fill-or-kill non abbinato sparisce, quindi nessuna posizione;
+          • abbinato → MATCHED con bet_id. Un BACK abbinato è una posizione vera che il registro non conosce:
+            kill switch con un messaggio chiaro. Un LAY di chiusura abbinato chiude la sua puntata (senza nuovi ordini).
+        Se Betfair non risponde la riga resta com'è e si riprova al ciclo dopo."""
+        if self.settings.get("mode") != "live" or self.client is None:
+            return 0
+        from datetime import datetime
+        from .store import now_iso
+        rows = self.store.query("SELECT * FROM orders WHERE status IN ('PENDING', 'UNKNOWN') ORDER BY id")
+        done = 0
+        for o in rows:
+            try:
+                age = clock.now() - datetime.fromisoformat(o["ts"]).timestamp()
+            except (TypeError, ValueError):
+                age = min_age_s
+            if age < min_age_s:
+                continue
+            try:
+                found = self.client.current_orders(order_refs=[o["ref"]])
+                if not found and hasattr(self.client, "cleared_by_refs"):    # mercato già regolato
+                    found = self.client.cleared_by_refs([o["ref"]])
+            except Exception as exc:
+                self.risk.log(f"Verifica dell'ordine {o['ref']} non riuscita ({exc}). Riprovo al prossimo ciclo.",
+                              "WARN", "reconcile")
+                continue
+            f = found[0] if found else None
+            matched = float((f or {}).get("sizeMatched") or (f or {}).get("sizeSettled") or 0.0)
+            if (f or {}).get("status") in ("LAPSED", "CANCELLED"):
+                matched = 0.0
+            what = f"{o['side']} {o['size']:.2f} € a {o['price']:.2f} sul mercato {o['market_id']}"
+            if f is None or matched <= 0:
+                status = "NOT_FOUND" if f is None else "KILLED"
+                self.store.execute("UPDATE orders SET status=?, matched=0, error=?, updated=? WHERE ref=?",
+                                   (status, "verificato su Betfair: non abbinato", now_iso(), o["ref"]))
+                self.risk.say(f"Ordine {what} verificato su Betfair: NON abbinato, nessuna posizione aperta. "
+                              + ("Il kill switch resta finché non lo resetti dal PC." if self.store.get("kill_switch") else ""),
+                              "ok", "reconcile", level="WARN")
+                done += 1
+                continue
+            avg = float(f.get("averagePriceMatched") or f.get("priceMatched") or o["price"])
+            self.store.execute("UPDATE orders SET status='MATCHED', bet_id=?, matched=?, avg_price=?, error=?, updated=? "
+                               "WHERE ref=?", (f.get("betId"), matched, avg, "verificato su Betfair: abbinato", now_iso(),
+                                              o["ref"]))
+            done += 1
+            if o["side"] == "LAY":
+                closed = self.banco.close_matched_lays("lay di chiusura ritrovato abbinato su Betfair")
+                self.risk.say(f"Il lay di chiusura {what} risulta ABBINATO su Betfair (bet {f.get('betId')})"
+                              + (": puntata chiusa con quel lay, senza nuovi ordini" if closed else "")
+                              + ". Il kill switch resta: controlla su betfair.it e resetta dal PC.",
+                              "alert", "reconcile", level="WARN")
+                continue
+            reason = (f"ordine BACK {o['ref']} abbinato su Betfair (bet {f.get('betId')}, {matched:.2f} € a {avg:.2f}) "
+                      "ma assente dal registro delle puntate")
+            self.store.set("kill_switch", reason)
+            self._remember_reported([f"ref:{o['ref']}"])
+            self.risk.say(f"KILL SWITCH: la puntata {what} risulta ABBINATA su Betfair (bet {f.get('betId')}, "
+                          f"{matched:.2f} € a {avg:.2f}) ma il bot non l'ha registrata: non la gestisce e non la regola. "
+                          "Guardala in 'Le mie scommesse' su betfair.it, poi resetta dal PC.", "alert", "kill_switch",
+                          level="CRITICAL")
+        return done
+
+    def _remember_reported(self, keys) -> None:
+        self.store.set("reconcile_reported", sorted(set(self.store.get("reconcile_reported") or []) | set(keys)))
 
     def reconcile_live(self) -> None:
-        """All'avvio in live: ogni ordine vero abbinato su Betfair deve corrispondere a una puntata del registro.
-        Un ordine sconosciuto (crash a metà invio, ordine messo a mano) blocca le nuove puntate finché non lo guardi."""
+        """All'avvio in live: Betfair, tabella orders e libro delle puntate devono raccontare la stessa storia.
+          • ordini dall'esito incerto: prima si cercano su Betfair (resolve_orders);
+          • LAY di chiusura abbinato ma puntata ancora OPEN (crash prima della chiusura nel registro): si chiude la
+            puntata con quel lay, senza mandarne un altro;
+          • BACK abbinato senza puntata nel registro, ordine abbinato su Betfair che il bot non conosce (crash a metà,
+            ordine messo a mano) o esito ancora incerto: kill switch finché non lo guardi.
+        Una discrepanza già segnalata e poi resettata a mano dal PC non riaccende il kill switch a ogni avvio."""
         if self.settings.get("mode") != "live" or self.client is None:
             return
+        self.resolve_orders()
+        closed = self.banco.close_matched_lays("riavvio: lay di chiusura già abbinato su Betfair, nessun nuovo ordine")
+        if closed:
+            self.risk.say(f"Riconciliazione: {closed} puntate chiuse con il lay già abbinato su Betfair prima del riavvio.",
+                          "ok", "reconcile", level="WARN")
+        problems: dict[str, str] = {}
         try:
             current = self.client.current_orders()
         except Exception as exc:
+            current = None
             self.risk.say(f"Riconciliazione ordini non riuscita ({exc}). Riprovo al prossimo avvio.", "alert", "reconcile",
                           level="WARN")
-            return
-        known = {o["bet_id"] for o in self.store.query("SELECT bet_id FROM orders WHERE bet_id IS NOT NULL")}
-        unknown = [o for o in current if o.get("betId") not in known and float(o.get("sizeMatched") or 0) > 0]
+        if current is not None:
+            known = {o["bet_id"] for o in self.store.query("SELECT bet_id FROM orders WHERE bet_id IS NOT NULL")}
+            for o in current:
+                if o.get("betId") not in known and float(o.get("sizeMatched") or 0) > 0:
+                    problems[f"bf:{o.get('betId')}"] = f"ordine abbinato su Betfair che il bot non conosce (bet {o.get('betId')})"
+        booked = set()
+        for b in self.store.query("SELECT extra FROM bets WHERE mode='live' AND extra IS NOT NULL"):
+            booked.add(((json.loads(b["extra"]) or {}).get("betfair") or {}).get("bet_id"))
+        for o in self.store.query("SELECT * FROM orders WHERE side='BACK' AND status='MATCHED' AND bet_id IS NOT NULL"):
+            if o["bet_id"] not in booked:
+                problems[f"ref:{o['ref']}"] = (f"BACK abbinato su Betfair (bet {o['bet_id']}, {o['matched'] or 0:.2f} € a "
+                                               f"{o['avg_price'] or o['price']:.2f}) senza puntata nel registro")
         pending = self.store.query("SELECT ref FROM orders WHERE status IN ('PENDING', 'UNKNOWN')")
-        if unknown or pending:
-            what = []
-            if unknown:
-                what.append(f"{len(unknown)} ordini abbinati su Betfair che il bot non conosce")
+        reported = set(self.store.get("reconcile_reported") or [])
+        new = [k for k in problems if k not in reported]
+        if new or pending:
+            what = [problems[k] for k in new[:3]] + ([f"altre {len(new) - 3} discrepanze"] if len(new) > 3 else [])
             if pending:
-                what.append(f"{len(pending)} ordini dal esito incerto")
-            reason = "riconciliazione: " + " e ".join(what)
+                what.append(f"{len(pending)} ordini dall'esito incerto (li cerco di nuovo su Betfair tra 2 minuti)")
+            reason = "riconciliazione: " + "; ".join(what)
             self.store.set("kill_switch", reason)
             self.risk.say(f"KILL SWITCH: {reason}. Controlla 'Le mie scommesse' su betfair.it, poi resetta dal PC.",
-                          "alert", "kill_switch", level="CRITICAL", payload={"unknown": unknown[:10]})
+                          "alert", "kill_switch", level="CRITICAL", payload={"problems": list(problems.values())[:10]})
+        elif problems:
+            self.risk.say(f"Riconciliazione: {len(problems)} discrepanze già segnalate e verificate a mano (kill switch "
+                          "resettato dal PC): non blocco di nuovo.", "ok", "reconcile", level="WARN",
+                          payload={"problems": list(problems.values())[:10]})
         else:
-            self.risk.log(f"Riconciliazione ordini: {len(current)} ordini su Betfair, tutti noti al registro.", "INFO", "reconcile")
+            self.risk.log(f"Riconciliazione ordini: {len(current or [])} ordini su Betfair, tutti noti al registro.",
+                          "INFO", "reconcile")
+        if problems:
+            self._remember_reported(problems)
 
     async def manage_trades_fast(self) -> int:
         """Ciclo veloce per i trade aperti (back→lay): stop e uscite a tempo non possono aspettare 60 secondi."""
@@ -202,31 +337,60 @@ class SportOffice:
         actions = self.cavalli.manage(snap, strategies, trades)
         return self.banco.apply(actions)
 
-    def _sync_live_balance(self) -> None:
-        """In live, ogni 10 cicli: saldo Betfair (disponibile + esposizione) contro il bankroll interno. Se il bot
-        crede di avere più soldi di quelli veri (oltre 1 €), blocca le nuove puntate: meglio fermarsi che puntare
-        su un conto diverso da come lo immagina."""
+    def _sync_live_balance(self, force: bool = False) -> None:
+        """In live, all'avvio e ogni 10 cicli: saldo Betfair (disponibile + esposizione) contro il bankroll interno
+        TOTALE. Se il bot crede di avere più soldi di quelli veri (oltre 1 €), blocca le nuove puntate: meglio
+        fermarsi che puntare su un conto diverso da come lo immagina. Il contrario (sul conto c'è di più, per
+        esempio altri soldi tuoi) è solo un'informazione: il bot continua a usare il suo bankroll."""
         if self.settings.get("mode") != "live" or (self.settings.get("execution") or {}).get("provider") != "betfair":
             return
-        n = (self.store.get("live_sync_counter") or 0) + 1
-        self.store.set("live_sync_counter", n)
-        if n % 10 != 1:
-            return
+        if not force:
+            n = (self.store.get("live_sync_counter") or 0) + 1
+            self.store.set("live_sync_counter", n)
+            if n % 10 != 1:
+                return
         try:
             funds = self.executor.client.account_funds()
         except Exception as exc:
             self.tesoriere.log(f"Saldo Betfair non leggibile ({exc}). Riprovo tra 10 cicli.", "WARN", "live_sync")
             return
         real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
+        total = self.bankroll.total
         self.store.set("live_balance", {"available": funds.get("availableToBetBalance"), "exposure": funds.get("exposure"),
-                                        "total": real, "ts": time.time()})
-        live_open = sum(b["stake"] for b in self.bankroll.open_bets() if b["mode"] == "live")
-        if live_open > real + 1.0:
+                                        "total": real, "bankroll": total, "ts": time.time()})
+        if total > real + 1.0:
             if not self.store.get("kill_switch"):
-                self.store.set("kill_switch", f"saldo Betfair {real:.2f} € inferiore alle puntate reali aperte {live_open:.2f} €")
-                self.risk.say(f"KILL SWITCH: il saldo vero su Betfair ({real:.2f} €) non copre le puntate reali che il bot "
-                              f"crede aperte ({live_open:.2f} €). Controlla il conto dal sito.", "alert", "kill_switch",
-                              level="CRITICAL")
+                self.store.set("kill_switch", f"bankroll interno {total:.2f} € superiore al saldo vero Betfair {real:.2f} €")
+                self.risk.say(f"KILL SWITCH: il bot crede di avere {total:.2f} € ma su Betfair ce ne sono {real:.2f} "
+                              "(disponibile + esposizione). Controlla il conto dal sito, poi resetta dal PC.", "alert",
+                              "kill_switch", level="CRITICAL")
+        elif real > total + 1.0:
+            extra = round(real - total, 2)
+            last = self.store.get("live_balance_extra")
+            if last is None or abs(extra - float(last)) > 1.0:          # si scrive solo quando la differenza cambia
+                self.store.set("live_balance_extra", extra)
+                self.tesoriere.log(f"Sul conto Betfair ci sono {extra:.2f} € in più del bankroll del bot ({real:.2f} € "
+                                   f"contro {total:.2f} €): altri soldi tuoi o vincite non ancora regolate. Solo "
+                                   "un'informazione: il bot punta sul suo bankroll.", "INFO", "live_sync")
+
+    def realign_live_bankroll(self) -> float | None:
+        """Decisione umana (dal PC, dopo aver controllato il conto): se il bankroll interno è più alto del saldo vero,
+        la liquidità interna scende fino a pareggiarlo. Non lo alza mai: i soldi in più sul conto restano fuori.
+        Restituisce il nuovo bankroll, oppure None se il saldo non si legge o non serve."""
+        if self.settings.get("mode") != "live":
+            return None
+        try:
+            funds = self.executor.client.account_funds()
+        except Exception:
+            return None
+        real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
+        if self.bankroll.total <= real:
+            return None
+        before = self.bankroll.total
+        self.bankroll.cash = max(0.0, real - self.bankroll.open_stakes())
+        self.tesoriere.say(f"Bankroll riallineato al saldo vero di Betfair: {before:.2f} € → {self.bankroll.total:.2f} €.",
+                           "ok", "live_sync", level="WARN")
+        return self.bankroll.total
 
     def _live_gate_notice(self, strategies: list[dict]) -> None:
         """In modalità live, scrive (una volta) quali strategie useranno davvero soldi veri e perché le altre no."""
@@ -251,13 +415,23 @@ class SportOffice:
         c.update({"running": False, "ended": time.time(), "next": time.time() + self.settings["cycle_seconds"]})
         self.store.set("cycle", c)
 
+    def startup_checks(self) -> None:
+        """All'avvio, prima del primo ciclo."""
+        if self.store.get("kill_switch") == SHUTDOWN_REASON:
+            # resto di uno spegnimento interrotto (vecchie versioni): non è un kill switch vero, si toglie
+            self.store.set("kill_switch", None)
+            self.direttore.say("Tolto il blocco 'spegnimento richiesto' rimasto da uno spegnimento interrotto.", "ok",
+                               "startup", level="WARN")
+        self.reconcile_live()
+        self._sync_live_balance(force=True)       # in live: bankroll interno contro saldo vero già all'avvio
+
     async def run_forever(self) -> None:
         """Il loop: un ciclo ogni cycle_seconds; tra un ciclo e l'altro, ogni `fast_seconds`, solo la gestione dei
         trade aperti. Un errore non porta mai a puntare "alla cieca"."""
         from . import system
         from .telegram_bot import TelegramCommands
         TelegramCommands(self).start()            # comandi dal telefono: /stato /stop /pausa …
-        self.reconcile_live()
+        self.startup_checks()
         n_open = len(self.bankroll.open_bets())
         self.direttore.say(f"Bet_bot avviato in modalità {self.settings['mode'].upper()}: bankroll "
                            f"{self.bankroll.total:.2f} €, {n_open} posizioni aperte da riprendere.", "ok", "startup",
@@ -284,8 +458,10 @@ class SportOffice:
                     self.cavalli.log(f"Gestione veloce dei trade: errore {exc}", "WARN", "error")
 
     async def shutdown(self, timeout_s: float = 120.0) -> None:
-        """Spegnimento ordinato: niente nuove puntate, trade aperti chiusi (urgenti), poi uscita."""
-        self.store.set("kill_switch", self.store.get("kill_switch") or "spegnimento richiesto")
+        """Spegnimento ordinato: niente nuove puntate, trade aperti chiusi (urgenti), poi uscita.
+        Il blocco delle nuove puntate è un flag in memoria, non il kill switch: se lo spegnimento viene interrotto
+        (taskkill, finestra chiusa, PC spento) al riavvio non resta nessun blocco permanente."""
+        self.shutting_down = True
         self.direttore.say("Spegnimento richiesto: nessuna nuova puntata, chiudo i trade aperti.", "alert", "shutdown",
                            level="WARN")
         end = time.monotonic() + timeout_s
@@ -303,7 +479,6 @@ class SportOffice:
             except Exception:
                 pass
             await asyncio.sleep(3)
-        self.store.set("kill_switch", None if self.store.get("kill_switch") == "spegnimento richiesto" else self.store.get("kill_switch"))
         left = len(self.bankroll.open_bets())
         self.direttore.say(f"Bet_bot spento. Posizioni ancora aperte: {left} (si riprendono al prossimo avvio).",
                            "idle", "shutdown", level="WARN")

@@ -514,7 +514,7 @@ class BetfairFeed(Feed):
                                 "home": home.strip(), "away": away.strip(), "kickoff": start.isoformat(),
                                 "status": "FINISHED" if closed else "LIVE" if live else "SCHEDULED",
                                 "minute": None, "home_score": None, "away_score": None,
-                                # a mercato chiuso l'esito lo dice Betfair: il runner WINNER (None = mercato annullato)
+                                # a mercato chiuso l'esito lo dice Betfair: il runner WINNER (annullato: vedi `void`)
                                 "result": result if closed else None, "void": void,
                                 # "books" restano vuoti: le quote di riferimento arrivano da un'altra fonte (feed.reference)
                                 "books": {}, "live_books": {},

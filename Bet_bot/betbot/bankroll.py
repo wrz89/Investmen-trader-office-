@@ -16,11 +16,14 @@ def today() -> str:
 
 
 class Bankroll:
-    def __init__(self, store: Store, initial_capital: float):
+    def __init__(self, store: Store, initial_capital: float, allow_reset: bool = True):
+        """allow_reset: se il capitale iniziale cambia e non c'è ancora nessuna puntata, si riparte da quello nuovo
+        (paper). In live è False salvo quando il valore arriva dal saldo vero di Betfair: il bankroll dei soldi veri
+        non torna mai a capital.initial."""
         self.store = store
         untouched = not store.query("SELECT 1 FROM bets WHERE mode!='shadow' LIMIT 1")
         changed = store.get("initial_capital") not in (None, float(initial_capital))
-        if store.get("cash") is None or (changed and untouched):
+        if store.get("cash") is None or (allow_reset and changed and untouched):
             store.set("cash", float(initial_capital))
             store.set("initial_capital", float(initial_capital))
             store.set("peak_bankroll", float(initial_capital))
