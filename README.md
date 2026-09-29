@@ -22,6 +22,8 @@ Nessun LLM sta nel percorso che porta a un ordine: tutte le decisioni sono regol
 3. Esegui un doppio clic su **`ricerca.bat`**: scarica circa 3 anni di storico da Bybit e valida le strategie.
 4. Esegui un doppio clic su **`avvia_ufficio.bat`**: l'ufficio parte e si apre la dashboard su `http://localhost:8765`.
 
+Per aggiornare il programma in seguito: doppio clic su **`aggiorna.bat`**. Scarica l'ultima versione da GitHub e sostituisce solo il codice: i tuoi dati in `runtime/` e l'installazione in `.venv/` restano intatti.
+
 Da terminale, gli stessi comandi sono:
 
 ```
