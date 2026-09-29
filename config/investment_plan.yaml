@@ -13,10 +13,10 @@ monthly: 70
 # Come lavorano i soldi dentro Bybit. Le quote sono il MASSIMO investito:
 # quando le strategie non hanno segnali, il capitale resta in USDC.
 sleeves:
-  - name: Accumulo automatico · BTC 60% · ETH 30% · SOL 10%
+  - name: Accumulo · nucleo 70% (BTC 49%, ETH 21%) · rischio 30% (SOL 15%, XRP 15%)
     status: paper                 # scelta C del 29/09/2026 · primo acquisto paper dal 5 ottobre 2026
     max_share: 1.00
-    note: "70 € al mese dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), prima alle monete sotto quota, strada più economica (diretta o via USDC). Nessuna promessa di vantaggio: è una scelta di lungo periodo sulle crypto. Mai vendite automatiche"
+    note: "70 € al mese dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), prima alle monete sotto quota, strada più economica. Con soldi veri, da subito: Acquisto ricorrente di Bybit EU pagato con il saldo in euro. Nessuna promessa di vantaggio. Mai vendite automatiche"
   - name: Motore trend (STRATEGY_01_v5)
     status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
     max_share: 0.0
@@ -41,7 +41,7 @@ you_do:
   - Impostare in banca un bonifico periodico di 70 € verso Bybit (una volta sola)
   - Dichiarazione dei redditi (l'Auditor ti prepara il riepilogo annuale)
 office_does:
-  - Ogni mese investe 70 € in BTC, ETH e SOL secondo le quote, scegliendo la strada più economica
+  - Ogni mese investe 70 € in BTC, ETH, SOL e XRP secondo le quote (in paper, per confronto con l'Acquisto ricorrente di Bybit)
   - Rimanda l'acquisto (mai lo salta) con dati anomali, spread alto o allarmi di Nora
   - Segue in ombra, senza soldi, le strategie promettenti per raccogliere prove
   - Usa strategie di trading solo se superano la verifica con i costi reali
@@ -50,16 +50,19 @@ office_does:
 phases:
   - when: 29/09/2026
     what: "Verificate con i costi reali: v5 e BTC di lungo periodo non superano tutti i criteri. Nessuna strategia approvata"
+  - when: questi giorni
+    what: "Soldi veri con l'Acquisto ricorrente di Bybit EU: KYC, bonifico SEPA, piano pagato con il SALDO EUR (non con la carta). 105 € al mese fino a gennaio, poi 70 €"
   - when: 5 ottobre e 5 novembre 2026
-    what: "Primi due mesi di accumulo in paper (deposito simulato, prezzi veri). I 70 € restano sul tuo conto"
+    what: "L'ufficio fa gli stessi acquisti in paper, con ordini limite: confronto dei costi con l'Acquisto ricorrente"
   - when: dicembre 2026
-    what: "Se i due acquisti sono andati bene: attivazione dei soldi veri per l'accumulo (chiavi API solo trading, bonifico periodico). Decisione tua"
+    what: "Se l'ufficio ha funzionato: puoi passare all'esecuzione dell'ufficio (commissione 0,10% invece di 0,25%). Decisione tua"
   - when: ottobre 2027
     what: "Revisione della strategia BTC di lungo periodo dopo 12 mesi in ombra: se supera, potrà decidere quando stare fuori da BTC"
 
 risks:
-  - "Accumulo: nei crolli il valore scende e il piano continua a comprare, non esce da solo. Cadute storiche dal massimo: BTC -77%, ETH -94%, SOL -96%"
-  - "BTC, ETH e SOL si muovono quasi sempre insieme (correlazione ~0,8): la diversificazione tra crypto riduce poco il rischio, aumenta il potenziale e le oscillazioni"
+  - "Accumulo: nei crolli il valore scende e il piano continua a comprare, non esce da solo. Cadute storiche dal massimo: BTC -77%, ETH -94%, SOL -96%, XRP -97%"
+  - "La parte a rischio (30%: SOL e XRP) può perdere quasi tutto in un mercato ribassista; in cambio può salire più di BTC nelle fasi di euforia. Nessun vantaggio dimostrato"
+  - "BTC, ETH, SOL e XRP si muovono quasi sempre insieme (correlazione ~0,8): la diversificazione tra crypto riduce poco il rischio, aumenta il potenziale e le oscillazioni"
   - "Tutto su crypto: su Bybit EU non ci sono azioni in formato digitale (xStocks) né oro (XAUT, PAXG), verificato il 29/09/2026"
   - "Le proiezioni usano rendimenti costanti: BTC ha oscillazioni molto più ampie, gli scenari servono solo come ordine di grandezza"
   - "Rischio piattaforma: se Bybit ha problemi, i soldi sono lì (il kill switch non protegge da questo)"

@@ -9,10 +9,16 @@
 enabled: true
 # Quote obiettivo del portafoglio accumulato. Coppie in euro: una sola commissione
 # (la strada via USDC si usa solo se costa meno, commissioni comprese).
+# 29/09/2026, scelta dell'utente: 70% NUCLEO (BTC, ETH) + 30% PARTE PIÙ RISCHIOSA
+# (SOL, XRP: più volatili, già seguite da Sofia e Nora). Sempre a pronti, niente leva.
 allocation:
-  BTC/EUR: 0.60
-  ETH/EUR: 0.30
-  SOL/EUR: 0.10
+  BTC/EUR: 0.49          # nucleo 70% → BTC 70%
+  ETH/EUR: 0.21          # nucleo 70% → ETH 30%
+  SOL/EUR: 0.15          # rischio 30% → SOL 50%
+  XRP/EUR: 0.15          # rischio 30% → XRP 50%
+groups:
+  nucleo: [BTC/EUR, ETH/EUR]
+  rischio: [SOL/EUR, XRP/EUR]
 # Ribilanciamento SOLO con i nuovi acquisti: ogni mese l'importo va prima agli asset
 # sotto la loro quota. Mai vendite (niente commissioni e niente tasse in più).
 min_leg_eur: 5           # sotto questa cifra la quota del mese passa all'asset più sotto peso

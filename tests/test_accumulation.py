@@ -60,6 +60,7 @@ def office_(tmp_path, monkeypatch):
     o.accumulation.cfg["start_month"] = datetime.now().strftime("%Y-%m")
     o.accumulation.cfg["day_of_month"] = 1
     o.accumulation.cfg["execution"] = {"order_type": "market"}
+    o.accumulation.cfg["allocation"] = dict(T)          # i test non dipendono dalle quote scelte nel config
     return o
 
 

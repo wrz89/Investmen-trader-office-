@@ -271,8 +271,10 @@ class Accumulation:
             total_value += val or 0.0
             assets.append({"symbol": sym, "target": w, "qty": h["qty"], "eur_in": h["eur"], "value": val,
                            "price": prices.get(sym)})
+        cfg_groups = self.cfg.get("groups") or {}
         for a in assets:
             a["weight"] = (a["value"] or 0) / total_value if total_value else None
+            a["group"] = next((g for g, syms in cfg_groups.items() if a["symbol"] in syms), None)
         gaps = self.store.query("SELECT gap_bps, best FROM route_gaps ORDER BY id DESC LIMIT 3000")
         cfg = self.cfg
         eur_in = sum(r["eur"] for r in rows)
