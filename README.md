@@ -24,6 +24,14 @@ Nessun LLM sta nel percorso che porta a un ordine: tutte le decisioni sono regol
 
 Per aggiornare il programma in seguito: doppio clic su **`aggiorna.bat`**. Scarica l'ultima versione da GitHub e sostituisce solo il codice: i tuoi dati in `runtime/` e l'installazione in `.venv/` restano intatti.
 
+Se il repository è **privato**, `aggiorna.bat` ha bisogno di un token di sola lettura:
+
+1. GitHub → foto profilo → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
+2. *Repository access*: **Only select repositories** → questo repository. *Permissions → Repository permissions → Contents*: **Read-only**. Scadenza a piacere.
+3. Copia il token e salvalo, con il Blocco note, nel file `runtime\github_token.txt` (solo il token, nient'altro).
+
+Il token resta sul tuo PC (la cartella `runtime` non va mai su GitHub) e permette solo di leggere questo repository.
+
 Da terminale, gli stessi comandi sono:
 
 ```
