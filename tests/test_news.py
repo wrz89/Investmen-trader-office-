@@ -60,3 +60,31 @@ def test_news_block_stops_new_entries(tmp_path, monkeypatch):
     assert news_check()["ok"]                       # l'allarme su ETH non ferma BTC
     office_.store.set("news_blocks", {"BTC": {"until": time.time() - 1, "reason": "scaduto"}})
     assert news_check()["ok"]                       # i blocchi scaduti non contano
+
+
+def test_cost_audit_can_only_downgrade(tmp_path, monkeypatch):
+    monkeypatch.setenv("OFFICE_RUNTIME_DIR", str(tmp_path))
+    import importlib
+    import json
+    from types import SimpleNamespace
+    import office.config
+    importlib.reload(office.config)
+    import office.registry as registry
+    importlib.reload(registry)
+    import office.agents.portfolio_manager as pm_mod
+    importlib.reload(pm_mod)
+    import office.core
+    importlib.reload(office.core)
+    office_ = office.core.Office(connect_market=False)
+    per_side = office.backtest.CostModel.from_settings(office_.settings).per_side
+    sid = "STRATEGY_98_v1"
+    office.config.REGISTRY_DIR.mkdir(parents=True, exist_ok=True)
+    (office.config.REGISTRY_DIR / f"{sid}.validation.json").write_text(json.dumps(
+        {"verdict": "PASSED", "costs": {"per_side": per_side / 2}}))
+    entries = [{"module": SimpleNamespace(STRATEGY_ID=sid), "registry": {"status": "ok"}}]
+    [st] = office_.pm.authorize(entries)
+    assert st["status"] == "PAPER"                      # in attesa della verifica: il paper non rischia soldi
+    registry.save_cost_audit(sid, per_side, {"verdict": "REJECTED"})
+    [st] = office_.pm.authorize(entries)
+    assert st["status"] == "REJECTED"
+    assert registry.is_audit_file(next(office.config.REGISTRY_DIR.glob("*.costaudit-*.json")))

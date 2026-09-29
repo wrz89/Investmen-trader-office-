@@ -654,6 +654,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </div>`;
   }
 
+  function auditBlock(a, v) {
+    const old = v?.costs?.per_side;
+    if (a.verdict === "PENDING") return `<div class="shadow-box"><div class="row"><span class="eyebrow">Verifica con i costi reali</span><span class="tag warn">in attesa</span></div><p>Le commissioni reali sono più alte di quelle usate nella validazione (${pct(old, 2)} per lato). Lancia <span class="num">ricerca.bat</span> per riverificarla: può solo bocciarla, mai promuoverla.</p></div>`;
+    const m = a.metrics || {}, ok = a.verdict === "PASSED";
+    return `<div class="shadow-box"><div class="row"><span class="eyebrow">Verifica con i costi reali · ${pct(a.costs?.per_side, 2)} per lato (prima ${pct(old, 2)})</span><span class="tag ${ok ? "ok" : "bad"}">${ok ? "superata" : "non superata"}</span></div>
+      <div class="metrics"><div class="metric"><small>Trade fuori campione</small><b>${m.trades}</b></div>
+      <div class="metric"><small>Profit factor netto</small><b class="${m.profit_factor >= 1 ? "pos" : "neg"}">${fmt(m.profit_factor)}</b></div>
+      <div class="metric"><small>Netto medio / trade</small><b class="${m.expectancy_net >= 0 ? "pos" : "neg"}">${spct(m.expectancy_net)}</b></div>
+      <div class="metric"><small>Criteri superati</small><b>${(a.checks || []).filter((c) => c.passed).length} / ${(a.checks || []).length}</b></div></div>
+      ${ok ? "" : `<p>Non superati: ${esc((a.checks || []).filter((c) => !c.passed).map((c) => c.label).join(", "))}. La strategia non opera più.</p>`}</div>`;
+  }
+
   function renderBoard() {
     const board = $("#board");
     const passed = S.strategies.filter((s) => s.validation?.verdict === "PASSED").length;
@@ -667,6 +679,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <span class="pill ${STATUS_CLASS[s.status] || "st-idle"}">${esc(STATUS_LABEL[s.status] || s.status)}</span></div>
         <p>${esc(s.description)}</p>
         ${s.shadow ? shadowBlock(s.shadow) : ""}
+        ${s.cost_audit ? auditBlock(s.cost_audit, v) : ""}
         ${v ? `<div class="metrics">
           <div class="metric"><small>Trade fuori campione</small><b>${m.trades}</b></div>
           <div class="metric"><small>Profit factor netto</small><b class="${m.profit_factor >= 1 ? "pos" : "neg"}">${fmt(m.profit_factor)}</b></div>
@@ -675,7 +688,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
         </div>
         <div><div class="row"><span class="eyebrow">Equity fuori campione (${v.sizing === "risk_based" ? "size reale" : `allocazione ${pct(v.alloc ?? S.limits?.max_exposure_per_asset, 0)}`})</span><span class="num">${spct((v.equity_oos?.at(-1) ?? 1) - 1)}</span></div>${curve(v.equity_oos)}</div>
         <div class="checks">${v.checks.map((c) => `<div class="check ${c.passed ? "pass" : "fail"}"><span class="mk">${c.passed ? "✔" : "✘"}</span><span>${esc(c.label)}</span><span>${checkValue(c)}</span></div>`).join("")}</div>
-        <p>${v.verdict === "PASSED" ? "Tutti i criteri superati: autorizzata al paper trading." : `${failed} criteri su ${v.checks.length} non superati. ${esc(v.holdout?.note || "")}`} Dati: ${esc(v.data_source)} · ${esc(v.timeframe)} · ${v.n_trials_total} combinazioni di parametri testate in totale.</p>`
+        <p>${v.verdict === "PASSED" ? (s.cost_audit && !["PASSED", "PENDING"].includes(s.cost_audit.verdict) ? `Validazione originale (costi ${pct(v.costs?.per_side, 2)} per lato): criteri superati, ma conta la verifica con i costi reali qui sopra.` : "Tutti i criteri superati: autorizzata al paper trading.") : `${failed} criteri su ${v.checks.length} non superati. ${esc(v.holdout?.note || "")}`} Dati: ${esc(v.data_source)} · ${esc(v.timeframe)} · ${v.n_trials_total} combinazioni di parametri testate in totale.</p>`
         : `<p>In attesa di validazione: lancia <span class="num">python ufficio.py ricerca</span>.</p>`}
       </article>`;
     }).join("") || `<div class="card"><p>Nessuna strategia registrata. Lancia <span class="num">python ufficio.py ricerca</span>.</p></div>`;
@@ -683,7 +696,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     $("#backlog").innerHTML = (res?.stats?.backlog || []).map((b) => `<li>${esc(b.idea)}</li>`).join("") || `<li>Nessuna idea in coda.</li>`;
   }
 
-  const ST_TAG = { paper: "ok", "da validare": "warn", "da costruire": "warn", "in osservazione": "", rinviato: "", live: "ok" };
+  const ST_TAG = { bocciata: "bad", paper: "ok", "da validare": "warn", "da costruire": "warn", "in osservazione": "", rinviato: "", live: "ok" };
   function renderPlan() {
     const P = S.plan;
     const sec = $("#plan-sec");

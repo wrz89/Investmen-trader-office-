@@ -14,13 +14,13 @@ monthly: 50
 # quando le strategie non hanno segnali, il capitale resta in USDC.
 sleeves:
   - name: Motore trend (STRATEGY_01_v5)
-    status: paper                 # validata, in paper dal 28/09/2026
-    max_share: 0.50               # esposizione massima totale (Risk Manager)
-    note: BTC, ETH, XRP, SOL · rischio 0,35% per trade · in media ~8% investito
+    status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
+    max_share: 0.0
+    note: "Con le commissioni reali resta in utile (PF 2,27) ma lo Sharpe scende a 0,96, sotto la soglia 1,0 fissata prima dei test. Le soglie non si abbassano dopo aver visto i risultati"
   - name: BTC con filtro di trend 200 giorni
     status: da validare           # pre-registrazione, poi walk-forward + hold-out
     max_share: 0.30
-    note: compra BTC solo sopra la media a 200 giorni, altrimenti USDC
+    note: "compra BTC solo sopra la media a 200 giorni, altrimenti USDC. Pochi scambi l'anno: le commissioni pesano poco"
   - name: Tesoriere · USDC in Earn flessibile
     status: rinviato              # verificato il 29/09/2026 sull'app Bybit EU
     max_share: 0.0
@@ -45,7 +45,7 @@ office_does:
 # Tempi (onesti): il capitale reale arriva solo dopo i criteri di promozione
 phases:
   - when: ottobre 2026 → promozione
-    what: Paper trading. I 50 €/mese restano sul tuo conto corrente, da parte.
+    what: "Nessuna strategia attiva con i costi reali: l'ufficio osserva e non opera. I 50 €/mese restano sul tuo conto corrente, da parte."
   - when: ottobre–dicembre 2026
     what: Validazione BTC trend 200 giorni (regole fissate prima del test)
   - when: "stima: primavera 2027"
@@ -59,6 +59,7 @@ risks:
   - "USDC è una stablecoin: rischio basso ma non zero di perdere la parità col dollaro"
   - "Cambio EUR/USD: il conto è in dollari digitali"
   - "Tasse: plusvalenze crypto al 33% dal 2026, da dichiarare"
+  - "Commissioni Bybit EU 0,25% per ordine a mercato: le strategie con molti scambi faticano a coprirle"
 
 # Proiezione a 10 anni con 200 € + 50 €/mese (6.200 € versati). Lordo tasse.
 projection:

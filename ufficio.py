@@ -77,10 +77,15 @@ def main() -> None:
         if not results:
             from office import registry, strategies
             print("Nessuna nuova strategia da validare. Esiti gia' registrati:")
+            from office.backtest import CostModel
+            per_side = CostModel.from_settings(load_settings()).per_side
             results = [v for m in strategies.discover() if (v := registry.load_validation(m.STRATEGY_ID))]
+            results += [a for m in strategies.discover() if (a := registry.load_cost_audit(m.STRATEGY_ID, per_side))]
         for r in results:
             m = r["metrics"]
-            print(f"\n{r['strategy_id']}: {r['verdict']}  (dati {r.get('data_source')}, {r.get('timeframe')})")
+            label = " · VERIFICA COSTI REALI" if r.get("audit_of") else ""
+            print(f"\n{r['strategy_id']}{label}: {r['verdict']}  (dati {r.get('data_source')}, {r.get('timeframe')}, "
+                  f"costi {r['costs']['per_side'] * 100:.2f}% per lato)")
             print(f"  trade OOS {m['trades']} | PF {m['profit_factor']:.2f} | Sharpe {m['sharpe_annual']:.2f} | "
                   f"win {m['win_rate']:.0%} | netto medio {m['expectancy_net'] * 100:+.3f}%")
             for c in r["checks"]:

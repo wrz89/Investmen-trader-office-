@@ -8,6 +8,7 @@ from __future__ import annotations
 import numpy as np
 
 from .. import registry
+from ..backtest import CostModel
 from ..validation import profit_factor
 from .base import Agent
 
@@ -23,12 +24,13 @@ class PortfolioManager(Agent):
     def authorize(self, entries: list[dict]) -> list[dict]:
         out = []
         retired = self.office.retired
+        per_side = CostModel.from_settings(self.settings).per_side
         # di ogni strategia (STRATEGY_01, ...) opera solo l'ultima versione approvata
         latest_passed: dict[str, int] = {}
         for e in entries:
             sid = e["module"].STRATEGY_ID
             v = registry.load_validation(sid)
-            if v and v["verdict"] == "PASSED" and sid not in retired:
+            if v and v["verdict"] == "PASSED" and sid not in retired and not registry.cost_blocked(sid, v, per_side):
                 base, ver = _split(sid)
                 latest_passed[base] = max(latest_passed.get(base, 0), ver)
         for e in entries:
@@ -46,10 +48,15 @@ class PortfolioManager(Agent):
                 new, reason = "RESEARCH", "in attesa di validazione"
             elif validation["verdict"] == "REJECTED":
                 new, reason = "REJECTED", "validazione fuori campione non superata"
+            elif registry.cost_blocked(sid, validation, per_side):
+                new, reason = "REJECTED", (f"non supera la verifica con i costi reali "
+                                           f"({per_side * 100:.2f}% per lato)")
             elif current in ("SUSPENDED", "BLOCKED"):
                 new, reason = current, "sospesa: riattivazione solo manuale"
             elif ver < latest_passed.get(base, 0):
                 new, reason = "SUPERSEDED", f"sostituita da {base}_v{latest_passed[base]}"
+            elif registry.needs_cost_audit(validation, per_side) and not registry.load_cost_audit(sid, per_side):
+                new, reason = "PAPER", "validata; verifica con i costi reali in attesa (lancia ricerca)"
             else:
                 new, reason = "PAPER", "validata: autorizzata al paper trading"
             if new != current:

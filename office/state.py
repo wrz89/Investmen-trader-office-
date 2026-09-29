@@ -6,6 +6,7 @@ import time
 
 from . import registry
 from .config import REGISTRY_DIR, load_settings, load_yaml
+from .backtest import CostModel
 from .shadow import ShadowBook
 from .store import Store
 
@@ -23,17 +24,23 @@ def build_state(store: Store) -> dict:
         e["payload"] = _j(e["payload"])
 
     statuses = {r["strategy_id"]: r for r in store.query("SELECT * FROM strategy_status")}
+    per_side = CostModel.from_settings(load_settings()).per_side
     strategies = []
     for path in sorted(REGISTRY_DIR.glob("*.json")):
-        if path.name.endswith(".validation.json"):
+        if path.name.endswith(".validation.json") or registry.is_audit_file(path):
             continue
         d = json.loads(path.read_text(encoding="utf-8"))
         v = registry.load_validation(d["strategy_id"])
+        audit = None
+        if v and registry.needs_cost_audit(v, per_side):
+            audit = registry.load_cost_audit(d["strategy_id"], per_side) or {"verdict": "PENDING"}
+            audit = {k: audit.get(k) for k in ("verdict", "metrics", "checks", "costs", "audited_at")}
         st = statuses.get(d["strategy_id"], {})
         strategies.append({
             **d,
             "status": st.get("status", "RESEARCH"),
             "status_reason": st.get("reason"),
+            "cost_audit": audit,
             "validation": None if v is None else {
                 k: v.get(k) for k in ("verdict", "checks", "metrics", "chosen_params", "windows",
                                       "holdout", "equity_oos", "data_source", "timeframe",

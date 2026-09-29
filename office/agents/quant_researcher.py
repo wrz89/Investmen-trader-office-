@@ -32,9 +32,11 @@ class QuantResearcher(Agent):
         self.extra_trials = sum(len(param_combinations(e["module"].PARAM_GRID)) for e in entries
                                 if e["module"].STRATEGY_ID in retired
                                 and registry.load_validation(e["module"].STRATEGY_ID) is None)
+        results = self._cost_audits(entries, history_exchange)
         if not pending:
-            self.say("Nessuna nuova versione da validare.", "idle", "research")
-            return []
+            if not results:
+                self.say("Nessuna nuova versione da validare.", "idle", "research")
+            return results
 
         md = MarketData(history_exchange, s["exchange"].get("options") if history_exchange == s["exchange"]["history"]
                         else None, timeout_ms=30000)
@@ -47,7 +49,6 @@ class QuantResearcher(Agent):
         for e in pending:
             by_tf.setdefault(timeframe_of(e["module"], s["timeframe"]), []).append(e)
 
-        results = []
         for tf, group in by_tf.items():
             self.say(f"Scarico {s['research']['history_days']} giorni di storico {tf} da {history_exchange}…",
                      "working", "research")
@@ -77,6 +78,65 @@ class QuantResearcher(Agent):
         self.status("ok" if passed else "idle",
                     f"Validazione completata: {passed}/{len(results)} strategie approvate per il paper trading.")
         return results
+
+    def _datasets(self, md, tf: str) -> dict | None:
+        s = self.settings
+        datasets = {}
+        for symbol in s["universe"]:
+            hist_symbol = (s["research"].get("history_symbols") or {}).get(symbol, symbol)
+            try:
+                datasets[symbol] = md.history(hist_symbol, tf, s["research"]["history_days"])
+            except DataError as exc:
+                self.say(f"Storico {symbol} {tf} non disponibile: {exc}", "alert", "error", level="ERROR")
+                return None
+            if len(datasets[symbol]) < 1000:
+                self.say(f"Storico {symbol} {tf} insufficiente: verifica rinviata.", "alert", "error", level="ERROR")
+                return None
+        return datasets
+
+    def _cost_audits(self, entries: list[dict], history_exchange: str) -> list[dict]:
+        """Riverifica con i costi ATTUALI le strategie approvate con costi più bassi.
+
+        Stessa procedura e stesso numero di tentativi della validazione originale:
+        cambia solo il costo. L'esito può solo bocciare, mai promuovere."""
+        s = self.settings
+        costs = CostModel.from_settings(s)
+        todo = []
+        for e in entries:
+            sid = e["module"].STRATEGY_ID
+            v = registry.load_validation(sid)
+            if (v and v["verdict"] == "PASSED" and sid not in self.office.retired
+                    and registry.needs_cost_audit(v, costs.per_side)
+                    and registry.load_cost_audit(sid, costs.per_side) is None):
+                todo.append((e["module"], v))
+        if not todo:
+            return []
+        md = MarketData(history_exchange, s["exchange"].get("options") if history_exchange == s["exchange"]["history"]
+                        else None, timeout_ms=30000)
+        out, cache = [], {}
+        for module, v in todo:
+            tf = v.get("timeframe") or timeframe_of(module, s["timeframe"])
+            if tf not in cache:
+                self.say(f"Costi cambiati: riverifico le strategie approvate con {costs.per_side * 100:.2f}% per lato "
+                         f"(prima {v['costs']['per_side'] * 100:.2f}%).", "working", "research")
+                cache[tf] = self._datasets(md, tf)
+            if cache[tf] is None:
+                continue
+            self.status("working", f"Verifica costi reali su {module.STRATEGY_ID}…")
+            r = validate(module, cache[tf], costs, self.office.gates, s["research"],
+                         self.office.risk.limits["max_exposure_per_asset"], v["n_trials_total"], tf,
+                         self.office.risk.limits["risk_per_trade"], None)
+            r.update({"strategy_id": module.STRATEGY_ID, "data_source": history_exchange, "timeframe": tf,
+                      "audit_of": "validation", "validated_costs": v["costs"],
+                      "audited_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            registry.save_cost_audit(module.STRATEGY_ID, costs.per_side, r)
+            m = r["metrics"]
+            self.say(f"{module.STRATEGY_ID} con i costi reali: {r['verdict']} — {m['trades']} trade OOS, "
+                     f"PF {m['profit_factor']:.2f}, netto medio {m['expectancy_net'] * 100:+.2f}%/trade",
+                     "ok" if r["verdict"] == "PASSED" else "blocked", "validation",
+                     payload={"strategy_id": module.STRATEGY_ID, "verdict": r["verdict"], "cost_audit": True})
+            out.append(r)
+        return out
 
     def _diversification(self, module, datasets, costs, tf, alloc):
         """Per le strategie diversificanti: confronto con la strategia di riferimento sugli stessi mesi."""

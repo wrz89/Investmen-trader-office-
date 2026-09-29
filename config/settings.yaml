@@ -38,8 +38,12 @@ timeframe: 1h          # timeframe predefinito; una strategia può dichiararne u
 
 # Modello di costo usato in backtest e nelle stime dello Scanner.
 # Verifica le TUE commissioni reali nella pagina fee dell'exchange.
+# 29/09/2026: Bybit EU, utente non VIP, TUTTE le coppie spot = maker 0,10%,
+# taker 0,25% (help center Bybit EU e schermata dell'app). L'ufficio usa
+# ordini a mercato, quindi paga il taker. Le strategie validate con costi
+# più bassi vengono riverificate da "ricerca" (verifica costi reali).
 costs:
-  taker_fee: 0.0010     # 0,10% per lato (Bybit spot, livello base)
+  taker_fee: 0.0025     # 0,25% per lato (Bybit EU spot, non VIP)
   maker_fee: 0.0010
   slippage_bps: 3       # slippage extra stimato, in punti base (0,03%)
   default_spread_bps: 6 # usato in backtest; misurato su Bybit EUR: 4-7 bp (28/09/2026)

@@ -58,6 +58,38 @@ def save_validation(strategy_id: str, result: dict) -> None:
         json.dump(result, fh, indent=2, ensure_ascii=False, default=str)
 
 
+def _audit_tag(per_side: float) -> str:
+    return f".costaudit-{round(per_side * 10_000)}bp"
+
+
+def is_audit_file(path: Path) -> bool:
+    return ".costaudit-" in path.name
+
+
+def needs_cost_audit(validation: dict, per_side: float) -> bool:
+    """La validazione è stata fatta con costi più bassi di quelli attuali?"""
+    return validation["costs"]["per_side"] < per_side - 1e-9
+
+
+def load_cost_audit(strategy_id: str, per_side: float) -> dict | None:
+    path = _path(strategy_id, _audit_tag(per_side))
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def save_cost_audit(strategy_id: str, per_side: float, result: dict) -> None:
+    """Riverifica con i costi reali: file separato, scritto UNA volta. La validazione originale resta intatta."""
+    with open(_path(strategy_id, _audit_tag(per_side)), "x", encoding="utf-8") as fh:
+        json.dump(result, fh, indent=2, ensure_ascii=False, default=str)
+
+
+def cost_blocked(strategy_id: str, validation: dict | None, per_side: float) -> dict | None:
+    """Esito della verifica costi se ha BOCCIATO la strategia (può solo bocciare, mai promuovere)."""
+    if not validation or not needs_cost_audit(validation, per_side):
+        return None
+    audit = load_cost_audit(strategy_id, per_side)
+    return audit if audit and audit["verdict"] != "PASSED" else None
+
+
 def total_trials() -> int:
     """Numero di combinazioni di parametri testate finora su TUTTE le versioni
     validate: serve alla correzione per i test multipli."""
