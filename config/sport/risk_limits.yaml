@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────
+#  LIMITI DEL RISK MANAGER — potere di veto assoluto
+#  File sigillato all'avvio (SHA-256): se cambia a ufficio acceso,
+#  ogni nuova scommessa viene bloccata.
+# ─────────────────────────────────────────────────────────────
+
+# ── Sizing (micro-puntate) ────────────────────────────────────
+# Kelly frazionario: puntata = kelly_fraction × Kelly pieno, mai oltre max_stake_pct.
+sizing: kelly            # kelly | flat
+kelly_fraction: 0.25     # 1/4 Kelly: sopravvive alla varianza, rende ~75% del compounding ottimo
+max_stake_pct: 0.02      # tetto: 2% del bankroll per singola puntata
+flat_stake_pct: 0.01     # usato se sizing = flat
+min_stake: 0.50          # puntata minima accettata dal bookmaker (EUR)
+
+# ── Reinvestimento ────────────────────────────────────────────
+# 1.0 = si punta in % del bankroll intero (capitale + profitti): compounding pieno.
+# 0.5 = solo metà dei profitti accumulati rientra nella base di calcolo.
+reinvest_fraction: 1.0
+# Sotto questo livello del capitale iniziale la base torna al solo capitale
+# iniziale (niente "inseguimento" delle perdite).
+floor_pct_of_initial: 0.90
+
+# ── Esposizione ───────────────────────────────────────────────
+max_open_exposure_pct: 0.10   # somma delle puntate aperte ≤ 10% del bankroll
+max_open_bets: 8
+max_bets_per_day: 25          # scommesse sportive (S01–S03) al giorno
+max_exchange_trades_per_day: 40   # operazioni di trading cavalli (entrata+uscita prima del via)
+max_exposure_per_match_pct: 0.03
+max_same_league_open: 4
+
+# ── Qualità della quota ───────────────────────────────────────
+min_bookmakers: 3            # quote da almeno 3 bookmaker per stimare la probabilità "giusta"
+max_odds_age_seconds: 180    # quote più vecchie → dati non affidabili → nessuna puntata
+min_edge: 0.015              # vantaggio minimo: prob_giusta × quota − 1 ≥ 1,5%
+max_odds_dispersion: 0.06    # se i bookmaker sono troppo in disaccordo, la partita è "sporca"
+
+# ── Circuit breaker ───────────────────────────────────────────
+max_daily_loss: 0.03         # −3% nel giorno → stop fino al giorno dopo
+max_drawdown: 0.12           # −12% dal massimo → KILL SWITCH (reset solo manuale)
+max_losing_streak: 6         # 6 perdite consecutive → pausa di cooldown_minutes
+cooldown_minutes: 120
+
+# ── Sentiment (Giorgia) ───────────────────────────────────────
+# Il sentiment può SOLO frenare: blocca o riduce, mai aumenta una puntata.
+sentiment_caution_stake_factor: 0.5   # notizia da confermare → puntata dimezzata

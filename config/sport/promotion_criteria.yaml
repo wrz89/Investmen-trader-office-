@@ -1,0 +1,9 @@
+# Criteri per passare dal paper al capitale reale. Decisione SOLO umana.
+paper_days_min: 60
+bets_min: 300
+roi_min: 0.02            # ROI sul puntato ≥ 2%
+clv_min: 0.01            # Closing Line Value medio ≥ +1%: la prova che le quote prese battono la chiusura
+max_drawdown_max: 0.12
+win_rate_note: >
+  Il win rate da solo NON è un criterio: a quota 1,25 servono già 80 vittorie su 100
+  solo per andare in pari. Contano ROI, CLV e drawdown.

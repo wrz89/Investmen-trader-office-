@@ -1,0 +1,48 @@
+# ─────────────────────────────────────────────────────────────
+#  GIORGIA · ANALISTA SENTIMENT — fonti, parole chiave, sensibilità
+#  Regola d'oro: il sentiment può solo FRENARE (bloccare o dimezzare una
+#  puntata). Non crea puntate e non le ingrandisce mai.
+# ─────────────────────────────────────────────────────────────
+
+# 1) SENTIMENT DI MERCATO (movimento delle quote) — il segnale più affidabile:
+#    se la probabilità implicita della nostra selezione sta scendendo, qualcuno
+#    informato sta puntando contro.
+market:
+  lookback_minutes: 90        # confronto con le quote di 90 minuti fa (pre-partita)
+  min_points: 2               # servono almeno 2 rilevazioni nel periodo
+  caution_drop: 0.03          # probabilità scesa del 3% (relativo) → puntata dimezzata
+  block_drop: 0.06            # scesa del 6% → veto
+
+# 2) NOTIZIE — Google News RSS (pubblico, gratuito), titoli in italiano e inglese.
+news:
+  enabled_with_mock_feed: false     # col feed simulato le squadre sono "finte": notizie spente
+  refresh_minutes: 20
+  team_cache_minutes: 60            # ogni squadra riletta al massimo una volta l'ora
+  max_teams_per_refresh: 8          # gentili con le fonti: poche richieste per giro
+  max_age_hours: 36
+  block_hours: 24                   # durata massima di un blocco (comunque finisce al fischio d'inizio)
+  feeds:
+    - {name: Google News IT, url: "https://news.google.com/rss/search?q=%22{team}%22+when:2d&hl=it&gl=IT&ceid=IT:it"}
+    - {name: Google News EN, url: "https://news.google.com/rss/search?q=%22{team}%22+when:2d&hl=en-GB&gl=GB&ceid=GB:en"}
+
+  # Sensibilità: quante fonti DIVERSE (testate) servono per agire
+  confirm_sources_block: 2          # notizia grave confermata da ≥ 2 testate → veto
+  # notizia grave da 1 sola testata → cautela (puntata dimezzata), oppure veto se
+  # il mercato conferma (quota della squadra in salita di almeno market.caution_drop)
+
+  # Titoli "riassunto" (punto infermeria, probabili formazioni): ignorati, non sono notizie nuove
+  ignore: ["il punto su", "punto infermeria", "quando tornano", "chi torna", "probabili formazioni", "le ultime",
+           "injury news and", "team news", "predicted line", "predicted xi", "possible line"]
+  # Frasi che ANNULLANO l'allarme (rientri, smentite): controllate per prime
+  neutralizers: [rientra, recuperato, recupera, "torna disponibile", "torna in gruppo", smentisce, smentita,
+                 "returns from", "back from injury", "back in training", "passed fit", "fit to play", "cleared to play",
+                 "no injury", "denies", "denied"]
+  high_risk: [infortunio, infortunato, lesione, rottura, crociato, frattura, "salta la partita",
+              "non convocato", "non convocati", squalificato, squalificati, squalifica, "turnover", "riserve",
+              "seconde linee", "formazione rimaneggiata", emergenza, focolaio, influenza, virus, "rinviata", "rinvio",
+              sciopero, esonerato, esonero, "ruled out", "out for", "will miss", misses, suspended, suspension,
+              "torn", fracture, "season-ending", "rested", "rotation", "rotated", "second string", "postponed",
+              "sacked", "illness", "outbreak", "strike"]
+  medium_risk: ["in dubbio", "a rischio", affaticamento, acciacco, "problema fisico", "provino", contestazione,
+                crisi, "ritiro punitivo", doubtful, doubt, "fitness test", knock, "late fitness", protest, turmoil,
+                "unrest", "dressing room"]

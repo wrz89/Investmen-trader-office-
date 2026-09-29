@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────
+#  SPORTS BETTING OFFICE — impostazioni generali
+#  Ufficio gemello del Crypto Trading Office, dedicato alle scommesse
+#  sportive. Modalità PAPER: quote vere (o simulate), soldi finti.
+# ─────────────────────────────────────────────────────────────
+
+# paper = soldi finti, quote del feed scelto.
+# live  = puntate VERE, ma solo su Betfair Exchange e solo se TUTTI questi cancelli sono aperti:
+#         execution.provider = betfair, chiave verificata, ordine di prova riuscito,
+#         interruttore "Puntate reali" acceso nelle Impostazioni, strategia elencata in live_strategies.
+#         Se un cancello è chiuso l'ufficio resta in paper e lo scrive nel registro.
+mode: paper
+
+execution:
+  provider: paper         # paper | betfair
+  betfair_min_stake: 2.0  # puntata minima dell'exchange (EUR)
+  # Le puntate su bookmaker SENZA API (quote da The Odds API) non si automatizzano:
+  # con manual_alerts: true arrivano su Telegram come "giocata da piazzare a mano".
+  manual_alerts: true
+live_strategies: []       # es. [S04_greenup_cavalli_v1] — vuota = nessuna strategia con soldi veri
+
+capital:
+  initial: 100            # bankroll iniziale in EUR
+  currency: EUR
+
+feed:
+  # mock     = calendario e quote simulati (bookmaker virtuale, partite che
+  #            iniziano/finiscono davvero nel tempo). Nessuna chiave richiesta.
+  # odds_api = The Odds API (https://the-odds-api.com), chiave in
+  #            runtime/sport/local_settings.json oppure variabile ODDS_API_KEY.
+  provider: mock
+  # statistiche live (minuto, punteggio, tiri, cartellini) per il calcio:
+  #   none | api_football  (chiave in Impostazioni; piano gratuito 100 richieste/giorno)
+  live_stats: none
+  # corse di cavalli da exchange quando la fonte principale non è betfair: none | betfair
+  exchange: none
+  sports:                 # chiavi nel formato di The Odds API
+    - soccer_italy_serie_a
+    - soccer_epl
+    - soccer_spain_la_liga
+    - basketball_nba
+  regions: eu             # bookmaker europei
+  markets: h2h            # esito finale (1X2 / moneyline)
+  # quante partite "in cartellone" nel feed simulato e quanto dura una partita
+  mock:
+    matches_per_cycle: 6
+    match_minutes: 90
+    speed: 30             # 1 minuto reale = 30 minuti di partita (simulazione accelerata)
+    bookmakers: 8
+    margin: 0.05          # margine medio dei bookmaker (5%)
+    seed: null            # null = casuale; un numero rende il feed riproducibile
+  betfair:
+    stream: false         # true = prezzi in tempo reale dallo Stream API (socket SSL) invece del polling
+    race_countries: [GB, IE]
+    race_hours: 2         # corse in partenza entro 2 ore
+    soccer: true          # anche i mercati MATCH_ODDS del calcio
+    soccer_hours: 36
+  api_football:
+    live_refresh_seconds: 120
+    stats_from_minute: 55
+    max_stats_per_refresh: 4
+
+# Ciclo operativo: ogni quanti secondi l'ufficio guarda quote e risultati.
+cycle_seconds: 60
+dashboard_port: 8766
+
+# Strategie ATTIVE (quelle non elencate restano in osservazione: piazzano
+# solo "scommesse ombra" senza capitale).
+active_strategies:
+  - S01_favoriti_v1
+  - S02_live_scalp_v1
+  - S03_surebet_v1
+  - S04_greenup_cavalli_v1
