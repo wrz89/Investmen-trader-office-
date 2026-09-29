@@ -60,7 +60,7 @@ phases:
 risks:
   - "Accumulo: nei crolli il valore scende e il piano continua a comprare, non esce da solo. Cadute storiche dal massimo: BTC -77%, ETH -94%, SOL -96%"
   - "BTC, ETH e SOL si muovono quasi sempre insieme (correlazione ~0,8): la diversificazione tra crypto riduce poco il rischio, aumenta il potenziale e le oscillazioni"
-  - "Tutto su crypto: nessuna diversificazione fuori da questo mondo"
+  - "Tutto su crypto: su Bybit EU non ci sono azioni in formato digitale (xStocks) né oro (XAUT, PAXG), verificato il 29/09/2026"
   - "Le proiezioni usano rendimenti costanti: BTC ha oscillazioni molto più ampie, gli scenari servono solo come ordine di grandezza"
   - "Rischio piattaforma: se Bybit ha problemi, i soldi sono lì (il kill switch non protegge da questo)"
   - "USDC è una stablecoin: rischio basso ma non zero di perdere la parità col dollaro"
