@@ -17,6 +17,25 @@ import sys
 import webbrowser
 
 
+def _write_pid() -> None:
+    """runtime/office.pid: serve ad aggiorna.bat per chiudere l'ufficio acceso (anche quello nascosto
+    dell'avvio automatico) prima di aggiornare, così non resta in memoria la versione vecchia."""
+    import atexit
+    import os
+    from office.config import RUNTIME_DIR
+    pid_file = RUNTIME_DIR / "office.pid"
+    pid_file.parent.mkdir(parents=True, exist_ok=True)
+    pid_file.write_text(str(os.getpid()), encoding="ascii")
+
+    def _cleanup():
+        try:
+            if pid_file.read_text(encoding="ascii").strip() == str(os.getpid()):
+                pid_file.unlink()
+        except OSError:
+            pass
+    atexit.register(_cleanup)
+
+
 def main() -> None:
     # console di Windows: mai bloccarsi per un carattere non stampabile
     for stream in (sys.stdout, sys.stderr):
@@ -101,6 +120,7 @@ def main() -> None:
         except OSError:
             print(f"La porta {port} è occupata: l'ufficio è probabilmente già acceso. Chiudo questo avvio.")
             return 1
+        _write_pid()
         print(f"Ufficio avviato in modalità {office.settings['mode'].upper()}.")
         print(f"Dashboard: http://localhost:{port}   (CTRL+C per fermare)")
         if not args.no_browser:

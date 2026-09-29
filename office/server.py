@@ -21,8 +21,12 @@ from .state import build_state
 from .store import Store
 
 
+API_VERSION = 2          # la pagina controlla di parlare con un ufficio aggiornato
+
+
 def settings_view() -> dict:
     return {
+        "version": API_VERSION,
         **local_settings.public(local_settings.load()),
         "autostart": system.autostart_status(),
         "windows": system.is_windows(),
@@ -92,9 +96,14 @@ def _bybit_action(path: str, body: dict, s: dict, store: Store | None) -> dict:
             s["bybit"] = dict(local_settings.DEFAULTS["bybit"])
             local_settings.save(s)
             return {"message": "Chiave di Bybit rimossa dall'ufficio. Ricordati di cancellarla anche su Bybit."}
-        key, secret = (body.get("key") or "").strip(), (body.get("secret") or "").strip()
-        if not (key.isalnum() and 10 <= len(key) <= 64) or not (secret.isalnum() and 20 <= len(secret) <= 128):
-            raise ValueError("Chiave o segreto non validi: copiali di nuovo da Bybit (solo lettere e numeri).")
+        import re
+        key = re.sub(r"\s", "", body.get("key") or "")          # spazi o a capo presi copiando
+        secret = re.sub(r"\s", "", body.get("secret") or "")
+        if not (key.isalnum() and 10 <= len(key) <= 64):
+            raise ValueError(f"La API key non sembra valida ({len(key)} caratteri): ricopiala da Bybit, solo lettere e numeri.")
+        if not (secret.isalnum() and 20 <= len(secret) <= 128):
+            raise ValueError(f"Il secret non sembra valido ({len(secret)} caratteri): ricopialo da Bybit. "
+                             "Attenzione a non invertire key e secret: il secret è quello più lungo.")
         s["bybit"] = {**local_settings.DEFAULTS["bybit"], "key": key, "secret": secret}
         local_settings.save(s)
         return {"message": "Chiave salvata sul tuo PC. Ora premi 'Verifica la chiave'."}

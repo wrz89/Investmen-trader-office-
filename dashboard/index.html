@@ -858,11 +858,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
     if (!r.ok) throw new Error(d.error || `Errore ${r.status}`);
     return d;
   }
+  const msgSec = (path) => path.includes("bybit") ? "bybit" : path.includes("telegram") ? "tg" : "top";
   async function act(path, body) {
-    try { setMsg = { ok: true, text: (await post(path, body)).message }; }
-    catch (err) { setMsg = { ok: false, text: err.message }; }
+    const sec = msgSec(path);
+    try { setMsg = { ok: true, text: (await post(path, body)).message, sec }; }
+    catch (err) { setMsg = { ok: false, sec, text: /azione sconosciuta|404/.test(err.message)
+      ? "L'ufficio acceso è ancora la versione VECCHIA (probabilmente quella nascosta dell'avvio automatico). Riavvia il PC, oppure lancia di nuovo aggiorna.bat: da ora chiude e riavvia l'ufficio da solo."
+      : err.message }; }
+    const box = $("#set-body"), keep = box.scrollTop;
     renderSettings();
+    box.scrollTop = keep;
+    const m = document.querySelector("#set-body .set-msg");
+    if (m) m.scrollIntoView({ block: "nearest" });
   }
+  const msgHtml = (sec) => setMsg && (setMsg.sec || "top") === sec
+    ? `<div class="set-msg ${setMsg.ok ? "" : "err"}" role="status">${esc(setMsg.text)}</div>` : "";
   function checkRow(id, label, hint, checked, disabled) {
     return `<label class="check-row${disabled ? " disabled" : ""}" for="${id}"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${label}${hint ? `<small>${hint}</small>` : ""}</span></label>`;
   }
@@ -876,9 +886,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
     const tg = SET.telegram, n = SET.notify, as = SET.autostart, P = SET.promotion || {}, by = SET.bybit || {};
     const off = !live;
     body.innerHTML = `
-      ${setMsg ? `<div class="set-msg ${setMsg.ok ? "" : "err"}" role="status">${esc(setMsg.text)}</div>` : ""}
+      ${SET.version === 2 ? "" : `<div class="set-msg err">L'ufficio acceso è una versione vecchia rispetto a questa pagina: alcune impostazioni (come la chiave di Bybit) non verranno salvate. Riavvia il PC oppure lancia di nuovo <b>aggiorna.bat</b>.</div>`}
+      ${msgHtml("top")}
       <section class="set-sec">
         <h3>Notifiche Telegram</h3>
+        ${msgHtml("tg")}
         <div class="conn"><span class="dot ${tg.configured ? "live" : ""}"></span>${tg.configured ? `Collegato a <b>${esc(tg.chat_name || tg.chat_id)}</b>` : tg.has_token ? "Token salvato, manca la chat (passo 3)" : "Non collegato"}</div>
         <ol>
           <li>Su Telegram cerca <b>@BotFather</b>, scrivi <code>/newbot</code>, scegli un nome (es. <i>Il mio Trading Office</i>) e un nome utente che finisca in <code>bot</code>.</li>
@@ -892,12 +904,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
       </section>
       <section class="set-sec">
         <h3>Bybit · acquisti reali</h3>
+        ${msgHtml("bybit")}
         <div class="conn"><span class="dot ${by.live ? "live" : ""}"></span>${by.live ? "<b>ACCESO</b>: l'ufficio compra con i tuoi soldi" : by.test_done ? "Pronto: manca solo l'interruttore (passo 5)" : by.verified ? "Chiave verificata: manca l'ordine di prova (passo 4)" : by.has_key ? "Chiave salvata, da verificare (passo 3)" : "Nessuna chiave"}</div>
         <p>L'ufficio può <b>solo comprare</b> le monete del piano, per l'importo del mese. Non può vendere, prelevare né usare leva. Chiave e segreto restano sul tuo PC. <b>Non incollarli mai in chat</b>.</p>
         <ol>
           <li>Scopri l'IP del tuo PC: <div class="field"><button class="btn" id="by-ip" type="button">Mostra il mio IP</button></div></li>
           <li>Su Bybit: profilo → <b>API</b> → <b>Crea nuova chiave</b> → <b>generata dal sistema</b> → uso <b>Transazioni API</b>. Permessi: <b>Lettura e scrittura</b>, spunta <b>solo Spot · Trade</b>. <b>Niente</b> Prelievo, Trasferimento, Contratti, Opzioni, Earn. Accesso: <b>solo IP consentiti</b> con l'IP del passo 1. Poi incolla qui:
-            <div class="field"><input type="text" id="by-key" autocomplete="off" placeholder="${by.has_key ? `salvata: ${esc(by.key)}` : "API key"}"></div>
+            ${by.has_key ? `<div class="conn"><span class="dot live"></span>Chiave salvata sul PC: <b>${esc(by.key)}</b> (il segreto non si mostra mai)</div>` : ""}
+            <div class="field"><input type="text" id="by-key" autocomplete="off" placeholder="${by.has_key ? "per cambiarla, incolla una nuova API key" : "API key"}"></div>
             <div class="field"><input type="password" id="by-secret" autocomplete="off" placeholder="API secret"><button class="btn primary" id="by-save" type="button">Salva</button></div></li>
           <li>Controllo della chiave (permessi, prelievi, IP): <div class="field"><button class="btn" id="by-verify" type="button" ${by.has_key ? "" : "disabled"}>Verifica la chiave</button></div>
             ${(by.problems || []).length ? `<div class="set-msg err">${by.problems.map(esc).join("<br>")}</div>` : ""}</li>
@@ -935,12 +949,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
         </dl>
       </section>`;
     const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
-    bind("tg-save", () => { const v = $("#tg-token").value.trim(); if (v) act("/api/settings/telegram", { token: v }); else { setMsg = { ok: false, text: "Incolla prima il token ricevuto da BotFather." }; renderSettings(); } });
+    bind("tg-save", () => { const v = $("#tg-token").value.trim(); if (v) act("/api/settings/telegram", { token: v }); else { setMsg = { ok: false, sec: "tg", text: "Incolla prima il token ricevuto da BotFather." }; renderSettings(); } });
     bind("tg-detect", () => act("/api/telegram/detect"));
     bind("tg-test", () => act("/api/telegram/test"));
     bind("tg-clear", () => act("/api/settings/telegram", { clear: true }));
     bind("by-ip", () => act("/api/bybit/ip"));
-    bind("by-save", () => { const k = $("#by-key").value.trim(), sc = $("#by-secret").value.trim(); if (k && sc) act("/api/settings/bybit", { key: k, secret: sc }); else { setMsg = { ok: false, text: "Incolla sia la API key sia il secret." }; renderSettings(); } });
+    bind("by-save", () => { const k = $("#by-key").value.trim(), sc = $("#by-secret").value.trim(); if (k && sc) act("/api/settings/bybit", { key: k, secret: sc }); else { setMsg = { ok: false, sec: "bybit", text: "Incolla sia la API key sia il secret." }; renderSettings(); } });
     bind("by-verify", () => act("/api/bybit/verify"));
     bind("by-test", () => { if (confirm("Confermi un acquisto REALE di 5 € di BTC su Bybit?")) act("/api/bybit/test_order"); });
     bind("by-clear", () => { if (confirm("Rimuovere la chiave dall'ufficio? Gli acquisti reali si spengono.")) act("/api/settings/bybit", { clear: true }); });
