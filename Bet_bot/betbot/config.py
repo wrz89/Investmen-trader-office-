@@ -71,7 +71,7 @@ def load_settings(overrides: dict | None = None) -> dict:
 
 
 def api_key() -> str:
-    """Chiave di The Odds API: variabile d'ambiente o runtime/sport/local_settings.json."""
+    """Chiave di The Odds API: variabile d'ambiente o runtime/local_settings.json."""
     key = os.environ.get("ODDS_API_KEY", "").strip()
     if key:
         return key

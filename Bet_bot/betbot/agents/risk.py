@@ -1,7 +1,7 @@
 """AGENTE 5 — RISK MANAGER. Veto assoluto e calcolo della puntata.
 
 Nessuna puntata arriva al Banco senza APPROVE. Basta una condizione violata
-per il BLOCK. I limiti vengono da config/sport/risk_limits.yaml, sigillato
+per il BLOCK. I limiti vengono da config/risk_limits.yaml, sigillato
 all'avvio: se il file cambia a ufficio acceso, tutto è bloccato.
 """
 from __future__ import annotations

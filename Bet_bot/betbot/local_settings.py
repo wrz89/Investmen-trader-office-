@@ -1,6 +1,6 @@
 """Impostazioni personali dell'ufficio sportivo (chiavi API, Telegram, notifiche).
 
-Stanno in runtime/sport/local_settings.json: restano sul PC, mai su GitHub.
+Stanno in runtime/local_settings.json: restano sul PC, mai su GitHub.
 Al browser arrivano solo versioni mascherate: segreti e password mai.
 """
 from __future__ import annotations

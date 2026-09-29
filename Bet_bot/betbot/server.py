@@ -75,7 +75,7 @@ def handle_action(path: str, body: dict) -> dict:
                     raise ValueError(f"{key}: la chiave contiene caratteri non validi.")
                 s[key] = v
         local_settings.save(s)
-        return {"message": "Chiavi salvate sul tuo PC. Per usarle imposta il feed in config/sport/settings.yaml e riavvia."}
+        return {"message": "Chiavi salvate sul tuo PC. Per usarle imposta il feed in runtime/impostazioni.yaml (o config/settings.yaml) e riavvia."}
     if path == "/api/settings/betfair":
         if body.get("clear"):
             s["betfair"] = dict(local_settings.DEFAULTS["betfair"])

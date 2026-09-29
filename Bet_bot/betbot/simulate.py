@@ -3,7 +3,7 @@
 Fa girare gli stessi agenti, lo stesso Risk Manager e lo stesso Banco del
 live, ma manda avanti l'orologio del feed invece di aspettare. Utile per
 vedere in pochi secondi settimane di "vita" dell'ufficio.
-Il database è separato (runtime/sport/simulazione.db) e viene ricreato.
+Il database è separato (runtime/simulazione.db) e viene ricreato.
 """
 from __future__ import annotations
 
