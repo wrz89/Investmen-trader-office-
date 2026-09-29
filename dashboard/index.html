@@ -196,6 +196,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .demo-note b { color: var(--warn); font-weight: 600; }
 
 
+
+/* ── l'ufficio dal vivo ───────────────────────── */
+.hq-wrap { overflow-x: auto; border: 2px solid var(--wall); border-radius: 4px; background: var(--sc-wall); }
+svg.hq { display: block; width: 100%; min-width: 860px; height: auto; }
+.hq .fig { cursor: pointer; }
+.hq .fig:hover { filter: drop-shadow(0 0 3px var(--accent)); }
+.hq .fig.walk .leg, .hq .fig.walk .arm { transform-box: fill-box; transform-origin: 50% 0; animation: hq-step .42s ease-in-out infinite alternate; }
+.hq .fig.walk .leg.r, .hq .fig.walk .arm.l { animation-direction: alternate-reverse; }
+@keyframes hq-step { from { transform: rotate(16deg); } to { transform: rotate(-16deg); } }
+.hq .fig.typing .arm { animation: hq-tap .26s ease-in-out infinite alternate; }
+.hq .fig.typing .arm.r { animation-delay: -.13s; }
+@keyframes hq-tap { to { transform: translateY(-2px); } }
+.hq .fig.typing .head { animation: bob 1.8s ease-in-out infinite; }
+.hq .glow { animation: glow 2.6s steps(3) infinite; }
+.hq .steam { animation: steam 2.6s ease-in infinite; }
+.hq .bb, .hq .bb-tail { fill: var(--room); stroke: var(--wall); stroke-width: 1.2; }
+.hq .bb-tail { stroke: none; }
+.hq .bt { font: 12px var(--f-body); fill: var(--ink); }
+.hq .scr-t { font: 700 15px var(--f-sign); fill: #e8eef4; letter-spacing: .04em; }
+.hq .scr-s { font: 12px var(--f-body); fill: #b9c4cf; }
+.hq .lbl-hq { font: 600 8px var(--f-data); fill: var(--sc-ink); text-anchor: middle; }
+.hq .stamp-t { font: 800 30px var(--f-sign); font-stretch: 70%; letter-spacing: .08em; fill: var(--bad); }
+.hq-stamp { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.hq-stamp.hit { animation: hq-stamp 2.6s ease-out; }
+@keyframes hq-stamp { 0% { opacity: 0; } 12% { opacity: .95; } 80% { opacity: .95; } 100% { opacity: 0; } }
+.hq-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+.room .bubble { position: static; width: auto; box-shadow: none; background: var(--paper); }
+.room .bubble::after { display: none; }
+
 /* ── pannello impostazioni ─────────────────── */
 .top-right { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; justify-content: flex-end; }
 .set-sec { display: grid; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--wall); }
@@ -295,7 +324,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div class="brand">
       <div class="eyebrow">Ufficio quantitativo · 7 agenti</div>
       <h1>Crypto Trading Office</h1>
-      <p id="subtitle">Sette colleghi, sette uffici. Clicca su una stanza per leggere tutto quello che ha fatto il suo agente.</p>
+      <p id="subtitle">Sette colleghi in un ufficio vero: lavorano alla scrivania, fanno riunioni e pause caffè. Clicca su uno di loro per leggere tutto quello che ha fatto.</p>
       <div class="chips" id="chips"></div>
     </div>
     <div class="top-right">
@@ -306,18 +335,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
   <section class="kpis" id="kpis" aria-label="Conto"></section>
 
-  <section class="panel" aria-label="Pianta dell'ufficio">
+  <section class="panel" aria-label="L'ufficio dal vivo">
     <div class="floor-head">
-      <h2>La pianta dell'ufficio</h2>
+      <h2>L'ufficio dal vivo</h2>
       <div class="actions">
+        <button class="btn" id="btn-meeting" type="button">Riunione</button>
+        <button class="btn" id="btn-coffee" type="button">Pausa caffè</button>
         <button class="btn" id="btn-replay" type="button">Rivedi l'ultimo ciclo</button>
         <button class="btn primary" id="btn-demo" type="button">Esempio: un segnale sotto veto</button>
       </div>
     </div>
     <div class="demo-note" id="demo-note" aria-live="polite"></div>
-    <div class="floor" id="floor">
-      <div class="ticket" id="ticket" aria-hidden="true">ORD</div>
-    </div>
+    <div class="hq-wrap"><svg id="hq" class="scene hq" viewBox="0 0 1440 480" role="img" aria-label="L'ufficio visto in sezione: sala riunioni, open space, angolo caffè, ufficio del Risk Manager, direzione e archivio, con i sette agenti al lavoro"></svg></div>
+    <p class="hq-hint">Clicca su un collega per leggere tutto quello che ha fatto. I fumetti usano i messaggi reali del registro.</p>
+  </section>
+
+  <section class="panel" aria-label="Le scrivanie">
+    <div class="floor-head"><h2>Le scrivanie</h2></div>
+    <div class="floor" id="floor"></div>
   </section>
 
   <div class="two">
@@ -426,119 +461,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
     execution:           { nick: "Paolo",  skin: "#8d5b3e", hair: "#161412", style: "short", shirt: "#2c8fa3", headset: true, prop: "phone", wall: "clocks", screen: "book" },
     auditor:             { nick: "Elena",  skin: "#eec3a0", hair: "#2a1d18", style: "long",  shirt: "#5b6472", glasses: true, prop: "ledger", wall: "binders", screen: "table" },
   };
-  const G = "#2fbf71", R = "#e5534b", Y = "#f2c14e";
-
-  function hairSvg(p) {
-    const c = p.hair;
-    const cap = `<path fill="${c}" d="M200.5 64C200 50 208 47 215 47s16 4 14.5 17c-3.5-7-10-9-16.5-8s-10.5 3-12.5 8z"/>`;
-    if (p.style === "short") return cap;
-    if (p.style === "pony") return cap + `<path fill="${c}" d="M228 57c10 2 13 16 7 27-1-9-3-17-8-21z"/>`;
-    if (p.style === "bun") return cap + `<circle fill="${c}" cx="215" cy="45" r="6.5"/>`;
-    if (p.style === "long") return cap + `<path fill="${c}" d="M201 60c-4 10-3 22 2 30l4-2c-3-8-4-18-3-26zM229 60c4 10 3 22-2 30l-4-2c3-8 4-18 3-26z"/>`;
-    if (p.style === "curly") return [[203, 58, 5.5], [208.5, 51.5, 6], [216, 49, 6.5], [223.5, 51.5, 6], [228, 58, 5]]
-      .map(([x, y, r]) => `<circle fill="${c}" cx="${x}" cy="${y}" r="${r}"/>`).join("");
-    return `<path fill="${c}" d="M201 62c0-3 1-5 2-6v7zM229 62c0-3-1-5-2-6v7z"/>`;  // calvo: solo le tempie
-  }
-
-  function faceSvg(p, state) {
-    const lx = state === "working" ? -2.2 : 0;
-    const eyes = `<circle class="ink" cx="${210 + lx}" cy="65" r="1.8"/><circle class="ink" cx="${220 + lx}" cy="65" r="1.8"/>`;
-    const stern = state === "blocked" || p.brows;
-    const brows = stern ? `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M205.5 59.5l6 1.8M224.5 59.5l-6 1.8"/>` : "";
-    const mouth = state === "ok" ? `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M209.5 72.5q5.5 5 11 0"/>`
-      : state === "blocked" ? `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M209.5 75.5q5.5-4 11 0"/>`
-      : state === "alert" ? `<ellipse class="ink" cx="215" cy="74.5" rx="2.4" ry="3"/>`
-      : `<path class="inks" stroke-width="1.6" stroke-linecap="round" d="M210.5 74h9"/>`;
-    const beard = p.beard ? `<path fill="${p.hair}" d="M202.5 69c1 15 24 15 25 0-3 7-7 9-12.5 9s-9.5-2-12.5-9z"/>` : "";
-    const glasses = p.glasses ? `<g class="inks" stroke-width="1.2"><circle cx="210" cy="65" r="4.3"/><circle cx="220" cy="65" r="4.3"/><path d="M214.3 65h1.4M205.7 64.5l-4.5-1M224.3 64.5l4.5-1"/></g>` : "";
-    const cheeks = `<circle cx="205.5" cy="71" r="2.3" fill="#f08a7a" opacity=".35"/><circle cx="224.5" cy="71" r="2.3" fill="#f08a7a" opacity=".35"/>`;
-    return cheeks + beard + eyes + brows + mouth + glasses;
-  }
-
-  function personSvg(p, state) {
-    const skin = p.skin, shirt = p.shirt;
-    const tie = p.tie ? `<path fill="#fff" opacity=".9" d="M209 87l6 7 6-7z"/><path fill="${p.tie}" d="M215 93l-3 5 3 16 3-16z"/>` : `<path fill="#000" opacity=".12" d="M209 87l6 6 6-6z"/>`;
-    const headset = p.headset ? `<path fill="none" stroke="#1d242c" stroke-width="2.6" d="M200 66c0-22 30-22 30 0"/><rect x="197" y="61" width="6" height="10" rx="2" fill="#1d242c"/><rect x="227" y="61" width="6" height="10" rx="2" fill="#1d242c"/><path fill="none" stroke="#1d242c" stroke-width="1.6" d="M200 70q2 9 10 8"/><circle cx="211" cy="78" r="1.8" fill="#1d242c"/>` : "";
-    const armL = `<g class="part arm-l"><path fill="none" stroke="${shirt}" stroke-width="8.5" stroke-linecap="round" d="M197 96c-5 11-2 21 7 25"/><circle fill="${skin}" cx="205" cy="121" r="4.2"/></g>`;
-    const armR = state === "blocked" && p.paddle
-      ? `<g><path fill="none" stroke="${shirt}" stroke-width="8.5" stroke-linecap="round" d="M233 96c8-6 13-17 15-29"/><g class="paddle"><path stroke="#6b4a2b" stroke-width="3" d="M249 66l2-24"/><circle cx="251.5" cy="33" r="12.5" fill="#d33c32" stroke="#fff" stroke-width="2"/><text x="251.5" y="35.6" fill="#fff" font-family="Archivo, Arial, sans-serif" font-weight="800" font-size="7.5" text-anchor="middle">STOP</text></g><circle fill="${skin}" cx="248.5" cy="66" r="4.4"/></g>`
-      : `<g class="part arm-r"><path fill="none" stroke="${shirt}" stroke-width="8.5" stroke-linecap="round" d="M233 96c5 11 2 21-7 25"/><circle fill="${skin}" cx="225" cy="121" r="4.2"/></g>`;
-    const nope = state === "blocked" && !p.paddle ? `<g class="alert-mark"><circle cx="240" cy="42" r="8.5" fill="${R}"/><path stroke="#fff" stroke-width="2.4" stroke-linecap="round" d="M236.5 38.5l7 7m0-7l-7 7"/></g>` : "";
-    const alert = state === "alert" ? `<g class="alert-mark"><circle cx="240" cy="42" r="8.5" fill="${Y}"/><path stroke="#3a2a0e" stroke-width="2.4" stroke-linecap="round" d="M240 37.5v5.5M240 47v.1"/></g>` : "";
-    return `
-      <g class="part body"><path fill="${shirt}" d="M189 126c0-25 7-38 26-38s26 13 26 38z"/>${tie}</g>
-      <rect x="210" y="76" width="10" height="12" rx="3" fill="${skin}"/>
-      <g class="part head">
-        <circle cx="200.5" cy="67" r="3" fill="${skin}"/><circle cx="229.5" cy="67" r="3" fill="${skin}"/>
-        <circle cx="215" cy="66" r="14.5" fill="${skin}"/>${hairSvg(p)}${faceSvg(p, state)}${headset}
-      </g>
-      <rect class="mt" x="194" y="118" width="44" height="6" rx="1.5"/>
-      <path stroke="#000" stroke-opacity=".25" stroke-dasharray="2 1.5" d="M197 121h38"/>
-      ${armL}${armR}${alert}${nope}`;
-  }
-
-  function screenSvg(kind) {
-    // area schermo: x 132-184, y 74-108
-    if (kind === "candles") return [[138, 92, 100, 1], [145, 88, 97, 1], [152, 90, 96, 0], [159, 84, 93, 1], [166, 80, 88, 1], [173, 83, 90, 0], [180, 78, 86, 1]]
-      .map(([x, t, b, up]) => `<path stroke="${up ? G : R}" stroke-width="1" d="M${x} ${t - 3}v${b - t + 6}"/><rect x="${x - 2}" y="${t}" width="4" height="${b - t}" fill="${up ? G : R}"/>`).join("");
-    if (kind === "code") return [[136, 78, 24, "#86a8ff"], [140, 84, 30, Y], [140, 90, 18, G], [144, 96, 26, "#c792ea"], [136, 102, 14, "#86a8ff"]]
-      .map(([x, y, w, c]) => `<rect x="${x}" y="${y}" width="${w}" height="2.6" rx="1" fill="${c}"/>`).join("");
-    if (kind === "equity") return `<path fill="none" stroke="${G}" stroke-width="1.6" d="M135 104l7-4 6 2 7-8 6 3 7-9 6 2 7-10"/><path stroke="#fff" stroke-opacity=".25" d="M134 106h48"/>`;
-    if (kind === "pie") return `<circle cx="158" cy="91" r="13" fill="#86a8ff"/><path fill="${G}" d="M158 91V78a13 13 0 0 1 12.4 17z"/><path fill="${Y}" d="M158 91l12.4 4a13 13 0 0 1-9 8.6z"/>`;
-    if (kind === "gauges") return [[80, 30, G], [89, 20, G], [98, 40, Y]].map(([y, w, c]) => `<rect x="136" y="${y}" width="44" height="4" rx="2" fill="#fff" fill-opacity=".15"/><rect x="136" y="${y}" width="${w}" height="4" rx="2" fill="${c}"/>`).join("") + `<path stroke="${R}" stroke-width="1.4" d="M172 77v29"/>`;
-    if (kind === "book") return [0, 1, 2, 3, 4].map((i) => `<rect x="136" y="${77 + i * 6}" width="${20 - i * 3}" height="3.5" fill="${G}" opacity=".85"/><rect x="${180 - (8 + i * 3)}" y="${77 + i * 6}" width="${8 + i * 3}" height="3.5" fill="${R}" opacity=".85"/>`).join("");
-    return [0, 1, 2, 3, 4].map((i) => `<rect x="136" y="${77 + i * 6}" width="44" height="3" rx="1" fill="#fff" fill-opacity="${i ? .2 : .45}"/>`).join("");  // tabella
-  }
-
-  function wallProp(kind) {
-    if (kind === "tv") return `<rect class="mt" x="248" y="12" width="64" height="40" rx="3"/><rect class="sc" x="251" y="15" width="58" height="34"/>` +
-      [[256, 36, 42, 1], [263, 32, 40, 1], [270, 34, 39, 0], [277, 27, 35, 1], [284, 24, 31, 1], [291, 26, 33, 0], [298, 20, 28, 1], [305, 18, 25, 1]]
-        .map(([x, t, b, up]) => `<rect x="${x - 1.8}" y="${t}" width="3.6" height="${b - t}" fill="${up ? G : R}"/>`).join("") + `<rect class="mt" x="277" y="52" width="6" height="6"/>`;
-    if (kind === "board") return `<rect class="mt" x="246" y="10" width="68" height="50" rx="2"/><rect class="pp" x="249" y="13" width="62" height="44"/><rect x="254" y="18" width="12" height="12" fill="${Y}"/><rect x="270" y="20" width="12" height="12" fill="#f4a6c0"/><rect x="286" y="17" width="12" height="12" fill="#9fd3f2"/><path class="inks" stroke-width="1" d="M255 40h40M255 46h28M255 52h34"/><path stroke="${R}" stroke-width="1.4" d="M300 40l6 6m0-6l-6 6"/>`;
-    if (kind === "bell") return `<rect class="pp" x="252" y="10" width="58" height="50" rx="2"/><path fill="none" stroke="#2f5bd3" stroke-width="1.8" d="M257 52c10 0 12-34 24-34s14 34 24 34"/><path class="inks" stroke-width=".8" d="M256 53h50M281 18v35"/><text class="lbl" x="281" y="16">σ</text>`;
-    if (kind === "org") return `<rect class="mt" x="248" y="10" width="64" height="48" rx="2"/><rect class="pp" x="251" y="13" width="58" height="42"/><rect x="273" y="17" width="14" height="8" fill="#2f4a7a"/><path class="inks" stroke-width="1" d="M280 25v6M259 31h42M259 31v5M280 31v5M301 31v5"/>` + [253, 274, 295].map((x) => `<rect x="${x}" y="36" width="12" height="8" fill="#86a8ff"/>`).join("") + [253, 263, 274, 284, 295].map((x) => `<rect x="${x}" y="47" width="8" height="5" fill="#c3cfe0"/>`).join("");
-    if (kind === "shield") return `<path fill="#c9463d" d="M280 10l20 6v14c0 13-9 21-20 25-11-4-20-12-20-25V16z"/><path fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" d="M271 32l6 6 12-13"/><rect class="pp" x="262" y="60" width="36" height="11" rx="2"/><text class="lbl" x="280" y="67.5">MAX DD 10%</text>`;
-    if (kind === "clocks") return [[259, "LDN", 0], [281, "NYC", 1], [303, "TKY", 2]].map(([x, l, i]) => `<circle class="pp" cx="${x}" cy="28" r="9.5"/><circle class="inks" stroke-width="1.2" cx="${x}" cy="28" r="9.5"/><path class="inks" stroke-width="1.4" stroke-linecap="round" d="M${x} 28v-6M${x} 28l${[4, -3, 5][i]} ${[2, 3, -2][i]}"/><text class="lbl" x="${x}" y="46">${l}</text>`).join("");
-    if (kind === "binders") return `<rect class="mt" x="246" y="48" width="68" height="3"/>` + ["#2f5bd3", "#c9463d", "#2f9a6a", "#d9962f", "#6c5fc7", "#2c8fa3", "#5b6472"].map((c, i) => `<rect x="${250 + i * 9}" y="${20 + (i % 3) * 2}" width="7.5" height="${28 - (i % 3) * 2}" rx="1" fill="${c}"/><rect x="${251.5 + i * 9}" y="${26 + (i % 3) * 2}" width="4.5" height="6" class="pp" opacity=".85"/>`).join("");
-    return "";
-  }
-
-  function deskProp(kind) {
-    if (kind === "lamp") return `<rect class="mt" x="283" y="120" width="18" height="4" rx="1.5"/><path style="stroke:var(--sc-metal)" fill="none" stroke-width="2" d="M292 120l-6-18 10-8"/><path fill="#f2c14e" d="M293 88l14 4-6 9z"/>`;
-    if (kind === "tablet") return `<rect x="279" y="116" width="26" height="7" rx="1.5" fill="#1d242c"/><rect x="281" y="117.5" width="22" height="4" fill="#86a8ff" opacity=".7"/>`;
-    if (kind === "books") return `<rect x="280" y="116" width="26" height="8" fill="#6c5fc7"/><rect x="282" y="109" width="22" height="7" fill="#d9962f"/><rect x="279" y="103" width="24" height="6" fill="#2f9a6a"/>`;
-    if (kind === "calc") return `<rect x="283" y="106" width="18" height="18" rx="2" fill="#39424d"/><rect x="285.5" y="108.5" width="13" height="4" fill="#bfe3a8"/>` + [0, 1, 2].map((r) => [0, 1, 2].map((c) => `<rect x="${286 + c * 4.5}" y="${114.5 + r * 3}" width="3" height="2" fill="#c3cfe0"/>`).join("")).join("");
-    if (kind === "stamp") return `<rect x="279" y="119" width="16" height="5" rx="1" fill="#6b4a2b"/><rect x="280.5" y="120" width="13" height="3" fill="#d33c32"/><rect x="298" y="112" width="8" height="8" fill="#6b4a2b"/><rect x="299.5" y="104" width="5" height="8" rx="2" fill="#8a6440"/><rect x="297" y="120" width="10" height="4" fill="#d33c32"/>`;
-    if (kind === "phone") return `<rect x="281" y="114" width="24" height="10" rx="2" fill="#1d242c"/><path fill="#1d242c" d="M281 114c0-6 24-6 24 0z"/><rect x="287" y="117" width="12" height="4" fill="${G}" opacity=".8"/>`;
-    if (kind === "ledger") return `<path class="pp" d="M276 116l15 3 15-3v8l-15 2-15-2z"/><path class="inks" stroke-width=".7" d="M291 119v7M279 119h9M279 121.5h9M294 119h9M294 121.5h9"/><path stroke="#2f5bd3" stroke-width="2" stroke-linecap="round" d="M300 110l5 8"/>`;
-    return "";
-  }
-
-  function sceneSvg(k, state) {
-    const p = PEOPLE[k];
-    const planks = [0, 40, 80, 120, 160, 200, 240, 280].map((x) => `<path class="pl" d="M${x} 132l-10 48"/>`).join("");
-    return `<svg class="scene" viewBox="0 0 320 180" role="img" aria-label="${esc(p.nick)}, ${esc(AG[k].name)}, alla sua scrivania">
-      <rect class="w" width="320" height="132"/><rect class="w2" y="112" width="320" height="20"/>
-      <rect class="fr" x="150" y="8" width="58" height="44" rx="2"/><rect class="wn" x="153" y="11" width="52" height="38"/>
-      <circle class="sun" cx="192" cy="22" r="6"/><path class="fr" d="M178 11h2.5v38H178zM153 29h52v2.5h-52z"/>
-      ${wallProp(p.wall)}
-      <rect class="fl" y="132" width="320" height="48"/>${planks}
-      <g><rect x="22" y="152" width="24" height="22" rx="3" style="fill:var(--sc-pot)"/><ellipse cx="28" cy="140" rx="5" ry="13" style="fill:var(--sc-plant)" transform="rotate(-20 28 140)"/><ellipse cx="40" cy="138" rx="5" ry="14" style="fill:var(--sc-plant)" transform="rotate(18 40 138)"/><ellipse cx="34" cy="134" rx="5" ry="16" style="fill:var(--sc-plant)"/></g>
-      <rect class="ch" x="191" y="62" width="48" height="70" rx="10"/><rect class="ch" x="207" y="132" width="16" height="16"/>
-      ${personSvg(p, state)}
-      <rect class="dt" x="108" y="124" width="208" height="7" rx="1.5"/><rect class="dk" x="114" y="131" width="196" height="41"/>
-      <path class="dkl" d="M140 138h30M140 152h30M270 138h30M270 152h30"/>
-      <rect x="178" y="141" width="74" height="16" rx="2" fill="#d8b25a"/><text class="plate-t" x="215" y="152">${esc(p.nick.toUpperCase())}</text>
-      <rect class="mt" x="128" y="70" width="60" height="42" rx="3"/><rect class="sc" x="131" y="73" width="54" height="36"/>
-      <g class="glow">${screenSvg(p.screen)}</g>
-      <rect class="mt" x="154" y="112" width="8" height="10"/><rect class="mt" x="145" y="121" width="26" height="3" rx="1.5"/>
-      <g><rect x="252" y="111" width="11" height="13" rx="2" fill="#f4f1ea"/><path fill="none" stroke="#f4f1ea" stroke-width="2" d="M263 114c5 0 5 7 0 7"/>
-        <path class="steam" fill="none" style="stroke:var(--sc-ink)" stroke-opacity=".5" stroke-width="1.2" stroke-linecap="round" d="M255 108c-2-3 2-5 0-8"/>
-        <path class="steam s2" fill="none" style="stroke:var(--sc-ink)" stroke-opacity=".5" stroke-width="1.2" stroke-linecap="round" d="M260 108c-2-3 2-5 0-8"/></g>
-      ${deskProp(p.prop)}
-    </svg>`;
-  }
-
   // ── contenuti specifici di ogni stanza ─────────
   function miniFor(k, a) {
     const st = a?.stats || {};
@@ -618,12 +540,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
       const a = agents[k] || { state: "idle", message: "In attesa del primo ciclo." };
       const who = PEOPLE[k];
       el.setAttribute("aria-label", `${who.nick}, ${AG[k].name}: ${STATE_LABEL[a.state] || a.state}. ${a.message}`);
-      if (!el.querySelector(".office")) {
+      if (!el.querySelector(".plate")) {
         el.innerHTML = `
           <div class="plate"><div><span class="nick">${esc(who.nick)}</span><span class="job">Agente ${String(AG[k].n).padStart(2, "0")} · ${esc(AG[k].name)}</span><div class="role">${esc(AG[k].role)}</div></div>
             <span class="pill"></span></div>
-          <div class="office"><div class="svgwrap"></div>${k === "risk_manager" ? `<div class="stamp">VETO</div>` : ""}
-            <div class="bubble"><span class="say"></span><time></time></div></div>
+          <div class="bubble"><span class="say"></span><time></time></div>
           <div class="mini"></div>`;
       }
       setRoom(el, k, a.state, a.message, ago(a.updated));
@@ -632,15 +553,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
   }
 
   function setRoom(el, k, state, message, when) {
-    if (el.dataset.state !== state || !el.querySelector(".svgwrap").firstChild) {
+    if (el.dataset.state !== state) {
       el.dataset.state = state;
-      el.querySelector(".svgwrap").innerHTML = sceneSvg(k, state);
       const pill = el.querySelector(".pill");
       pill.className = `pill st-${state}`;
       pill.textContent = STATE_LABEL[state] || state;
     }
-    el.querySelector(".say").textContent = message;
-    el.querySelector(".bubble time").textContent = when;
+    if (!el.classList.contains("speaking")) {
+      el.querySelector(".say").textContent = message;
+      el.querySelector(".bubble time").textContent = when;
+    }
   }
 
   function renderHeader() {
@@ -901,85 +823,436 @@ button { font: inherit; color: inherit; cursor: pointer; }
   $("#set-close").addEventListener("click", closeSettings);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSettings(); });
 
-  // ── il ticket che gira per l'ufficio ───────────
+  // ── l'ufficio dal vivo: edificio in sezione con gli omini che si muovono ─────────
+  const NS = "http://www.w3.org/2000/svg";
+  const HQ = { W: 1440, H: 480, seatY: 380, meetY: 386, frontY: 462, speed: 150 };
+  const DESK = { market_scanner: 370, strategy_researcher: 500, quant_researcher: 630, execution: 760,
+                 risk_manager: 1080, portfolio_manager: 1235, auditor: 1380 };
+  const SEAT = (k) => DESK[k] + 18;
+  const MEET = { market_scanner: [62, "sit"], strategy_researcher: [98, "sit"], quant_researcher: [134, "sit"],
+                 execution: [170, "sit"], auditor: [206, "sit"], risk_manager: [20, "stand"], portfolio_manager: [262, "stand"] };
+  const COFFEE = [898, 944, 976];
+  const REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const G = "#2fbf71", R = "#e5534b", Y = "#f2c14e";
+  let sceneBusy = false;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  function moveTicket(k, veto = false) {
-    const floor = $("#floor"), room = floor.querySelector(`.room[data-k="${k}"]`), t = $("#ticket");
-    if (!room) return;
-    const fr = floor.getBoundingClientRect(), rr = room.getBoundingClientRect();
-    t.style.transform = `translate(${rr.left - fr.left + rr.width / 2 - 15}px, ${rr.top - fr.top - 11}px)`;
-    t.classList.add("on");
-    t.classList.toggle("veto", veto);
-  }
-  function speak(k, message, state) {
-    document.querySelectorAll(".room.speaking").forEach((r) => r.classList.remove("speaking"));
-    const room = $(`#floor .room[data-k="${k}"]`);
-    if (!room) return;
-    room.dataset.hold = "1";
-    room.classList.add("speaking");
-    setRoom(room, k, state || room.dataset.state, message, "adesso");
-    if (state === "blocked") {
-      const s = room.querySelector(".stamp");
-      if (s) { s.classList.remove("hit"); void s.offsetWidth; s.classList.add("hit"); }
+
+  function wrap(text, n = 30, max = 3) {
+    const words = String(text).split(/\s+/), lines = [];
+    let cur = "";
+    for (const w of words) {
+      if ((cur + " " + w).trim().length > n) { lines.push(cur.trim()); cur = w; } else cur += " " + w;
+      if (lines.length === max) break;
     }
-    if (window.innerWidth < 1080) room.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-  async function play(steps, note) {
-    if (busy) return;
-    busy = true;
-    $("#btn-replay").disabled = $("#btn-demo").disabled = true;
-    $("#demo-note").innerHTML = note;
-    for (const s of steps) {
-      moveTicket(s.k, s.state === "blocked");
-      await sleep(650);
-      speak(s.k, s.msg, s.state);
-      await sleep(s.wait || 2300);
-    }
-    await sleep(800);
-    $("#ticket").classList.remove("on", "veto");
-    document.querySelectorAll(".room").forEach((r) => { r.classList.remove("speaking"); delete r.dataset.hold; });
-    busy = false;
-    $("#btn-replay").disabled = $("#btn-demo").disabled = false;
-    $("#demo-note").textContent = "";
-    renderFloor();
+    if (lines.length < max && cur.trim()) lines.push(cur.trim());
+    if (lines.length === max && words.join(" ").length > lines.join(" ").length + 1) lines[max - 1] = lines[max - 1].replace(/.{0,2}$/, "…");
+    return lines;
   }
 
-  $("#btn-replay").addEventListener("click", () => {
+  function hairOf(p) {
+    const c = p.hair;
+    const cap = `<path fill="${c}" d="M-10.8 -67C-11 -79 -5 -80.5 0 -80.5C6 -80.5 11.5 -77 10.8 -67C8 -72 3 -74 -2 -73C-6 -72 -9 -70 -10.8 -67Z"/>`;
+    if (p.style === "short") return cap;
+    if (p.style === "pony") return cap + `<path fill="${c}" d="M9.5 -72C17 -70 18 -60 14 -53C13 -60 12 -65 9 -68Z"/>`;
+    if (p.style === "bun") return cap + `<circle fill="${c}" cx="0" cy="-82" r="4.8"/>`;
+    if (p.style === "long") return cap + `<path fill="${c}" d="M-10.5 -70C-13 -62 -12 -54 -9 -49L-6.5 -50C-8.5 -56 -9 -63 -8.5 -69ZM10.5 -70C13 -62 12 -54 9 -49L6.5 -50C8.5 -56 9 -63 8.5 -69Z"/>`;
+    if (p.style === "curly") return [[-8, -73, 4.4], [-3, -78, 4.8], [3, -78, 4.8], [8, -73, 4.4]].map(([x, y, r]) => `<circle fill="${c}" cx="${x}" cy="${y}" r="${r}"/>`).join("");
+    return `<path fill="${c}" d="M-10.5 -68v-4l2 1zM10.5 -68v-4l-2 1z"/>`;
+  }
+
+  function figure(p, st) {
+    const s = p.skin, sh = p.shirt, pants = "#2f3540", shoe = "#1f242b";
+    const sit = st.pose === "sit", gz = st.gaze || 0;
+    const legs = sit ? "" : `<g class="leg l"><rect x="-8" y="-26" width="6.5" height="24" rx="3" fill="${pants}"/><ellipse cx="-5" cy="-1.5" rx="5" ry="2.6" fill="${shoe}"/></g><g class="leg r"><rect x="1.5" y="-26" width="6.5" height="24" rx="3" fill="${pants}"/><ellipse cx="5" cy="-1.5" rx="5" ry="2.6" fill="${shoe}"/></g>`;
+    const armPath = (side) => sit ? (side < 0 ? "M-12 -49Q-15 -41 -8 -37" : "M12 -49Q15 -41 8 -37")
+                                  : (side < 0 ? "M-12 -49Q-16 -40 -15 -31" : "M12 -49Q16 -40 15 -31");
+    const hand = (side) => sit ? (side < 0 ? [-8, -37] : [8, -37]) : (side < 0 ? [-15, -30] : [15, -30]);
+    const armL = `<g class="arm l"><path d="${armPath(-1)}" fill="none" stroke="${sh}" stroke-width="5.5" stroke-linecap="round"/><circle cx="${hand(-1)[0]}" cy="${hand(-1)[1]}" r="3" fill="${s}"/></g>`;
+    let armR = `<g class="arm r"><path d="${armPath(1)}" fill="none" stroke="${sh}" stroke-width="5.5" stroke-linecap="round"/><circle cx="${hand(1)[0]}" cy="${hand(1)[1]}" r="3" fill="${s}"/></g>`;
+    let prop = "";
+    if (st.prop === "cup") prop = `<rect x="12" y="-37" width="7" height="8" rx="1.5" fill="#f4f1ea" stroke="#c9ccd1" stroke-width=".6"/><path class="steam" d="M14 -40c-1.5-2 1.5-3.5 0-6M17 -40c-1.5-2 1.5-3.5 0-6" fill="none" stroke="#9aa4ae" stroke-width="1" stroke-linecap="round"/>`;
+    if (st.prop === "paper") prop = `<g><rect x="11" y="-40" width="10" height="12" rx="1" fill="#fff" stroke="#b9c4cf" stroke-width=".8"/><path d="M13 -36h6M13 -33h5" stroke="#9aa4ae" stroke-width=".8"/></g>`;
+    if (st.prop === "phone") armR = `<g><path d="M12 -49Q18 -58 10 -64" fill="none" stroke="${sh}" stroke-width="5.5" stroke-linecap="round"/><rect x="7" y="-73" width="5" height="10" rx="1.5" fill="#1d242c"/><circle cx="10" cy="-64" r="3" fill="${s}"/></g>`;
+    if (st.prop === "paddle") armR = `<g class="paddle"><path d="M12 -49Q20 -62 18 -80" fill="none" stroke="${sh}" stroke-width="5.5" stroke-linecap="round"/><path d="M18 -80l1 -16" stroke="#6b4a2b" stroke-width="2.5"/><circle cx="19.5" cy="-105" r="10.5" fill="#d33c32" stroke="#fff" stroke-width="1.6"/><text x="19.5" y="-102.6" fill="#fff" font-family="Archivo, Arial, sans-serif" font-weight="800" font-size="6.4" text-anchor="middle">STOP</text><circle cx="18" cy="-80" r="3" fill="${s}"/></g>`;
+    const tie = p.tie ? `<path fill="#fff" d="M-3.5 -53l3.5 4 3.5 -4z"/><path fill="${p.tie}" d="M0 -50l-2 3 2 12 2 -12z"/>` : `<path fill="#000" opacity=".12" d="M-3.5 -53l3.5 3.5 3.5 -3.5z"/>`;
+    const stern = p.brows || st.mood === "blocked";
+    const mouth = st.mood === "blocked" ? `<path d="M-3.5 -59.5q3.5 -2.5 7 0" fill="none" class="inks" stroke-width="1.2" stroke-linecap="round"/>`
+      : st.mood === "alert" ? `<ellipse cx="0" cy="-60" rx="1.8" ry="2.2" class="ink"/>`
+      : `<path d="M-3.5 -61q3.5 3 7 0" fill="none" class="inks" stroke-width="1.2" stroke-linecap="round"/>`;
+    const glasses = p.glasses ? `<g class="inks" stroke-width=".9" fill="none"><circle cx="${-3.8 + gz}" cy="-66" r="3.2"/><circle cx="${3.8 + gz}" cy="-66" r="3.2"/></g>` : "";
+    const headset = p.headset ? `<path d="M-11 -66c0-17 22-17 22 0" fill="none" stroke="#1d242c" stroke-width="2"/><rect x="-13" y="-70" width="4" height="7" rx="1.5" fill="#1d242c"/><path d="M-11 -63q1 6 7 5.5" fill="none" stroke="#1d242c" stroke-width="1.2"/>` : "";
+    const beard = p.beard ? `<path fill="${p.hair}" d="M-9 -63C-8 -52 8 -52 9 -63C6 -58 3 -57 0 -57C-3 -57 -6 -58 -9 -63Z"/>` : "";
+    const brows = stern ? `<path d="M-6.5 -70.5l4.5 1.2M6.5 -70.5l-4.5 1.2" class="inks" stroke-width="1.1" stroke-linecap="round"/>` : "";
+    const alert = st.mood === "alert" ? `<g class="alert-mark"><circle cx="15" cy="-88" r="6.5" fill="${Y}"/><path d="M15 -91.5v4M15 -85v.1" stroke="#3a2a0e" stroke-width="2" stroke-linecap="round"/></g>` : "";
+    const shadow = sit ? "" : `<ellipse cx="0" cy="0" rx="13" ry="3" fill="#000" opacity=".13"/>`;
+    return `${shadow}${legs}<path fill="${sh}" d="M-13 -24L-13 -44Q-13 -53 0 -53Q13 -53 13 -44L13 -24Z"/>${tie}${armL}<rect x="-3" y="-58" width="6" height="6" fill="${s}"/>
+      <g class="head"><circle cx="-10.5" cy="-65" r="2.2" fill="${s}"/><circle cx="10.5" cy="-65" r="2.2" fill="${s}"/><circle cx="0" cy="-66" r="10.5" fill="${s}"/>${hairOf(p)}${beard}
+      <circle cx="${-3.8 + gz}" cy="-66" r="1.4" class="ink"/><circle cx="${3.8 + gz}" cy="-66" r="1.4" class="ink"/>${brows}${mouth}${glasses}${headset}</g>${armR}${prop}${alert}`;
+  }
+
+  class Walker {
+    constructor(k) {
+      this.k = k; this.p = PEOPLE[k]; this.x = SEAT(k); this.y = HQ.seatY; this.face = 1;
+      this.st = { pose: "sit", prop: null, mood: "ok", gaze: -2 }; this.key = "";
+      this.el = document.createElementNS(NS, "g");
+      this.el.classList.add("fig");
+      this.el.dataset.k = k;
+      this.el.addEventListener("click", () => openDrawer(k));
+      this.layer = "back"; this.tw = null; this.bubble = null; this.typing = false;
+      $("#hq-back").appendChild(this.el);
+      this.draw(); this.place();
+    }
+    set(patch) { Object.assign(this.st, patch); this.draw(); }
+    draw() {
+      const key = JSON.stringify(this.st) + this.typing;
+      if (key === this.key) return;
+      this.key = key;
+      this.el.innerHTML = `<g class="flip">${figure(this.p, this.st)}</g>`;
+      this.el.classList.toggle("walk", this.st.pose === "walk");
+      this.el.classList.toggle("typing", this.typing && this.st.pose === "sit" && !this.st.prop);
+    }
+    toLayer(name) {
+      if (this.layer === name) return;
+      this.layer = name;
+      $(name === "front" ? "#hq-front" : "#hq-back").appendChild(this.el);
+    }
+    place() {
+      this.el.setAttribute("transform", `translate(${this.x.toFixed(1)} ${this.y.toFixed(1)})`);
+      this.el.firstChild && this.el.firstChild.setAttribute("transform", `scale(${this.face * 1.12} 1.12)`);
+      if (this.bubble) placeBubble(this);
+    }
+    tween(x, y, ms) {
+      if (REDUCED || ms <= 0) { this.x = x; this.y = y; this.place(); return Promise.resolve(); }
+      if (this.tw) { const r = this.tw.res; this.tw = null; r(); }
+      return new Promise((res) => { this.tw = { x0: this.x, y0: this.y, x, y, t0: performance.now(), d: ms, res }; });
+    }
+    get seated() { return this.st.pose === "sit"; }
+    async stand() {
+      if (this.y >= HQ.frontY - 1) return;
+      this.toLayer("front");
+      this.set({ pose: "walk", prop: this.st.prop === "paddle" ? null : this.st.prop });
+      await this.tween(this.x, HQ.frontY, 520);
+      this.set({ pose: "stand" });
+    }
+    async walkTo(x) {
+      await this.stand();
+      const dx = x - this.x;
+      if (Math.abs(dx) > 1) {
+        this.face = dx > 0 ? 1 : -1;
+        this.set({ pose: "walk", gaze: 2 * this.face });
+        await this.tween(x, HQ.frontY, Math.abs(dx) / HQ.speed * 1000);
+      }
+      this.set({ pose: "stand", gaze: 0 });
+    }
+    async sitAt(x, y = HQ.seatY, pose = "sit") {
+      await this.walkTo(x);
+      this.toLayer("back");
+      this.set({ pose: "walk" });
+      await this.tween(x, y, 520);
+      this.face = 1;
+      this.set({ pose, gaze: pose === "sit" ? -2 : 0 });
+    }
+    async home() { await this.sitAt(SEAT(this.k)); this.set({ prop: null }); }
+    say(text, ms = 3200) { showBubble(this, text, ms); cardSay(this.k, text); return sleep(ms); }
+  }
+
+  function showBubble(w, text, ms) {
+    if (w.bubble) w.bubble.remove();
+    const lines = wrap(text, 32, 3);
+    const width = Math.max(...lines.map((l) => l.length)) * 6.1 + 20, h = lines.length * 15 + 12;
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "hq-bubble");
+    g.innerHTML = `<rect x="0" y="0" width="${width}" height="${h}" rx="8" class="bb"/><path class="bb-tail" d=""/>` +
+      lines.map((l, i) => `<text x="10" y="${19 + i * 15}" class="bt">${esc(l)}</text>`).join("");
+    g.dataset.w = width; g.dataset.h = h;
+    $("#hq-fx").appendChild(g);
+    w.bubble = g;
+    placeBubble(w);
+    clearTimeout(w.bubbleTimer);
+    w.bubbleTimer = setTimeout(() => { if (w.bubble === g) { g.remove(); w.bubble = null; } }, ms);
+  }
+  function placeBubble(w) {
+    const g = w.bubble, bw = +g.dataset.w, bh = +g.dataset.h;
+    const top = w.y - (w.st.prop === "paddle" ? 124 : 90) * 1.12;
+    const x = Math.min(Math.max(w.x - bw / 2, 6), HQ.W - bw - 6), y = Math.max(top - bh, 4);
+    g.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+    const tx = Math.min(Math.max(w.x - x, 12), bw - 12);
+    g.querySelector(".bb-tail").setAttribute("d", `M${tx - 6} ${bh - 1}L${tx} ${bh + 7}L${tx + 6} ${bh - 1}Z`);
+  }
+
+  function buildHQ() {
+    const desk = (c, screen) => `<rect class="dt" x="${c - 56}" y="336" width="112" height="8" rx="2"/><rect class="mt" x="${c - 49}" y="304" width="38" height="28" rx="2.5"/><rect class="sc" x="${c - 46.5}" y="306.5" width="33" height="22"/><g class="glow">${screen(c - 46.5, 306.5)}</g><rect class="mt" x="${c - 33}" y="332" width="6" height="4"/><rect class="ch" x="${c + 5}" y="318" width="27" height="30" rx="6"/>`;
+    const deskFront = (c) => `<rect class="dk" x="${c - 52}" y="344" width="104" height="52"/><path class="dkl" d="M${c - 40} 356h24M${c - 40} 372h24"/>`;
+    const bars = (cols) => (x, y) => cols.map((c, i) => `<rect x="${x + 3 + i * 6}" y="${y + 18 - (4 + (i * 7) % 12)}" width="4" height="${4 + (i * 7) % 12}" fill="${c}"/>`).join("");
+    const lines = (cols) => (x, y) => cols.map((c, i) => `<rect x="${x + 3 + (i % 2) * 4}" y="${y + 3 + i * 4}" width="${14 + (i * 5) % 12}" height="2" fill="${c}"/>`).join("");
+    const curve = (x, y) => `<path d="M${x + 2} ${y + 19}l5-3 4 2 5-6 4 2 5-7 4 1 3-5" fill="none" stroke="${G}" stroke-width="1.4"/>`;
+    const win = (x, y, w, h) => `<rect class="fr" x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/><rect class="wn" x="${x + 3}" y="${y + 3}" width="${w - 6}" height="${h - 6}"/><circle class="sun" cx="${x + w - 16}" cy="${y + 18}" r="6"/><path class="fr" d="M${x + w / 2 - 1.5} ${y + 3}h3v${h - 6}h-3zM${x + 3} ${y + h / 2 - 1.5}h${w - 6}v3h-${w - 6}z"/>`;
+    const wall = (x, glass) => glass
+      ? `<rect x="${x - 4}" y="16" width="8" height="380" fill="var(--accent-soft)" stroke="var(--accent)" stroke-opacity=".35"/><rect x="${x - 5}" y="216" width="10" height="6" class="mt"/>`
+      : `<rect class="w2" x="${x - 6}" y="16" width="12" height="206"/><rect class="mt" x="${x - 7}" y="216" width="14" height="6"/><path d="M${x - 6} 222V396M${x + 6} 222V396" stroke="var(--sc-plank)" stroke-width="2"/>`;
+    const sign = (x, w, label) => `<rect x="${x - w / 2}" y="26" width="${w}" height="18" rx="3" fill="#d8b25a"/><text x="${x}" y="39" class="plate-t">${label}</text>`;
+    const lamp = (x) => `<path d="M${x} 16v22" stroke="var(--sc-metal)" stroke-width="1.5"/><path d="M${x - 16} 48q16 -14 32 0z" fill="var(--sc-metal)"/><ellipse cx="${x}" cy="49" rx="10" ry="2.5" fill="${Y}" opacity=".7"/>`;
+    const plant = (x) => `<rect x="${x - 11}" y="376" width="22" height="20" rx="3" style="fill:var(--sc-pot)"/><ellipse cx="${x - 6}" cy="362" rx="5" ry="14" style="fill:var(--sc-plant)" transform="rotate(-20 ${x - 6} 362)"/><ellipse cx="${x + 6}" cy="360" rx="5" ry="15" style="fill:var(--sc-plant)" transform="rotate(18 ${x + 6} 360)"/><ellipse cx="${x}" cy="356" rx="5" ry="17" style="fill:var(--sc-plant)"/>`;
+    const planks = Array.from({ length: 19 }, (_, i) => `<path class="pl" d="M${i * 80} 396l-14 84"/>`).join("");
+    const binders = ["#2f5bd3", "#c9463d", "#2f9a6a", "#d9962f", "#6c5fc7", "#2c8fa3", "#5b6472", "#2f5bd3", "#d9962f"];
+    const shelf = (y) => `<rect class="mt" x="1312" y="${y}" width="118" height="4"/>` + binders.map((c, i) => `<rect x="${1316 + i * 12.5}" y="${y - 34 + (i % 3) * 3}" width="10" height="${34 - (i % 3) * 3}" rx="1" fill="${c}"/>`).join("");
+    const back = `
+      <rect class="w" x="0" y="0" width="${HQ.W}" height="396"/><rect class="mt" x="0" y="0" width="${HQ.W}" height="16" opacity=".55"/>
+      <rect class="w2" x="0" y="372" width="${HQ.W}" height="24"/>
+      <rect class="fl" x="0" y="396" width="${HQ.W}" height="84"/>${planks}
+      ${sign(150, 128, "SALA RIUNIONI")}${sign(580, 104, "OPEN SPACE")}${sign(925, 64, "CAFFÈ")}${sign(1075, 128, "RISCHIO · FRANCO")}${sign(1230, 118, "DIREZIONE · MARCO")}${sign(1370, 118, "ARCHIVIO · ELENA")}
+      ${win(26, 78, 86, 96)}
+      <rect class="mt" x="134" y="76" width="152" height="100" rx="4"/><rect class="sc" x="140" y="82" width="140" height="88"/>
+      <text id="hq-screen-1" x="210" y="112" class="scr-t" text-anchor="middle">Riunione</text>
+      <text id="hq-screen-2" x="210" y="134" class="scr-s" text-anchor="middle">nessuna in corso</text>
+      <path d="M152 156h116" stroke="${G}" stroke-width="2" opacity=".6"/>
+      <rect class="dt" x="34" y="346" width="252" height="7" rx="2"/>
+      ${lamp(420)}${lamp(740)}
+      <rect class="mt" x="322" y="84" width="82" height="52" rx="3"/><rect class="sc" x="326" y="88" width="74" height="44"/>
+      ${[[331, 118, 126, 1], [340, 112, 122, 1], [349, 115, 124, 0], [358, 106, 116, 1], [367, 100, 110, 1], [376, 103, 112, 0], [385, 96, 106, 1], [394, 92, 101, 1]].map(([x, t, b, up]) => `<rect x="${x - 1.8}" y="${t}" width="3.6" height="${b - t}" fill="${up ? G : R}"/>`).join("")}
+      ${win(450, 74, 96, 96)}${win(668, 74, 96, 96)}
+      <rect class="pp" x="560" y="86" width="84" height="60" rx="2"/><rect x="566" y="92" width="16" height="14" fill="${Y}"/><rect x="586" y="94" width="16" height="14" fill="#f4a6c0"/><rect x="606" y="91" width="16" height="14" fill="#9fd3f2"/><path class="inks" stroke-width="1" d="M567 118h56M567 126h38M567 134h46"/>
+      ${desk(DESK.market_scanner, bars([G, G, R, G, G]))}${desk(DESK.strategy_researcher, lines(["#86a8ff", Y, G, "#c792ea"]))}${desk(DESK.quant_researcher, curve)}${desk(DESK.execution, lines([G, R, G, R]))}
+      <rect class="dt" x="866" y="326" width="116" height="8" rx="2"/><rect class="dk" x="870" y="334" width="108" height="62"/>
+      <rect class="mt" x="880" y="282" width="34" height="44" rx="4"/><rect x="886" y="290" width="22" height="10" rx="2" fill="#1d242c"/><circle cx="897" cy="310" r="3" fill="${R}"/><rect x="890" y="318" width="14" height="8" fill="#f4f1ea"/>
+      <rect x="946" y="300" width="22" height="26" rx="4" fill="#9fd3f2" opacity=".85"/><rect x="950" y="296" width="14" height="6" rx="2" fill="var(--sc-metal)"/>
+      <path d="M1044 84l30 9v21c0 20-14 31-30 37-16-6-30-17-30-37V93z" fill="#c9463d"/><path d="M1031 116l9 9 18-19" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+      <rect class="pp" x="1090" y="98" width="58" height="20" rx="3"/><text x="1119" y="112" class="lbl-hq">MAX DD 10%</text>
+      ${desk(DESK.risk_manager, bars([G, Y, G]))}
+      <rect x="1062" y="330" width="14" height="6" rx="1" fill="#d33c32"/><rect x="1066" y="322" width="6" height="8" rx="2" fill="#8a6440"/>
+      ${win(1172, 74, 64, 96)}
+      <rect class="mt" x="1246" y="84" width="48" height="60" rx="2"/><rect class="pp" x="1249" y="87" width="42" height="54"/><rect x="1262" y="92" width="16" height="9" fill="#2f4a7a"/><path class="inks" stroke-width="1" d="M1270 101v6M1256 107h28M1256 107v5M1270 107v5M1284 107v5"/><rect x="1251" y="112" width="10" height="8" fill="#86a8ff"/><rect x="1265" y="112" width="10" height="8" fill="#86a8ff"/><rect x="1279" y="112" width="10" height="8" fill="#86a8ff"/>
+      ${desk(DESK.portfolio_manager, (x, y) => `<circle cx="${x + 16}" cy="${y + 11}" r="8" fill="#86a8ff"/><path d="M${x + 16} ${y + 11}V${y + 3}a8 8 0 0 1 7.6 5.5z" fill="${G}"/>`)}
+      <path d="M1292 336l-8-26 12-10" fill="none" stroke="var(--sc-metal)" stroke-width="2"/><path d="M1293 294l14 5-7 9z" fill="${Y}"/>
+      ${shelf(130)}${shelf(190)}${shelf(250)}
+      ${desk(DESK.auditor, lines(["#fff", "#fff", "#fff", "#fff"]))}
+      ${plant(14)}${plant(845)}${plant(1146)}
+      ${wall(300, false)}${wall(990, true)}${wall(1160, false)}${wall(1300, false)}`;
+    const front = `
+      <rect class="dk" x="40" y="353" width="240" height="43"/><path class="dkl" d="M60 366h200"/>
+      ${deskFront(DESK.market_scanner)}${deskFront(DESK.strategy_researcher)}${deskFront(DESK.quant_researcher)}${deskFront(DESK.execution)}
+      ${deskFront(DESK.risk_manager)}${deskFront(DESK.portfolio_manager)}${deskFront(DESK.auditor)}
+      ${Object.keys(DESK).map((k) => `<rect x="${DESK[k] - 26}" y="352" width="52" height="13" rx="2" fill="#d8b25a"/><text x="${DESK[k]}" y="362" class="plate-t" style="font-size:8px">${esc(PEOPLE[k].nick.toUpperCase())}</text>`).join("")}`;
+    $("#hq").innerHTML = `<g>${back}</g><g id="hq-back"></g><g>${front}</g><g id="hq-front"></g>
+      <g id="hq-stamp" class="hq-stamp" transform="translate(1110 160) rotate(-10) scale(.8)"><rect x="-58" y="-20" width="116" height="40" rx="5" fill="none" stroke="var(--bad)" stroke-width="4"/><text x="0" y="12" text-anchor="middle" class="stamp-t">VETO</text></g>
+      <g id="hq-fx"></g>`;
+  }
+
+  const walkers = {};
+  let hqReady = false, lastEventId = 0, ambientTimer = null;
+  function initHQ() {
+    if (hqReady) return;
+    hqReady = true;
+    buildHQ();
+    ORDER.forEach((k) => { walkers[k] = new Walker(k); });
+    const loop = (t) => {
+      for (const w of Object.values(walkers)) {
+        if (!w.tw) continue;
+        const f = Math.min(1, (t - w.tw.t0) / w.tw.d);
+        w.x = w.tw.x0 + (w.tw.x - w.tw.x0) * f;
+        w.y = w.tw.y0 + (w.tw.y - w.tw.y0) * f;
+        w.place();
+        if (f >= 1) { const r = w.tw.res; w.tw = null; r(); }
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+    if (!REDUCED) scheduleAmbient();
+    lastEventId = Math.max(0, ...(S.events || []).map((e) => e.id || 0));
+    if (!live && !REDUCED) setTimeout(() => { if (!sceneBusy) meetingScene(); }, 2500);
+  }
+
+  function syncMoods() {
+    const agents = Object.fromEntries((S.agents || []).map((a) => [a.agent, a]));
+    for (const k of ORDER) {
+      const w = walkers[k], a = agents[k] || {};
+      if (!w || sceneBusy) continue;
+      w.typing = a.state === "working";
+      const mood = a.state === "alert" ? "alert" : a.state === "blocked" ? "blocked" : "ok";
+      if (w.st.mood !== mood) w.set({ mood }); else w.draw();
+    }
+  }
+
+  function stamp() {
+    const s = $("#hq-stamp");
+    s.classList.remove("hit"); void s.getBoundingClientRect(); s.classList.add("hit");
+    setTimeout(() => s.classList.remove("hit"), 2600);
+  }
+
+  const agentMsg = (k) => ((S.agents || []).find((a) => a.agent === k) || {}).message || "…";
+
+  async function scene(note, fn) {
+    if (sceneBusy) return;
+    sceneBusy = true;
+    ["#btn-meeting", "#btn-coffee", "#btn-replay", "#btn-demo"].forEach((s) => { $(s).disabled = true; });
+    $("#demo-note").innerHTML = note || "";
+    try { await fn(); } finally {
+      await Promise.all(ORDER.map((k) => walkers[k].home()));
+      $("#hq-screen-1").textContent = "Riunione";
+      $("#hq-screen-2").textContent = "nessuna in corso";
+      sceneBusy = false;
+      ["#btn-meeting", "#btn-coffee", "#btn-replay", "#btn-demo"].forEach((s) => { $(s).disabled = false; });
+      $("#demo-note").textContent = "";
+      syncMoods();
+    }
+  }
+
+  function meetingScene() {
+    return scene("Riunione in sala: ognuno riporta il proprio stato con i messaggi reali del registro.", async () => {
+      $("#hq-screen-1").textContent = "Riunione";
+      $("#hq-screen-2").textContent = "stato dell'ufficio";
+      await Promise.all(ORDER.map((k, i) => sleep(i * 250).then(() => walkers[k].sitAt(MEET[k][0], MEET[k][1] === "sit" ? HQ.meetY : HQ.meetY + 4, MEET[k][1]))));
+      walkers.risk_manager.face = 1; walkers.risk_manager.place();
+      walkers.portfolio_manager.face = -1; walkers.portfolio_manager.place();
+      for (const k of ["portfolio_manager", "market_scanner", "quant_researcher", "risk_manager", "execution", "auditor"]) {
+        $("#hq-screen-2").textContent = `parla ${PEOPLE[k].nick}`;
+        await walkers[k].say(agentMsg(k), 3600);
+      }
+      await walkers.portfolio_manager.say("Bene, tutti al lavoro. Niente fretta: prima i dati.", 2400);
+    });
+  }
+
+  function coffeeScene() {
+    return scene("Pausa caffè.", async () => {
+      const [a, b, c] = ["strategy_researcher", "quant_researcher", "risk_manager"].map((k) => walkers[k]);
+      await Promise.all([a.walkTo(COFFEE[0]), sleep(400).then(() => b.walkTo(COFFEE[1])), sleep(900).then(() => c.walkTo(COFFEE[2]))]);
+      a.face = 1; b.face = -1; c.face = -1; [a, b, c].forEach((w) => { w.set({ prop: "cup" }); w.place(); });
+      await a.say("Caffè? Oggi il mercato è lento.", 2600);
+      await b.say("Meglio lento che un segnale fuori campione sbagliato.", 3000);
+      await c.say("Ricordate: niente leva, niente short. Mai.", 2800);
+      await a.say("Lo sappiamo, Franco… 😄", 2000);
+    });
+  }
+
+  function demoScene() {
+    const sym = (S.meta.universe || ["BTC/USDC"])[0];
+    const sc = ((S.agents.find((a) => a.agent === "market_scanner") || {}).stats?.symbols || {})[sym] || {};
+    const strat = S.strategies.find((x) => x.status === "REJECTED") || S.strategies[0] || {};
+    const m = strat.validation?.metrics || {};
+    return scene("<b>Esempio illustrativo</b> costruito sui numeri reali di questa pagina: il percorso di un segnale fino al veto. Non è un'operazione avvenuta.", async () => {
+      const so = walkers.market_scanner, gi = walkers.quant_researcher, fr = walkers.risk_manager, el = walkers.auditor, pa = walkers.execution;
+      await so.say(`Candela chiusa su ${sym} a ${fmt(sc.mid, sc.mid > 1000 ? 0 : 2)}: ${strat.name || "una strategia"} segnala un LONG!`, 2800);
+      so.set({ prop: "paper" });
+      await so.walkTo(DESK.quant_researcher - 30);
+      await gi.say(strat.validation ? `Fuori campione: ${m.trades} trade, PF ${fmt(m.profit_factor)}. Esito: ${strat.validation.verdict === "PASSED" ? "approvata" : "RIFIUTATA"}.` : "Non è mai stata validata.", 3200);
+      await Promise.all([so.walkTo(1030), sleep(300).then(() => gi.walkTo(1004))]);
+      so.face = 1; so.place();
+      await so.say("Franco, puoi approvare?", 1800);
+      fr.set({ prop: "paddle", mood: "blocked" });
+      stamp();
+      await fr.say("BLOCK. Strategia non autorizzata: nessun ordine parte.", 3200);
+      await pa.say("Nessuna autorizzazione: non invio nulla a Bybit.", 2400);
+      await el.say("Registro il veto con tutti i motivi. Capitale invariato.", 2600);
+      fr.set({ prop: null, mood: "ok" });
+    });
+  }
+
+  function replayScene() {
     const evs = [...(S.events || [])].reverse();
     let start = -1;
     evs.forEach((e, i) => { if (e.kind === "cycle") start = i; });
-    const cycle = start >= 0 ? evs.slice(start) : evs.slice(-10);
-    const steps = cycle.slice(0, 18).map((e) => ({
-      k: e.agent, msg: e.message,
-      state: e.kind === "veto" ? "blocked" : e.level === "ERROR" || e.kind === "anomaly" ? "alert" : e.kind === "cycle" ? "working" : "ok",
-    }));
-    const tail = ["risk_manager", "execution", "auditor"].filter((k) => !steps.some((s) => s.k === k))
-      .map((k) => { const a = S.agents.find((x) => x.agent === k); return a ? { k, msg: a.message, state: a.state } : null; }).filter(Boolean);
-    play([...steps, ...tail], `Riproduzione dell'ultimo ciclo registrato (${steps.length + tail.length} passaggi, messaggi reali dal registro).`);
-  });
+    const cycle = (start >= 0 ? evs.slice(start) : evs.slice(-10)).slice(0, 14);
+    return scene(`Riproduzione dell'ultimo ciclo registrato: ${cycle.length} messaggi reali dal registro.`, async () => {
+      for (const e of cycle) {
+        const w = walkers[e.agent];
+        if (!w) continue;
+        await playEvent(e, true);
+      }
+    });
+  }
 
-  $("#btn-demo").addEventListener("click", () => {
-    const sym = (S.meta.universe || ["BTC/EUR"])[0];
-    const sc = (S.agents.find((a) => a.agent === "market_scanner")?.stats?.symbols || {})[sym] || {};
-    const px = sc.ask || sc.mid || 0;
-    const strat = S.strategies.find((x) => x.status === "REJECTED") || S.strategies[0];
-    const m = strat?.validation?.metrics || {};
-    const rt = (strat?.validation?.costs?.round_trip ?? 0.003);
-    const steps = [
-      { k: "market_scanner", state: "working", msg: `Candela chiusa: ${sym} a ${fmt(px, 0)}. ${strat ? strat.name : "Una strategia"} segnala un ingresso LONG. Spread ${fmt(sc.spread_bps, 1)} bp, costi stimati ${pct(rt, 2)} a giro.` },
-      { k: "strategy_researcher", state: "ok", msg: `Il segnale arriva da ${strat?.strategy_id || "STRATEGY_01_v1"}: codice integro, versione registrata.` },
-      { k: "quant_researcher", state: strat?.validation?.verdict === "PASSED" ? "ok" : "blocked", msg: strat?.validation ? `Fuori campione: ${m.trades} trade, PF ${fmt(m.profit_factor)}, netto medio ${spct(m.expectancy_net)} a trade. Esito: ${strat.validation.verdict === "PASSED" ? "approvata" : "RIFIUTATA"}.` : "Nessuna validazione disponibile." },
-      { k: "portfolio_manager", state: "ok", msg: `Stato della strategia: ${STATUS_LABEL[strat?.status] || "in ricerca"}. Passo la richiesta al Risk Manager.` },
-      { k: "risk_manager", state: "blocked", wait: 3200, msg: `BLOCK. Strategia non autorizzata e profitto netto atteso sotto i costi. Nessun ordine parte.` },
-      { k: "execution", state: "idle", msg: "Nessuna autorizzazione ricevuta: non invio nulla all'exchange." },
-      { k: "auditor", state: "ok", msg: "Registro il veto con tutti i motivi. Capitale invariato." },
-    ];
-    play(steps, `<b>Esempio illustrativo</b> costruito sui numeri reali di questa pagina: mostra il percorso di un segnale. Non è un'operazione avvenuta.`);
-  });
+  async function playEvent(e, inScene) {
+    const w = walkers[e.agent];
+    if (!w) return;
+    w.busy = true;
+    try { await playEventInner(e, inScene, w); } finally { w.busy = false; }
+  }
+  async function playEventInner(e, inScene, w) {
+    if (e.kind === "cycle" && e.agent === "portfolio_manager") {
+      await w.walkTo(DESK.quant_researcher + 60);
+      await w.say(e.message, 2200);
+      if (!inScene) await w.home();
+    } else if (e.kind === "opportunity") {
+      w.set({ prop: "paper" });
+      await w.say(e.message, 2600);
+      await w.walkTo(1030);
+      if (!inScene) await w.home();
+    } else if (e.kind === "veto") {
+      w.set({ prop: "paddle", mood: "blocked" });
+      stamp();
+      await w.say(e.message, 3200);
+      w.set({ prop: null });
+    } else if (e.kind === "fill") {
+      w.set({ prop: "phone" });
+      await w.say(e.message, 3000);
+      w.set({ prop: null });
+    } else if (e.kind === "report" && !inScene) {
+      await meetingScene();
+    } else {
+      await w.say(e.message, e.kind === "anomaly" || e.level === "ERROR" ? 3600 : 2600);
+    }
+  }
+
+  let eventQueue = Promise.resolve();
+  function onNewEvents() {
+    const fresh = (S.events || []).filter((e) => (e.id || 0) > lastEventId).sort((a, b) => a.id - b.id);
+    if (!fresh.length) return;
+    lastEventId = Math.max(lastEventId, ...fresh.map((e) => e.id));
+    for (const e of fresh.slice(-8)) {
+      eventQueue = eventQueue.then(() => (sceneBusy ? null : playEvent(e, false))).catch(() => null);
+    }
+  }
+
+  function scheduleAmbient() {
+    clearTimeout(ambientTimer);
+    ambientTimer = setTimeout(async () => {
+      if (!sceneBusy && !document.hidden) {
+        const free = ORDER.filter((k) => walkers[k].seated && !walkers[k].tw && !walkers[k].bubble && !walkers[k].busy);
+        const k = free[Math.floor(Math.random() * free.length)];
+        const r = Math.random();
+        if (k && r < 0.45) {
+          const w = walkers[k];
+          await w.walkTo(COFFEE[Math.floor(Math.random() * 3)]);
+          w.set({ prop: "cup" });
+          await w.say(["Un caffè e torno ai dati.", "Pausa di due minuti.", "Il mercato non scappa.", "Chi vuole un caffè?"][Math.floor(Math.random() * 4)], 2600);
+          if (!sceneBusy) await w.home();
+        } else if (k && r < 0.8) {
+          const w = walkers[k], others = ORDER.filter((o) => o !== k);
+          const o = others[Math.floor(Math.random() * others.length)];
+          await w.walkTo(DESK[o] + (DESK[o] > w.x ? -40 : 60));
+          await w.say(`${PEOPLE[o].nick}, novità?`, 1800);
+          await walkers[o].say(agentMsg(o), 3200);
+          if (!sceneBusy) await w.home();
+        }
+      }
+      scheduleAmbient();
+    }, 5000 + Math.random() * 5000);
+  }
+
+  function renderHQ() {
+    initHQ();
+    syncMoods();
+    if (live) onNewEvents();
+  }
+  function cardSay(k, text) {
+    const el = $(`#floor .room[data-k="${k}"]`);
+    if (!el) return;
+    el.querySelector(".say").textContent = text;
+    el.querySelector(".bubble time").textContent = "adesso";
+    document.querySelectorAll("#floor .room.speaking").forEach((r) => r.classList.remove("speaking"));
+    el.classList.add("speaking");
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove("speaking"), 3000);
+  }
+  $("#btn-meeting").addEventListener("click", () => meetingScene());
+  $("#btn-coffee").addEventListener("click", () => coffeeScene());
+  $("#btn-replay").addEventListener("click", () => replayScene());
+  $("#btn-demo").addEventListener("click", () => demoScene());
 
   function renderAll() {
     renderHeader();
     renderFloor();
+    renderHQ();
     renderBoard();
     renderFeed();
     if (openAgent && !busy) openDrawer(openAgent);
@@ -1004,7 +1277,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
     }
   }
   if (embedded && location.protocol !== "http:") { S = embedded; renderAll(); } else { poll(); }
-  window.addEventListener("resize", () => { if (!busy) $("#ticket").classList.remove("on"); });
 })();
 </script>
 <!--ARTIFACT-END-->
