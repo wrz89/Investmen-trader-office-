@@ -14,7 +14,9 @@ COSA SI SIMULA (senza guardare al futuro)
   • la decisione usa solo i prezzi pre-partita; si punta al prezzo Betfair (quota back);
   • commissione 4,5% sulla vincita netta, puntate da 2 € a multipli di 0,50 € (regole di betfair.it);
   • stesso Risk Manager del bot: 1/4 di Kelly netto, puntata minima solo con vantaggio netto,
-    tetto per puntata, massimo di puntate al giorno, kill switch sul drawdown;
+    tetto per puntata, puntata RIDOTTA allo spazio che resta nel rischio aperto e nel budget del giorno
+    (stessa fit_stake), massimo di puntate al giorno, kill switch con gli stessi freni del live (stessa
+    breakers: sotto i 100 € soglia in euro che segue il picco, sopra il drawdown in percentuale);
   • bankroll che si reinveste (compounding) partendo dal capitale di settings.yaml (30 €);
   • CLV: quota presa contro la quota Betfair di chiusura (se c'è), altrimenti contro Pinnacle di chiusura.
 
@@ -32,7 +34,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .agents.risk import kelly_net, stake_for
+from .agents.risk import breakers, fit_stake, kelly_net, stake_for
 from .config import REPORTS_DIR, RUNTIME_DIR, load_settings, load_yaml
 from .odds import consensus, remove_margin
 
@@ -67,11 +69,18 @@ def download(divs: list[str], seasons: list[str], refresh_current: bool = True) 
             path = HISTORY_DIR / f"{season}_{div}.csv"
             stale = refresh_current and season == current and path.exists() and time.time() - path.stat().st_mtime > 86400
             if not path.exists() or stale:
-                r = requests.get(FD_URL.format(season=season, div=div), timeout=30)
-                if r.status_code == 404:
-                    continue
-                r.raise_for_status()
-                path.write_bytes(r.content)
+                try:
+                    r = requests.get(FD_URL.format(season=season, div=div), timeout=30)
+                    if r.status_code == 404:
+                        continue
+                    r.raise_for_status()
+                    path.write_bytes(r.content)
+                except requests.RequestException as exc:
+                    if not path.exists():
+                        print(f"{season} {div}: football-data.co.uk non raggiungibile ({exc}), salto il campionato.")
+                        continue
+                    day = date.fromtimestamp(path.stat().st_mtime).strftime("%d/%m/%Y")
+                    print(f"{season} {div}: football-data.co.uk non raggiungibile, uso la copia del {day}.")
             out.append(path)
     return out
 
@@ -244,15 +253,13 @@ def run(rows: list[dict], strategy: str, limits: dict | None = None, params: dic
     min_stake = float(ex.get("min_stake", 2.0)) if min_stake is None else min_stake
     initial = float(settings["capital"]["initial"]) if initial is None else initial
     limits = dict(limits or load_yaml("risk_limits.yaml"))
-    if not kill_switch:
-        limits["max_drawdown"] = 1.01
     if strategy == "NAIVE_80":
         p = {"odds_min": 1.15, "odds_max": 1.25, **(params or {})}
     else:
         p = {**load_yaml("strategies.yaml").get(strategy, {}), **(params or {})}
     p["commission"] = commission
     picker = PICKERS[strategy]
-    bank, peak, max_dd, kill_date = initial, initial, 0.0, None
+    bank, peak, max_dd, kill_date, kill_reason = initial, initial, 0.0, None, None
     bets, curve = [], []
     by_day: dict = {}
     for row in rows:
@@ -262,6 +269,10 @@ def run(rows: list[dict], strategy: str, limits: dict | None = None, params: dic
             break
         todays = [(row, pk) for row in matches for pk in picker(row, p)]
         placed, open_risk = [], 0.0
+        # le partite del giorno si chiudono a fine giornata: durante il giorno la perdita è 0 e resta tutto il budget
+        # (la pausa per serie negativa, 2 ore, non cambia niente a risoluzione giornaliera)
+        start = bank
+        morning = breakers(bank, peak, start, limits)
         for row, pk in todays:
             if len(placed) >= limits["max_bets_per_day"]:
                 break
@@ -272,9 +283,10 @@ def run(rows: list[dict], strategy: str, limits: dict | None = None, params: dic
             else:
                 stake, _ = stake_for({"fair_prob": pk["fair_prob"], "odds": pk["odds"], "commission": commission},
                                      base, limits, min_stake)
-            if not stake or open_risk + stake > limits["max_open_risk_pct"] * bank + 1e-9 and not pk.get("flat"):
-                continue
-            if open_risk + stake > bank:
+                stake = fit_stake({}, stake, bankroll=bank, open_risk=open_risk, open_trade_stakes=0.0,
+                                  left_today=morning["daily_budget"], small=morning["small_bankroll"],
+                                  nothing_open=not placed, limits=limits, min_stake=min_stake)
+            if not stake or open_risk + stake > bank:
                 continue
             open_risk += stake
             placed.append((row, pk, stake))
@@ -292,14 +304,15 @@ def run(rows: list[dict], strategy: str, limits: dict | None = None, params: dic
                          "kelly": round(kelly_net(pk["fair_prob"], pk["odds"], commission), 4), "stake": stake,
                          "won": won, "pnl": round(pnl, 4), "bank": round(bank, 4), "clv": clv, "score": row["score"]})
         peak = max(peak, bank)
-        dd = 1 - bank / peak if peak else 0
-        max_dd = max(max_dd, dd)
-        curve.append({"date": day, "bank": bank, "drawdown": dd})
-        if dd >= limits["max_drawdown"]:
-            kill_date = day
+        br = breakers(bank, peak, start, limits)                # stessi freni del Risk Manager dal vivo
+        max_dd = max(max_dd, br["drawdown"])
+        curve.append({"date": day, "bank": bank, "drawdown": br["drawdown"]})
+        if kill_switch and br["kill"]:
+            kill_date, kill_reason = day, br["kill"]
     bdf, edf = pd.DataFrame(bets), pd.DataFrame(curve)
     m = {"strategy": strategy, "bets": len(bdf), "initial": initial, "final": round(bank, 2),
          "return": bank / initial - 1, "max_drawdown": max_dd, "kill_switch": str(kill_date) if kill_date else None,
+         "kill_reason": kill_reason,
          "commission": commission, "matches": len(rows),
          "period": f"{rows[0]['date'].date()} → {rows[-1]['date'].date()}" if rows else ""}
     if len(bdf):
@@ -352,6 +365,9 @@ def save(results: list[Result], rows: list[dict], tag: str, title: str | None = 
 # ── Monte Carlo: cosa significa davvero "80% di vincite a quota 1,22" ─────────
 def montecarlo(win_prob: float, odds: float, stake_pct: float, n_bets: int = 1000, paths: int = 2000,
                kill_dd: float = 0.15, seed: int = 1, commission: float = 0.045) -> dict:
+    """Modello proporzionale (puntata = quota fissa del bankroll, senza puntata minima né euro): misura la regola
+    in percentuale, quella che vale sopra i 100 € (kill switch al 15% di drawdown). I freni in euro di sotto i
+    100 € (soglia che segue il picco, stop giornaliero) si misurano con run(), che usa gli stessi del bot."""
     rng = random.Random(seed)
     net = (odds - 1) * (1 - commission)
     finals, killed, dds = [], 0, []

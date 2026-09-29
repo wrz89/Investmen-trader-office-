@@ -59,6 +59,63 @@ def stake_for(proposal: dict, base: float, limits: dict, min_stake: float = 0.0)
     return round_back_stake(stake, min_stake), k
 
 
+TRADE_MARKETS = ("exchange_trade", "exchange_win")
+
+
+def kill_floor(peak: float, limits: dict) -> float:
+    """Soglia del kill switch sotto `small_bankroll`: sale col picco (picco × (1 − max_drawdown_small)) ma non scende
+    mai sotto kill_below_bankroll. Con 30 € di picco resta a ~20 €; con 60 € di picco diventa 40,20 €: un profitto
+    non si può più restituire tutto (4 € al giorno) senza che scatti il kill switch."""
+    trailing = peak * (1.0 - limits.get("max_drawdown_small", 1.0))
+    return round(max(limits.get("kill_below_bankroll", 0.0), trailing), 2)
+
+
+def breakers(value: float, peak: float, day_start: float, limits: dict) -> dict:
+    """Circuit breaker come funzione pura: la usano il Risk Manager dal vivo e il backtest, con gli stessi numeri.
+    Con 2 € minimi su 30 € le percentuali scatterebbero dopo una o due perdite: sotto `small_bankroll` valgono
+    limiti assoluti (soglia in euro che segue il picco, budget di perdita giornaliero in euro), sopra le percentuali."""
+    small = peak < limits.get("small_bankroll", 0)
+    dd = 1 - value / peak if peak > 0 else 0.0
+    floor = kill_floor(peak, limits) if small else None
+    kill = None
+    if small and value <= floor:
+        kill = f"bankroll {value:.2f} € sotto la soglia di {floor:.2f} €"
+    elif not small and dd >= limits["max_drawdown"]:
+        kill = f"drawdown {dd:.1%} ≥ limite {limits['max_drawdown']:.0%}"
+    loss_today = max(0.0, day_start - value)
+    budget = limits.get("max_daily_loss_eur", 0.0) if small else limits["max_daily_loss"] * day_start
+    return {"small_bankroll": small, "drawdown": dd, "kill": kill, "kill_floor": floor, "loss_today": loss_today,
+            "daily_budget": budget, "daily_stop": loss_today > 0 and loss_today >= budget - 1e-9}
+
+
+def exposure_caps(bankroll: float, limits: dict, min_stake: float, small: bool, nothing_open: bool) -> tuple[float, float]:
+    """(tetto del rischio aperto, tetto delle puntate dei trade aperti), in euro.
+    Sotto `small_bankroll`, con niente di aperto, i tetti non scendono sotto la puntata minima: UNA puntata da 2 €
+    alla volta resta sempre possibile finché il bankroll è sopra il kill switch (a proteggere restano lo stop
+    giornaliero e il kill switch). Senza questo, tra 20 e 25 € l'8% del bankroll è sotto i 2 € e il bot gira a vuoto."""
+    risk_cap = limits["max_open_risk_pct"] * bankroll
+    trade_cap = limits.get("max_open_trade_stake_pct", 1.0) * bankroll
+    if small and nothing_open:
+        risk_cap, trade_cap = max(risk_cap, min_stake), max(trade_cap, min_stake)
+    return risk_cap, trade_cap
+
+
+def fit_stake(p: dict, stake: float, *, bankroll: float, open_risk: float, open_trade_stakes: float, left_today: float,
+              small: bool, nothing_open: bool, limits: dict, min_stake: float) -> float:
+    """Taglia la puntata sullo spazio che resta (budget di perdita del giorno, rischio aperto, puntate dei trade aperti)
+    invece di mettere il veto: se non ci sta nemmeno la puntata minima restituisce 0. La stessa funzione serve al
+    Risk Manager, al backtest e alla Tesoriera, così i tre mostrano la stessa puntata."""
+    from ..execution import round_back_stake
+    rpu = (p.get("exchange") or {}).get("risk_per_unit") or 1.0   # puntata secca: si perde tutta la puntata
+    risk_cap, trade_cap = exposure_caps(bankroll, limits, min_stake, small, nothing_open)
+    room = min(risk_cap - open_risk, left_today) / rpu
+    if p.get("exchange"):
+        room = min(room, trade_cap - open_trade_stakes)
+    if stake > room + 1e-9:
+        stake = round_back_stake(max(0.0, room), min_stake)
+    return stake
+
+
 def unlock_bankroll(kind: str, limits: dict, min_stake: float) -> float:
     """Bankroll da cui una strategia può puntare senza superare max_stake_pct con la puntata minima.
     I trade con stop partono da subito; le puntate secche anche, ma sotto questa soglia passano solo
@@ -84,26 +141,21 @@ class RiskManager(Agent):
         br = self.office.bankroll
         L = self.limits
         value = br.total
-        day_start = br.day_start(value)
+        # il valore di inizio giornata esclude ciò che si è chiuso oggi: se il primo ciclo del giorno regola prima le
+        # partite della sera prima, quelle perdite contano comunque nel budget di oggi
+        day_start = br.day_start(value - self._pnl_settled_today())
         peak = br.update_peak(value)
-        dd = 1 - value / peak if peak > 0 else 0.0
         daily = value / day_start - 1 if day_start > 0 else 0.0
-        # Con 2 € minimi su 30 € le percentuali scatterebbero dopo una o due perdite: sotto `small_bankroll`
-        # valgono limiti assoluti (budget di perdita), sopra le percentuali.
-        small = peak < L.get("small_bankroll", 0)
+        b = breakers(value, peak, day_start, L)
+        small, dd = b["small_bankroll"], b["drawdown"]
         kill = self.store.get("kill_switch")
-        if not kill:
-            if small and value <= L.get("kill_below_bankroll", 0):
-                kill = f"bankroll {value:.2f} € sotto la soglia di {L['kill_below_bankroll']:.0f} €"
-            elif not small and dd >= L["max_drawdown"]:
-                kill = f"drawdown {dd:.1%} ≥ limite {L['max_drawdown']:.0%}"
-            if kill:
-                self.store.set("kill_switch", kill)
-                self.say(f"KILL SWITCH ATTIVATO: {kill}. Nessuna nuova puntata. Reset solo dal PC.", "alert",
-                         "kill_switch", level="CRITICAL")
-        loss_today = max(0.0, day_start - value)
-        daily_budget = L.get("max_daily_loss_eur", 0.0) if small else L["max_daily_loss"] * day_start
-        if loss_today > 0 and loss_today >= daily_budget - 1e-9 and self.store.get("daily_stop_day") != today():
+        if not kill and b["kill"]:
+            kill = b["kill"]
+            self.store.set("kill_switch", kill)
+            self.say(f"KILL SWITCH ATTIVATO: {kill}. Nessuna nuova puntata. Reset solo dal PC.", "alert",
+                     "kill_switch", level="CRITICAL")
+        loss_today, daily_budget = b["loss_today"], b["daily_budget"]
+        if b["daily_stop"] and self.store.get("daily_stop_day") != today():
             self.store.set("daily_stop_day", today())
             self.say(f"Circuit breaker: persi {loss_today:.2f} € oggi (limite {daily_budget:.2f} €). "
                      "Nessuna nuova puntata fino a domani.", "blocked", "circuit", level="WARN")
@@ -111,12 +163,14 @@ class RiskManager(Agent):
             self.store.set("limits_tampered", True)
             self.say("Il file dei limiti di rischio è cambiato a bot acceso: blocco ogni nuova puntata. "
                      "Riavvia Bet_bot per sigillare i nuovi limiti.", "alert", "circuit", level="CRITICAL")
-        streak = self._losing_streak()
+        streak, last_loss = self._losing_streak()
         cooldown = self.store.get("cooldown_until") or 0
-        if streak >= L["max_losing_streak"] and cooldown < clock.now() and not self.store.get("cooldown_streak_seen") == streak:
+        # si ricorda QUALE perdita ha fatto scattare la pausa (non la lunghezza della serie): una nuova serie di 6,
+        # dopo una vincita, fa scattare una nuova pausa anche se è lunga quanto la precedente
+        if streak >= L["max_losing_streak"] and cooldown < clock.now() and self.store.get("cooldown_last_loss") != last_loss:
             cooldown = clock.now() + L["cooldown_minutes"] * 60
             self.store.set("cooldown_until", cooldown)
-            self.store.set("cooldown_streak_seen", streak)
+            self.store.set("cooldown_last_loss", last_loss)
             self.say(f"Circuit breaker: {streak} perdite di fila. Pausa di {L['cooldown_minutes']} minuti.",
                      "blocked", "circuit", level="WARN")
         pause = self.store.get("telegram_pause_until") or 0            # pausa chiesta dal telefono (separata)
@@ -124,7 +178,7 @@ class RiskManager(Agent):
                 "profits": br.profits, "initial": br.initial_capital, "peak": peak, "drawdown": dd, "daily_pnl": daily,
                 "kill_switch": kill, "cooldown_until": cooldown if cooldown > clock.now() else None,
                 "telegram_pause_until": pause if pause > clock.now() else None,
-                "small_bankroll": small, "loss_today": loss_today, "daily_budget": daily_budget,
+                "small_bankroll": small, "kill_floor": b["kill_floor"], "loss_today": loss_today, "daily_budget": daily_budget,
                 "daily_stop": self.store.get("daily_stop_day") == today(),
                 "losing_streak": streak, "stake_base": br.stake_base(L["reinvest_fraction"], L["floor_pct_of_initial"])}
 
@@ -137,8 +191,15 @@ class RiskManager(Agent):
             tot += b["stake"] * ex["risk_per_unit"] if ex.get("risk_per_unit") else b["stake"]
         return tot
 
-    def _losing_streak(self) -> int:
-        rows = self.store.query("SELECT pnl FROM bets WHERE status!='OPEN' AND status!='VOID' AND mode!='shadow' "
+    def _pnl_settled_today(self) -> float:
+        """P&L delle puntate vere chiuse da mezzanotte (ora italiana)."""
+        row = self.store.query("SELECT COALESCE(SUM(pnl), 0) s FROM bets WHERE mode!='shadow' AND status!='OPEN' "
+                               "AND settled_ts >= ?", (_day_start_iso(),))
+        return float(row[0]["s"] or 0.0) if row else 0.0
+
+    def _losing_streak(self) -> tuple[int, int | None]:
+        """(perdite di fila, id della più recente). L'id distingue una serie nuova da quella che ha già dato la pausa."""
+        rows = self.store.query("SELECT id, pnl FROM bets WHERE status!='OPEN' AND status!='VOID' AND mode!='shadow' "
                                 "ORDER BY settled_ts DESC, id DESC LIMIT 50")
         n = 0
         for r in rows:
@@ -146,7 +207,24 @@ class RiskManager(Agent):
                 n += 1
             else:
                 break
-        return n
+        return n, (rows[0]["id"] if n else None)
+
+    def next_max_stake(self, state: dict) -> float:
+        """Puntata secca massima possibile al prossimo ciclo: tetto per puntata, poi lo stesso taglio di evaluate
+        (rischio aperto, budget del giorno) e la liquidità, arrotondata alle regole di betfair.it."""
+        from ..execution import round_back_stake
+        min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
+        stake = min(self.limits["max_stake_pct"] * state["stake_base"], state["cash"])
+        stake = fit_stake({}, stake, **self._room(state, self.office.bankroll.open_bets(), min_stake))
+        return round_back_stake(stake, min_stake)
+
+    def _room(self, state: dict, open_bets: list[dict], min_stake: float) -> dict:
+        """Argomenti di fit_stake presi dallo stato del portafoglio."""
+        return {"bankroll": state["bankroll"], "open_risk": state.get("open_risk", 0.0),
+                "open_trade_stakes": sum(b["stake"] for b in open_bets if b["market"] in TRADE_MARKETS),
+                "left_today": max(0.0, state.get("daily_budget", 1e9) - state.get("loss_today", 0.0)),
+                "small": bool(state.get("small_bankroll")), "nothing_open": not open_bets,
+                "limits": self.limits, "min_stake": min_stake}
 
     # ── valutazione ────────────────────────────────────────────
     def evaluate(self, p: dict, snapshot: dict, state: dict) -> dict:
@@ -176,8 +254,17 @@ class RiskManager(Agent):
             check(p["edge"] <= L.get("max_plausible_edge", 0.08),
                   f"Vantaggio plausibile (EV {p['edge']:+.1%} oltre il {L.get('max_plausible_edge', 0.08):.0%}: "
                   "probabile errore di dato, squadre abbinate male o riferimento vecchio)")
-            check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker di riferimento ({p['n_books']})")
-            check(p["dispersion"] <= L["max_odds_dispersion"], "Bookmaker di riferimento concordi sulla probabilità")
+            if p.get("prob_source") == "table":
+                # probabilità da tabella storica (S08): nessun bookmaker da confrontare, quindi niente controlli di
+                # consenso; al loro posto tetti dedicati su quota ed EV (a quote così basse una sconfitta cancella
+                # decine di vincite, e un EV alto dice che la tabella non descrive questa partita)
+                check(p["odds"] <= L.get("max_table_odds", 1.10) + 1e-9,
+                      f"Quota ≤ {L.get('max_table_odds', 1.10):.2f} per le probabilità da tabella storica ({p['odds']:.2f})")
+                check(p["edge"] <= L.get("max_table_edge", 0.05),
+                      f"EV ≤ {L.get('max_table_edge', 0.05):.0%} per le probabilità da tabella storica ({p['edge']:+.1%})")
+            else:
+                check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker di riferimento ({p['n_books']})")
+                check(p["dispersion"] <= L["max_odds_dispersion"], "Bookmaker di riferimento concordi sulla probabilità")
             check(p["edge"] >= L["min_edge"], f"EV netto ≥ {L['min_edge']:.1%} ({p['edge']:+.2%})")
 
         open_bets = self.office.bankroll.open_bets()
@@ -203,33 +290,44 @@ class RiskManager(Agent):
             stake, k_full = stake_for(p, base * L.get("sentiment_caution_stake_factor", 0.5), L, min_stake)
         else:
             stake, k_full = stake_for(p, base, L, min_stake)
+        rpu = (p.get("exchange") or {}).get("risk_per_unit")
+        trade_budget = L["max_risk_per_trade_pct"] * base
         if p.get("exchange") and state.get("small_bankroll"):
-            stake = min_stake                                          # bankroll piccolo: trade sempre alla puntata minima
+            # bankroll piccolo: trade sempre alla puntata minima, ma solo se la perdita allo stop resta nel limite per trade
+            stake = min_stake if not rpu or min_stake * rpu <= trade_budget + 1e-9 else 0.0
+        sized = stake                                                # puntata del sizing, prima dei tagli
         stake = max(0.0, min(stake, state["cash"]))                  # l'exchange blocca subito la puntata sul conto
-        left_today = max(0.0, state.get("daily_budget", 1e9) - state.get("loss_today", 0.0))
-        if not p.get("exchange") and stake > left_today:
-            from ..execution import round_back_stake
-            stake = round_back_stake(left_today, min_stake)            # la puntata secca non supera il budget del giorno
+        # la puntata si RIDUCE allo spazio che resta (budget del giorno, rischio aperto, trade aperti): il veto arriva
+        # solo se non ci sta nemmeno la puntata minima
+        room = self._room(state, open_bets, min_stake)
+        stake = fit_stake(p, stake, **room)
         risk_now = worst_loss(p, stake)
-        check(risk_now <= max(0.0, state.get("daily_budget", 1e9) - state.get("loss_today", 0.0)) + 1e-9,
-              f"Perdita possibile ({risk_now:.2f} €) entro il budget rimasto oggi")
+        # con puntata 0 i limiti si verificano sulla puntata minima: così il veto dice quale limite la blocca
+        tested = stake if stake > 0 else min_stake
+        risk_tested = worst_loss(p, tested)
+        risk_cap, trade_cap = exposure_caps(state["bankroll"], L, min_stake, room["small"], room["nothing_open"])
+        check(risk_tested <= room["left_today"] + 1e-9,
+              f"Perdita possibile ({risk_tested:.2f} €) entro il budget rimasto oggi ({room['left_today']:.2f} €)")
+        if rpu:
+            check(risk_tested <= trade_budget + 1e-9,
+                  f"Perdita allo stop ({risk_tested:.2f} €) entro il limite per trade ({trade_budget:.2f} €)")
         if p.get("exchange"):
-            open_trades = [b for b in open_bets if b["market"] in ("exchange_trade", "exchange_win")]
+            open_trades = [b for b in open_bets if b["market"] in TRADE_MARKETS]
             if state.get("small_bankroll"):
                 check(len(open_trades) < L.get("max_open_trades_small", 1), "Un solo trade aperto con bankroll piccolo")
-            check(sum(b["stake"] for b in open_trades) + stake <= L.get("max_open_trade_stake_pct", 1.0) * state["bankroll"] + 1e-9,
-                  "Puntate dei trade aperti entro il limite per i salti di prezzo")
-        check(state.get("open_risk", 0.0) + risk_now <= L["max_open_risk_pct"] * state["bankroll"] + 1e-9,
-              f"Rischio aperto ≤ {L['max_open_risk_pct']:.0%} del bankroll "
-              f"({state.get('open_risk', 0.0) + risk_now:.2f} € con questa)")
+            check(room["open_trade_stakes"] + tested <= trade_cap + 1e-9,
+                  f"Puntate dei trade aperti entro il limite per i salti di prezzo ({trade_cap:.2f} €)")
+        check(room["open_risk"] + risk_tested <= risk_cap + 1e-9,
+              f"Rischio aperto entro {risk_cap:.2f} € ({L['max_open_risk_pct']:.0%} del bankroll) "
+              f"({room['open_risk'] + risk_tested:.2f} € con questa)")
         on_match = sum(b["stake"] for b in open_bets if b["match_id"] == p["match_id"])
-        check(on_match == 0 or on_match + risk_now <= L["max_exposure_per_match_pct"] * state["bankroll"],
+        check(on_match == 0 or on_match + risk_tested <= L["max_exposure_per_match_pct"] * state["bankroll"],
               "Esposizione sulla stessa partita nei limiti")
         check(stake >= min_stake - 1e-9 and stake > 0,
               f"Puntata ≥ minimo exchange {min_stake:.2f} € (calcolata {stake:.2f} €"
               + (f"; il vantaggio non basta per giustificare la puntata minima con questo bankroll: Kelly pieno "
                  f"{k_full:.1%}, servirebbe almeno {min_stake / max(base, 1e-9) / L.get('min_stake_max_kelly_share', 0.5):.1%})"
-                 if not p.get("exchange") else ")"))
+                 if not p.get("exchange") and sized < min_stake - 1e-9 else ")"))
 
         approved = not reasons
         decision = {"approved": approved, "stake": stake if approved else 0.0, "kelly_full": k_full, "risk": risk_now,

@@ -64,6 +64,11 @@ class BetfairError(Exception):
     pass
 
 
+class RequestNotSent(BetfairError):
+    """La richiesta NON è partita (login rimandato, credenziali mancanti, sessione assente): per un ordine
+    vuol dire "sicuramente non piazzato", non "esito sconosciuto"."""
+
+
 class BetfairClient:
     """Chiamate sincrone (requests). Il feed le esegue in un thread per non bloccare il loop async."""
 
@@ -168,7 +173,12 @@ class BetfairClient:
         self._ka.start()
 
     def _rpc(self, method: str, params: dict, url: str, service: str) -> dict | list:
-        self.ensure_session()
+        try:
+            self.ensure_session()
+        except BetfairError as exc:                         # nessuna chiamata è ancora partita verso Betfair
+            raise RequestNotSent(str(exc)) from exc
+        if not self.token:
+            raise RequestNotSent("sessione Betfair assente")
         self.calls += 1
         payload = {"jsonrpc": "2.0", "method": f"{service}/{method}", "params": params, "id": 1}
         try:
@@ -260,6 +270,16 @@ class BetfairClient:
             params["marketIds"] = market_ids
         return self.rpc("listCurrentOrders", params).get("currentOrders", [])
 
+    def cleared_by_refs(self, order_refs: list[str]) -> list[dict]:
+        """Ordini già regolati o annullati cercati per customerOrderRef (listCurrentOrders non li mostra più):
+        [{"betId", "customerOrderRef", "status", "sizeSettled", "priceMatched", "profit"}]."""
+        out = []
+        for status in ("SETTLED", "VOIDED", "LAPSED", "CANCELLED"):
+            res = self.rpc("listClearedOrders", {"betStatus": status, "customerOrderRefs": order_refs,
+                                                 "includeItemDescription": False})
+            out += [{**o, "status": status} for o in res.get("clearedOrders", [])]
+        return out
+
     def cleared(self, bet_ids: list[str]) -> dict[str, dict]:
         """Esito delle puntate chiuse: {bet_id: {"profit" (lordo), "outcome", "status"}}.
         status: SETTLED (regolata), VOIDED (annullata: rimborso), LAPSED/CANCELLED (mai abbinata: rimborso)."""
@@ -269,6 +289,10 @@ class BetfairClient:
             for o in res.get("clearedOrders", []):
                 out[o["betId"]] = {"profit": float(o.get("profit", 0.0)), "outcome": o.get("betOutcome"), "status": status}
         return out
+
+
+# stati di un runner a mercato regolato che NON sono il vincitore
+SETTLED_LOSER = ("LOSER", "REMOVED", "REMOVED_VACANT")
 
 
 # ── Stream API: cache dei mercati aggiornata dai messaggi "mcm" ─────────────────
@@ -305,13 +329,21 @@ class MarketCache:
         self.updated = time.time()
 
     def best(self, market_id: str) -> dict:
-        m = self.markets.get(market_id) or {"runners": {}}
+        """Miglior prezzo per runner, con le stesse chiavi della lettura REST: anche il denaro AL miglior prezzo
+        (per il fill-or-kill) e lo stato del runner dalla marketDefinition (WINNER / LOSER / REMOVED)."""
+        m = self.markets.get(market_id) or {"runners": {}, "definition": {}}
+        status = {str(r.get("id")): r.get("status") for r in (m.get("definition") or {}).get("runners") or []}
+        runners = {str(k): v for k, v in m["runners"].items()}
+        for rid in status:                                   # a mercato chiuso un runner può non avere prezzi
+            runners.setdefault(rid, {"batb": {}, "batl": {}, "ltp": None})
         out = {}
-        for rid, r in m["runners"].items():
+        for rid, r in runners.items():
             b = [r["batb"][k] for k in sorted(r["batb"])]
             l = [r["batl"][k] for k in sorted(r["batl"])]
-            out[str(rid)] = {"back": b[0][0] if b else None, "lay": l[0][0] if l else None,
-                             "back_size": sum(s for _, s in b), "lay_size": sum(s for _, s in l), "ltp": r["ltp"]}
+            out[rid] = {"back": b[0][0] if b else None, "lay": l[0][0] if l else None,
+                        "back_size": sum(s for _, s in b), "lay_size": sum(s for _, s in l),
+                        "back_size_best": b[0][1] if b else 0.0, "lay_size_best": l[0][1] if l else 0.0,
+                        "ltp": r["ltp"], "status": status.get(rid)}
         return out
 
 
@@ -370,11 +402,15 @@ class BetfairFeed(Feed):
         self.stream_ids: tuple = ()
         self.available: dict | None = None
         self.watch_ids: set = set()
+        self.saved_cat: dict[str, dict] = {}
+        self.data_delayed = True             # finché una lettura REST non dice il contrario: prudenza per il live
 
-    def watch(self, market_ids) -> None:
+    def watch(self, market_ids, saved: dict | None = None) -> None:
         """Mercati con posizioni aperte (vere, paper o in ombra): restano letti anche dopo l'inizio e fino alla
-        chiusura, così le puntate si regolano sempre."""
+        chiusura, così le puntate si regolano sempre. `saved` = voci di catalogo salvate nel database (dopo un
+        riavvio listMarketCatalogue non restituisce più i mercati iniziati da ore o già chiusi)."""
         self.watch_ids = {m for m in market_ids if str(m).startswith("1.")}
+        self.saved_cat = {k: v for k, v in (saved or {}).items() if k in self.watch_ids}
 
     def _refresh_catalogue(self) -> None:
         if time.time() - self.cat_ts < 600 and self.cat:
@@ -396,15 +432,19 @@ class BetfairFeed(Feed):
             event_type, market_type, _ = SPORTS[sport]
             for m in self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40):
                 cat[m["marketId"]] = {**m, "_kind": sport}
+        saved = getattr(self, "saved_cat", {})
         for mid in getattr(self, "watch_ids", set()):         # le partite con posizioni aperte non si dimenticano
-            if mid not in cat and mid in old:
-                cat[mid] = old[mid]
+            if mid not in cat and (mid in old or mid in saved):
+                cat[mid] = old.get(mid) or saved[mid]
         self.cat, self.cat_ts = cat, time.time()
 
     def _prices_rest(self) -> dict[str, dict]:
         out = {}
-        ids = list(dict.fromkeys(list(self.cat) + [m for m in getattr(self, "watch_ids", set()) if m in self.cat]))
-        for b in self.client.books(ids):
+        ids = list(dict.fromkeys(list(self.cat) + sorted(getattr(self, "watch_ids", set()))))
+        books = self.client.books(ids)
+        if books:
+            self.data_delayed = any(bool(b.get("isMarketDataDelayed")) for b in books)
+        for b in books:
             rs = {}
             for r in b.get("runners", []):
                 ex = r.get("ex", {})
@@ -457,9 +497,15 @@ class BetfairFeed(Feed):
                 prices_ = {order[rid]: v["back"] for rid, v in p["runners"].items() if order.get(rid) and v.get("back")}
                 if len(prices_) < n_out and not closed:
                     continue
-                exchange = {} if closed else {order[rid]: {k: v.get(k) for k in ("back", "lay", "back_size", "lay_size",
-                                                                                  "back_size_best", "lay_size_best")}
+                # solo le chiavi presenti: un None copiato qui varrebbe "0 € nel book" per l'exchange simulato
+                exchange = {} if closed else {order[rid]: {k: v[k] for k in ("back", "lay", "back_size", "lay_size",
+                                                                             "back_size_best", "lay_size_best")
+                                                           if v.get(k) is not None}
                                               for rid, v in p["runners"].items() if order.get(rid)}
+                # annullato solo se Betfair lo dice: mercato chiuso e OGNI runner con uno stato definitivo diverso da
+                # WINNER. Uno stato mancante (o ancora ACTIVE) non basta: si aspetta, non si rimborsa.
+                states = [(p["runners"].get(rid) or {}).get("status") for rid in order]
+                void = closed and result is None and all(st in SETTLED_LOSER for st in states)
                 live = bool(p.get("inplay"))
                 label = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket"}.get(sport, sport)
                 rate = (cat.get("description") or {}).get("marketBaseRate")
@@ -469,7 +515,7 @@ class BetfairFeed(Feed):
                                 "status": "FINISHED" if closed else "LIVE" if live else "SCHEDULED",
                                 "minute": None, "home_score": None, "away_score": None,
                                 # a mercato chiuso l'esito lo dice Betfair: il runner WINNER (None = mercato annullato)
-                                "result": result if closed else None, "void": closed and result is None,
+                                "result": result if closed else None, "void": void,
                                 # "books" restano vuoti: le quote di riferimento arrivano da un'altra fonte (feed.reference)
                                 "books": {}, "live_books": {},
                                 "exchange": exchange,
@@ -495,9 +541,11 @@ class BetfairFeed(Feed):
                 if time.time() - self.cache.updated > 30:
                     prices = await asyncio.to_thread(self._prices_rest)       # stream non ancora pronto: REST
                 else:
+                    # lo stream non dice se i prezzi sono ritardati: vale l'ultima lettura REST (all'inizio: sì)
                     prices = {mid: {"status": (self.cache.markets[mid]["definition"] or {}).get("status", "OPEN"),
                                     "inplay": (self.cache.markets[mid]["definition"] or {}).get("inPlay", False),
-                                    "runners": self.cache.best(mid)} for mid in ids if mid in self.cache.markets}
+                                    "runners": self.cache.best(mid), "delayed": self.data_delayed}
+                              for mid in ids if mid in self.cache.markets}
             else:
                 prices = await asyncio.to_thread(self._prices_rest)
         except BetfairError as exc:

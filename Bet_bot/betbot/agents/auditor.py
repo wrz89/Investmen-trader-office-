@@ -43,7 +43,7 @@ def render_markdown(r: dict) -> str:
     lines = [f"# Report ufficio sportivo — {r['day']}", "",
              f"- Puntate piazzate: {r['placed']} · chiuse: {r['bets']} · veti: {r['vetoes']}",
              f"- Vinte/perse: {r['wins']}/{r['losses']} · win rate {r['win_rate']:.0%} "
-             f"(pareggio a quota media {r['avg_odds']:.2f}: {r['breakeven_win_rate']:.0%})",
+             f"(pareggio a quota media {r['avg_odds']:.2f}, commissione compresa: {r['breakeven_win_rate']:.0%})",
              f"- Puntato {r['staked']:.2f} € · P&L {r['pnl']:+.2f} € · ROI {r['roi']:+.2%}",
              "- CLV medio: " + ("—" if r["clv_avg"] is None else f"{r['clv_avg']:+.2%}"), "", "## Per strategia", ""]
     for sid, s in r["by_strategy"].items():

@@ -73,6 +73,8 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
         m = snapshot["matches"].get(b["match_id"])
         if not m or m["status"] != "LIVE" or not m.get("exchange"):
             continue
+        if m.get("home_score") is None or m.get("away_score") is None:
+            continue                                   # punteggio non arrivato in questo ciclo: non è un vantaggio perso
         if _leader(m) != b["selection"]:
             lay = (m["exchange"].get(b["selection"]) or {}).get("lay")
             if lay:

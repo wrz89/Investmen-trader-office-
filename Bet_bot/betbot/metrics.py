@@ -1,7 +1,27 @@
 """Metriche di performance: ROI, win rate, drawdown, CLV, serie."""
 from __future__ import annotations
 
+import json
 import math
+
+DEFAULT_COMMISSION = 0.045          # betfair.it: 4,5% sulla vincita netta (lo stesso default del Banco)
+
+
+def commission_of(bet: dict) -> float:
+    """Commissione della puntata: quella salvata in extra al piazzamento, altrimenti quella di betfair.it."""
+    extra = bet.get("extra") or {}
+    if isinstance(extra, str):
+        try:
+            extra = json.loads(extra)
+        except ValueError:
+            extra = {}
+    c = extra.get("commission") or (extra.get("exchange") or {}).get("commission")
+    return float(c) if c is not None else DEFAULT_COMMISSION
+
+
+def breakeven(odds: float, commission: float) -> float:
+    """Win rate minimo per andare in pari a quella quota, commissione sulla vincita compresa."""
+    return 1.0 / (1.0 + (odds - 1.0) * (1.0 - commission))
 
 
 def max_drawdown(series: list[float]) -> float:
@@ -22,10 +42,15 @@ def summarize(bets: list[dict], initial_capital: float | None = None) -> dict:
     wins = sum(1 for b in decided if (b.get("pnl") or 0) > 0)
     losses = sum(1 for b in decided if (b.get("pnl") or 0) < 0)
     clvs = [b["clv"] for b in settled if b.get("clv") is not None]
-    curve, running = [], initial_capital or 0.0
+    # la curva parte dal capitale: anche la prima discesa è un drawdown
+    curve, running = ([initial_capital] if initial_capital else []), initial_capital or 0.0
+    cum = peak_pnl = dd_eur = 0.0           # drawdown in euro sul P&L cumulato da 0 (per strategia, senza capitale)
     for b in sorted(settled, key=lambda x: x.get("settled_ts") or ""):
         running += b.get("pnl") or 0.0
         curve.append(running)
+        cum += b.get("pnl") or 0.0
+        peak_pnl = max(peak_pnl, cum)
+        dd_eur = max(dd_eur, peak_pnl - cum)
     streak, worst_streak, cur = 0, 0, 0
     for b in sorted(decided, key=lambda x: x.get("settled_ts") or ""):
         cur = cur + 1 if (b.get("pnl") or 0) < 0 else 0
@@ -39,7 +64,7 @@ def summarize(bets: list[dict], initial_capital: float | None = None) -> dict:
         "bets": len(settled), "open": sum(1 for b in bets if b.get("status") == "OPEN"),
         "wins": wins, "losses": losses,
         "win_rate": wins / len(decided) if decided else 0.0,
-        "breakeven_win_rate": sum(1 / b["odds"] for b in fixed) / len(fixed) if fixed else 0.0,
+        "breakeven_win_rate": sum(breakeven(b["odds"], commission_of(b)) for b in fixed) / len(fixed) if fixed else 0.0,
         "single_win_rate": single_wr, "single_bets": len(fixed),
         "avg_odds": avg_odds, "staked": staked, "pnl": pnl,
         "roi": pnl / staked if staked else 0.0,
@@ -47,5 +72,6 @@ def summarize(bets: list[dict], initial_capital: float | None = None) -> dict:
         "clv_avg": sum(clvs) / len(clvs) if clvs else None,
         "clv_positive_share": sum(1 for c in clvs if c > 0) / len(clvs) if clvs else None,
         "max_drawdown": max_drawdown(curve) if initial_capital else 0.0,
+        "max_drawdown_eur": dd_eur,
         "losing_streak": streak, "worst_losing_streak": worst_streak,
     }

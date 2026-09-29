@@ -51,7 +51,9 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
                     "league": m["league"], "sport": m.get("sport"), "home": m["home"], "away": m["away"],
                     "label": f"{m['home']} - {m['away']} · {m[sel]} (+{abs(lead)} nel 4° quarto)", "market": "h2h",
                     "selection": sel, "bookmaker": "Betfair", "odds": price, "fair_prob": p, "edge": edge,
-                    "commission": comm, "n_books": 3, "dispersion": 0.0, "live": True, "odds_ts": m.get("odds_ts"),
+                    # probabilità da tabella storica, non da bookmaker: il Risk Manager usa i tetti dedicati
+                    "commission": comm, "n_books": 0, "dispersion": None, "prob_source": "table", "live": True,
+                    "odds_ts": m.get("odds_ts"),
                     "reason": f"{m[sel]} avanti di {abs(lead)} a {elapsed:.0%} della partita: storicamente vince il "
                               f"{p:.1%}; Betfair {price:.2f}, EV netto {edge:+.1%}"})
     return out

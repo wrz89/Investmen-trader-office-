@@ -77,6 +77,15 @@ def exchange_target(p: dict, snapshot: dict) -> tuple[str, int] | None:
     return None
 
 
+def best_size(book: dict, side: str) -> float:
+    """Denaro al miglior prezzo (quello che conta per il fill-or-kill); se il feed non lo dà, il totale del lato.
+    Il ripiego vale solo per un valore MANCANTE: 0 € al miglior prezzo resta 0 €."""
+    v = book.get(f"{side}_size_best")
+    if v is None:
+        v = book.get(f"{side}_size")
+    return float(v or 0.0)
+
+
 class PaperExchange:
     """Exchange simulato: stesse regole di abbinamento di Betfair, soldi finti."""
 
@@ -88,11 +97,11 @@ class PaperExchange:
             return {"ok": False, "error": "mercato non disponibile nel feed"}
         need = size * self.liquidity_factor
         if side == "BACK":
-            best, avail = book.get("back"), book.get("back_size_best", book.get("back_size")) or 0.0
+            best, avail = book.get("back"), best_size(book, "back")
             if not best or best < price - 1e-9:
                 return {"ok": False, "error": f"quota da puntare {best or '—'} sotto il prezzo chiesto {price:.2f}"}
         else:
-            best, avail = book.get("lay"), book.get("lay_size_best", book.get("lay_size")) or 0.0
+            best, avail = book.get("lay"), best_size(book, "lay")
             if not best or best > price + 1e-9:
                 return {"ok": False, "error": f"quota da bancare {best or '—'} sopra il prezzo chiesto {price:.2f}"}
         if avail < need:
@@ -126,21 +135,27 @@ class Executor:
         return "shadow" if self.settings.get("mode") == "live" else "paper"
 
     # ── ordini veri: registrati PRIMA dell'invio, ritrovati dopo un errore ──────────────
-    def _send(self, strategy_id: str, market_id: str, sel_id: int, side: str, price: float, size: float) -> dict:
+    def _send(self, strategy_id: str, market_id: str, sel_id: int, side: str, price: float, size: float,
+              bet_row_id: int | None = None) -> dict:
+        """bet_row_id: per un LAY di chiusura, la puntata del libro che chiude (serve a riconoscerlo dopo un crash)."""
         import uuid
+        from .feeds.betfair import RequestNotSent
         from .store import now_iso
         ref = f"bb{uuid.uuid4().hex[:20]}"
         if self.store is not None:
             self.store.execute("INSERT INTO orders(ts, ref, strategy_id, market_id, selection_id, side, price, size, status, "
-                               "updated) VALUES(?,?,?,?,?,?,?,?,?,?)", (now_iso(), ref, strategy_id, market_id, str(sel_id),
-                                                                        side, price, size, "PENDING", now_iso()))
+                               "updated, bet_row_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                               (now_iso(), ref, strategy_id, market_id, str(sel_id), side, price, size, "PENDING", now_iso(),
+                                bet_row_id))
         try:
             r = self.client.place(market_id, sel_id, side, price, size, fill_or_kill=True, order_ref=ref,
                                   strategy_ref=strategy_id.split("_")[0] + strategy_id.split("_")[-1])
+        except RequestNotSent as exc:              # errore PRIMA dell'invio (login rimandato, sessione assente)
+            r = {"matched": 0.0, "status": "NOT_SENT", "error": f"ordine non inviato: {exc}"}
         except Exception as exc:
             r = self._recover(ref, str(exc))
         self._update_order(ref, r)
-        return r
+        return {**r, "order_ref": ref}
 
     def _recover(self, ref: str, error: str) -> dict:
         """Risposta persa (timeout, rete): l'ordine potrebbe essere partito. Lo si cerca su Betfair."""
@@ -176,18 +191,20 @@ class Executor:
         market_id, sel_id = exchange_target(p, snapshot)
         r = self._send(p["strategy_id"], market_id, sel_id, "BACK", p["odds"], stake)
         if r.get("status") == "UNKNOWN":
-            return {"ok": False, "mode": mode, "unknown": True,
+            return {"ok": False, "mode": mode, "unknown": True, "order_ref": r["order_ref"],
                     "error": f"esito dell'ordine sconosciuto ({r.get('error')}): controllo manuale richiesto"}
         if r["matched"] <= 0:
             return {"ok": False, "mode": mode, "error": r.get("error") or f"non abbinata a {p['odds']:.2f} (fill-or-kill annullato)"}
         return {"ok": True, "mode": mode, "odds": r["avg_price"] or p["odds"], "stake": r["matched"],
-                "ref": {"bet_id": r["bet_id"], "market_id": market_id, "selection_id": sel_id}}
+                "ref": {"bet_id": r["bet_id"], "market_id": market_id, "selection_id": sel_id, "order_ref": r["order_ref"]}}
 
     def hedge(self, bet: dict, lay_price: float, urgent: bool, snapshot: dict | None = None) -> dict:
         """Chiude un back con un lay della puntata "pareggiata" (stake × back / lay), così il risultato è
-        uguale su ogni esito. Se è urgente (stop, time-to-jump) accetta fino a 2 tick peggio pur di chiudere."""
+        uguale su ogni esito. Se è urgente (stop, time-to-jump) accetta fino a 2 tick peggio pur di chiudere.
+        La puntata del lay si calcola sul prezzo VISTO (dove l'ordine di solito si abbina), non sul limite:
+        calcolata sul limite resterebbe una parte scoperta ogni volta che Betfair abbina a un prezzo migliore."""
         price = tick_up(lay_price, 2) if urgent else lay_price
-        size = max(LAY_MIN, round(bet["stake"] * bet["odds"] / price, 2))
+        size = max(LAY_MIN, round(bet["stake"] * bet["odds"] / lay_price, 2))
         if bet["mode"] != "live":
             book = book_for({"market_id": bet["match_id"], "match_id": bet["match_id"], "selection": bet["selection"]},
                             snapshot or {})
@@ -196,17 +213,18 @@ class Executor:
                 # (il caso peggiore per un trade), come succederebbe sull'exchange vero.
                 return {"ok": False, "error": "mercato non più nel feed: la posizione si regola sul risultato"}
             best = book.get("lay")
-            avail = book.get("lay_size_best", book.get("lay_size")) or 0
+            avail = best_size(book, "lay")
             if best and best <= price + 1e-9 and avail >= size * self.paper.liquidity_factor:
                 return {"ok": True, "price": max(best, lay_price) if not urgent else best}
             return {"ok": False, "error": f"lay non abbinabile a {price:.2f} (miglior quota da bancare {best or '—'})"}
         ref = (json.loads(bet["extra"]) if bet.get("extra") else {}).get("betfair") or {}
-        r = self._send(bet["strategy_id"], ref["market_id"], ref["selection_id"], "LAY", price, size)
+        r = self._send(bet["strategy_id"], ref["market_id"], ref["selection_id"], "LAY", price, size, bet_row_id=bet["id"])
         if r.get("status") == "UNKNOWN":
             return {"ok": False, "unknown": True, "error": f"esito del lay sconosciuto ({r.get('error')})"}
         if r["matched"] <= 0:
             return {"ok": False, "error": r.get("error") or f"lay non abbinato a {price:.2f}"}
-        return {"ok": True, "price": r["avg_price"] or price}
+        # size e prezzo medio VERI: il Banco calcola il risultato di ogni esito da questi, non dal limite
+        return {"ok": True, "price": r["avg_price"] or price, "size": r["matched"]}
 
     def settled_live(self, bets: list[dict]) -> dict[str, dict]:
         ids = [(json.loads(b["extra"]) or {}).get("betfair", {}).get("bet_id") for b in bets if b.get("extra")]

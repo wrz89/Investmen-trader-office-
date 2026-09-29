@@ -14,6 +14,7 @@ max_open_trades_small: 1       # sotto small_bankroll: un solo trade aperto alla
 sizing: kelly            # kelly | flat
 kelly_fraction: 0.25     # 1/4 di Kelly calcolato sulla quota netta di commissione
 max_stake_pct: 0.10      # tetto per puntata secca: con 2 € minimi le puntate secche restano possibili fino a 20 € di bankroll
+                         # (una alla volta sotto i 25 €, vedi max_open_risk_pct)
 # Con bankroll piccolo 1/4 di Kelly è quasi sempre sotto i 2 € minimi di betfair.it: la puntata minima
 # passa solo se resta ≤ metà del Kelly pieno, cioè solo quando il vantaggio stimato è netto.
 min_stake_max_kelly_share: 0.5
@@ -24,7 +25,10 @@ reinvest_fraction: 1.0          # 1,0 = compounding pieno sui profitti
 floor_pct_of_initial: 0.90      # sotto il 90% del capitale la base è il bankroll stesso
 
 # ── Esposizione ───────────────────────────────────────────────
-max_open_risk_pct: 0.08         # somma delle perdite massime delle posizioni aperte ≤ 8% del bankroll
+max_open_risk_pct: 0.08         # somma delle perdite massime delle posizioni aperte ≤ 8% del bankroll: una puntata
+                                # più grande si RIDUCE allo spazio che resta (veto solo sotto i 2 €). Sotto i 100 €,
+                                # senza niente di aperto, il tetto non scende sotto la puntata minima: una da 2 €
+                                # alla volta resta possibile fino al kill switch
 max_open_bets: 4
 max_bets_per_day: 10
 max_exchange_trades_per_day: 40
@@ -39,12 +43,17 @@ max_plausible_edge: 0.08        # EV > 8% contro un riferimento sharp = quasi se
 max_reference_age_seconds: 9000 # quote di riferimento pre-partita al massimo di 2,5 ore (piano gratuito: ogni 2 ore)
 max_reference_age_live_seconds: 300   # in-play il riferimento deve avere meno di 5 minuti
 max_odds_dispersion: 0.06
+# Probabilità da tabella storica (S08, nessun bookmaker da confrontare): al posto dei controlli di consenso
+max_table_odds: 1.10           # quota massima
+max_table_edge: 0.05           # EV massimo: oltre, la tabella non descrive quella partita
 
 # ── Circuit breaker ───────────────────────────────────────────
 # Con 2 € minimi su 30 € le percentuali scatterebbero dopo una o due perdite: sotto i 100 € valgono
 # limiti ASSOLUTI (budget di perdita), sopra si passa alle percentuali.
 small_bankroll: 100             # sotto questa soglia: limiti assoluti e trade alla puntata minima
-kill_below_bankroll: 20.0       # KILL SWITCH se il bankroll scende sotto 20 € (−10 € dal capitale)
+kill_below_bankroll: 20.0       # KILL SWITCH se il bankroll scende sotto 20 € (−10 € dal capitale)…
+max_drawdown_small: 0.33        # …o sotto picco × (1 − 0,33): la soglia sale col picco (a 30 € resta ~20 €,
+                                # a 60 € diventa 40,20 €), così un profitto non si restituisce tutto senza stop
 max_daily_loss_eur: 4.0         # stop fino a domani dopo 4 € persi nel giorno
 max_daily_loss: 0.05            # sopra i 100 €: −5% nel giorno → stop fino a domani
 max_drawdown: 0.15              # sopra i 100 €: −15% dal massimo → KILL SWITCH (reset solo dal PC)

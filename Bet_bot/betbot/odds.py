@@ -51,8 +51,12 @@ def consensus(books: dict[str, dict[str, float]]) -> dict:
     fair: dict[str, list[tuple[float, float]]] = {}
     best: dict[str, tuple[float, str]] = {}
     margins = []
-    for book, prices in books.items():
-        if len(prices) < 2 or any((p or 0) <= 1.0 for p in prices.values()):
+    valid = {b: p for b, p in books.items() if len(p) >= 2 and all((x or 0) > 1.0 for x in p.values())}
+    # solo i bookmaker che quotano TUTTI gli esiti del mercato: un 1X2 senza la X, normalizzato su 2 esiti,
+    # gonfierebbe la probabilità del favorito (falso valore)
+    full = max((len(p) for p in valid.values()), default=0)
+    for book, prices in valid.items():
+        if len(prices) < full:
             continue
         margins.append(sum(implied(p) for p in prices.values()) - 1.0)
         w = SHARP_WEIGHTS.get(book, 1.0)

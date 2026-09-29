@@ -26,7 +26,7 @@ class Tesoriere(Agent):
         shadow = {sid: summarize([b for b in shadow_rows if b["strategy_id"] == sid])
                   for sid in sorted({b["strategy_id"] for b in shadow_rows})}
         L = self.office.risk.limits
-        next_cap = L["max_stake_pct"] * state["stake_base"]
+        next_cap = self.office.risk.next_max_stake(state)       # stessi tagli del Risk Manager (rischio aperto, budget)
         metrics = {**m, "bankroll": state["bankroll"], "cash": state["cash"], "initial": br.initial_capital,
                    "profits": state["profits"], "stake_base": state["stake_base"], "next_max_stake": next_cap,
                    "drawdown_now": state["drawdown"], "by_strategy": by_strategy, "shadow_by_strategy": shadow,

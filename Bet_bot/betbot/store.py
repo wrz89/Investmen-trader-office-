@@ -4,6 +4,8 @@ Tabelle:
   matches        partite (calendario, stato, punteggio live, risultato finale)
   odds           storico delle quote per partita/bookmaker/selezione (feed real-time)
   bets           libro delle scommesse — IMMUTABILE tranne la chiusura (settlement)
+  orders         ordini veri inviati a Betfair, registrati PRIMA dell'invio (bet_row_id = puntata del libro
+                 a cui l'ordine appartiene: il BACK che la apre o il LAY che la chiude)
   shadow_bets    scommesse "ombra" delle strategie in osservazione (nessun capitale)
   bankroll       serie storica del bankroll (equity curve)
   events         registro eventi — IMMUTABILE
@@ -53,7 +55,8 @@ CREATE TABLE IF NOT EXISTS bets (
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts TEXT, ref TEXT UNIQUE, strategy_id TEXT, market_id TEXT, selection_id TEXT, side TEXT, price REAL, size REAL,
-    status TEXT, bet_id TEXT, matched REAL, avg_price REAL, error TEXT, updated TEXT
+    status TEXT, bet_id TEXT, matched REAL, avg_price REAL, error TEXT, updated TEXT,
+    bet_row_id INTEGER
 );
 CREATE TABLE IF NOT EXISTS shadow_bets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +97,14 @@ class Store:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
+        self._migrate()
         self.conn.commit()
+
+    def _migrate(self) -> None:
+        """Colonne aggiunte dopo la prima versione: i database già esistenti le ricevono qui (ALTER TABLE)."""
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(orders)").fetchall()}
+        if "bet_row_id" not in cols:
+            self.conn.execute("ALTER TABLE orders ADD COLUMN bet_row_id INTEGER")
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         with self._lock:
