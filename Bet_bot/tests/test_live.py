@@ -542,3 +542,30 @@ def test_odds_api_skips_book_with_unrecognised_outcome(monkeypatch):
     f = odds_api.OddsApiFeed({"feed": {"sports": ["soccer_italy_serie_a"], "odds_api": {}}})
     books = asyncio.run(f.fetch())["matches"]["e1"]["books"]
     assert set(books) == {"Pinnacle", "Unibet"}                # niente 1X2 scambiato per un mercato a due esiti
+
+
+# ── risposta persa e ordine non ancora visibile: "da confermare", mai un secondo ordine ─────────────
+def test_lost_response_not_yet_visible_blocks_new_bets_until_resolved(tmp_path, gates_open, monkeypatch):
+    class LateBF(FakeBF):
+        """La richiesta arriva a Betfair, ma l'ordine compare solo qualche secondo dopo la verifica."""
+        def place(self, *a, **k):
+            try:
+                return super().place(*a, **k)
+            finally:
+                self.hidden = dict(self.orders)
+                self.orders.clear()
+
+    fake = LateBF()
+    fake.lose_response = True
+    o = _office(tmp_path / "live.db", fake)
+    assert o.banco.place(_p(), {"stake": 2.0, "kelly_full": 0.3}, "c1", SNAP) is None
+    assert o.store.query("SELECT status FROM orders")[0]["status"] == "UNCONFIRMED"
+    assert o.store.get("kill_switch") is None                 # un timeout di rete non blocca tutto…
+    fake.lose_response = False
+    assert o.banco.place(_p(), {"stake": 2.0, "kelly_full": 0.3}, "c2", SNAP) is None
+    assert fake.n == 1                                         # …ma nessun secondo ordine finché non è chiarito
+    fake.orders.update(fake.hidden)                            # l'ordine era partito davvero
+    _later(monkeypatch)
+    o.resolve_orders()
+    assert o.store.query("SELECT status FROM orders")[0]["status"] == "MATCHED"
+    assert o.store.get("kill_switch")                          # posizione vera fuori registro → blocco

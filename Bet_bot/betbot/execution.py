@@ -167,7 +167,9 @@ class Executor:
             o = found[0]
             return {"bet_id": o.get("betId"), "matched": float(o.get("sizeMatched") or 0.0),
                     "avg_price": float(o.get("averagePriceMatched") or 0.0), "status": o.get("status"), "recovered": True}
-        return {"matched": 0.0, "status": "NOT_FOUND", "error": error}
+        # non trovato SUBITO non vuol dire non partito: la richiesta può arrivare a Betfair qualche secondo dopo.
+        # Resta "da confermare": nessuna nuova puntata finché il risolutore (dopo 2 minuti) non lo chiarisce.
+        return {"matched": 0.0, "status": "UNCONFIRMED", "error": f"{error}; ordine non ancora visibile su Betfair"}
 
     def _update_order(self, ref: str, r: dict) -> None:
         if self.store is None:
@@ -190,6 +192,9 @@ class Executor:
             return {"ok": True, "mode": mode, "odds": r["price"], "stake": r["matched"], "ref": None}
         market_id, sel_id = exchange_target(p, snapshot)
         r = self._send(p["strategy_id"], market_id, sel_id, "BACK", p["odds"], stake)
+        if r.get("status") == "UNCONFIRMED":
+            return {"ok": False, "mode": mode, "unconfirmed": True, "order_ref": r["order_ref"],
+                    "error": f"risposta di Betfair persa, ordine non ancora visibile ({r.get('error')}): lo ricontrollo tra 2 minuti"}
         if r.get("status") == "UNKNOWN":
             return {"ok": False, "mode": mode, "unknown": True, "order_ref": r["order_ref"],
                     "error": f"esito dell'ordine sconosciuto ({r.get('error')}): controllo manuale richiesto"}
@@ -221,6 +226,8 @@ class Executor:
         r = self._send(bet["strategy_id"], ref["market_id"], ref["selection_id"], "LAY", price, size, bet_row_id=bet["id"])
         if r.get("status") == "UNKNOWN":
             return {"ok": False, "unknown": True, "error": f"esito del lay sconosciuto ({r.get('error')})"}
+        if r.get("status") == "UNCONFIRMED":
+            return {"ok": False, "unconfirmed": True, "error": f"lay da confermare ({r.get('error')})"}
         if r["matched"] <= 0:
             return {"ok": False, "error": r.get("error") or f"lay non abbinato a {price:.2f}"}
         # size e prezzo medio VERI: il Banco calcola il risultato di ogni esito da questi, non dal limite

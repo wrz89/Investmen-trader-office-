@@ -197,7 +197,7 @@ class SportOffice:
         feed.watch(ids, saved)
 
     def resolve_orders(self, min_age_s: float = ORDER_CHECK_AFTER_S) -> int:
-        """Ordini veri rimasti PENDING/UNKNOWN (risposta persa, crash a metà invio): passati 2 minuti si chiede a
+        """Ordini veri rimasti PENDING/UNKNOWN/UNCONFIRMED (risposta persa, crash a metà invio): passati 2 minuti si chiede a
         Betfair com'è andata, per customerOrderRef.
           • non esiste → NOT_FOUND: un fill-or-kill non abbinato sparisce, quindi nessuna posizione;
           • abbinato → MATCHED con bet_id. Un BACK abbinato è una posizione vera che il registro non conosce:
@@ -207,7 +207,7 @@ class SportOffice:
             return 0
         from datetime import datetime
         from .store import now_iso
-        rows = self.store.query("SELECT * FROM orders WHERE status IN ('PENDING', 'UNKNOWN') ORDER BY id")
+        rows = self.store.query("SELECT * FROM orders WHERE status IN ('PENDING', 'UNKNOWN', 'UNCONFIRMED') ORDER BY id")
         done = 0
         for o in rows:
             try:
@@ -297,7 +297,7 @@ class SportOffice:
             if o["bet_id"] not in booked:
                 problems[f"ref:{o['ref']}"] = (f"BACK abbinato su Betfair (bet {o['bet_id']}, {o['matched'] or 0:.2f} € a "
                                                f"{o['avg_price'] or o['price']:.2f}) senza puntata nel registro")
-        pending = self.store.query("SELECT ref FROM orders WHERE status IN ('PENDING', 'UNKNOWN')")
+        pending = self.store.query("SELECT ref FROM orders WHERE status IN ('PENDING', 'UNKNOWN', 'UNCONFIRMED')")
         reported = set(self.store.get("reconcile_reported") or [])
         new = [k for k in problems if k not in reported]
         if new or pending:

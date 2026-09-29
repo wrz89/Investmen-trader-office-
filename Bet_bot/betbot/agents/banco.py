@@ -47,6 +47,10 @@ class Banco(Agent):
         if self.office.executor.route(p, snapshot) == "shadow":
             self.shadow(p, snapshot)                      # mai scalare il bankroll vero per una puntata in ombra
             return None
+        if self.store.query("SELECT 1 FROM orders WHERE status IN ('PENDING', 'UNKNOWN', 'UNCONFIRMED') LIMIT 1"):
+            self.say(f"Puntata su {p['label']} rimandata: c'è un ordine vero ancora da confermare su Betfair.",
+                     "blocked", "exec_fail", level="WARN")
+            return None
         res = self.office.executor.place(p, decision["stake"], snapshot)
         if not res["ok"]:
             if res.get("unknown"):
@@ -144,7 +148,7 @@ class Banco(Agent):
                        "(registrato il caso peggiore)")
         return self._close(bet, "HEDGED", bet["stake"] + pnl, reason)
 
-    def _lay_orders(self, bet_id: int, statuses: tuple = ("MATCHED", "PENDING", "UNKNOWN")) -> list[dict]:
+    def _lay_orders(self, bet_id: int, statuses: tuple = ("MATCHED", "PENDING", "UNKNOWN", "UNCONFIRMED")) -> list[dict]:
         marks = ",".join("?" * len(statuses))
         return self.store.query(f"SELECT * FROM orders WHERE bet_row_id=? AND side='LAY' AND status IN ({marks}) ORDER BY id",
                                 (bet_id, *statuses))
@@ -204,8 +208,8 @@ class Banco(Agent):
                         capped = True
                         break
                     res = self.office.executor.hedge(bet, ask, urgent, self.office.cache)
-                    if res["ok"] or res.get("unknown"):
-                        break
+                    if res["ok"] or res.get("unknown") or res.get("unconfirmed"):
+                        break                             # mai un secondo lay finché il primo non è chiarito
                 if not res["ok"]:
                     if res.get("unknown"):
                         self.store.set("kill_switch", f"esito sconosciuto della chiusura di #{bet['id']}")

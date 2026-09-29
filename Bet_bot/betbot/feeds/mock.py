@@ -228,7 +228,10 @@ class MockFeed(Feed):
                     m["exchange"] = self._exchange_book(m["truth"])
                 m["odds_ts"] = m["ref_ts"] = now
                 return
-        minute = min(self.match_minutes, int((now - m["kickoff_epoch"]) / 60))
+        # tennis: il terzo set arriva al minuto 120, oltre match_minutes (90): con il tetto a 90 una partita
+        # sull'1-1 restava LIVE per sempre, e la puntata aperta bloccava tutte le altre sotto i 100 €
+        cap = 150 if is_tennis(m["sport"]) else self.match_minutes
+        minute = min(cap, int((now - m["kickoff_epoch"]) / 60))
         for _ in range(minute - m["seen_minute"]):        # gol minuto per minuto
             if m["goal_rate"] and self.rng.random() < m["goal_rate"]:
                 t = m["truth"]
