@@ -11,7 +11,7 @@ import json
 from .config import LOCAL_SETTINGS as PATH
 
 DEFAULTS = {
-    # Se vuoto, l'ufficio sportivo usa il bot Telegram già collegato all'ufficio crypto.
+    # Bot Telegram personale: token da @BotFather, chat trovata dalla dashboard.
     "telegram": {"token": "", "chat_id": "", "chat_name": ""},
     "notify": {
         "bets": True,          # ogni puntata piazzata (richiesta esplicita dell'utente)

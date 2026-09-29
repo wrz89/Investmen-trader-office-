@@ -1,7 +1,9 @@
-"""Percorsi e configurazione dell'ufficio sportivo.
+"""Percorsi e configurazione di Bet_bot.
 
-Tutto ciò che l'ufficio produce finisce in runtime/sport/ (separato dal
-runtime dell'ufficio crypto). Spostabile con SPORT_RUNTIME_DIR.
+Bet_bot è una cartella autonoma (es. D:\claude\Bet_bot): codice, configurazione,
+dashboard e dati stanno tutti lì dentro. Tutto ciò che il bot produce (database,
+storico, report, chiavi) finisce in runtime/, che non va mai su GitHub.
+Spostabile con la variabile BETBOT_RUNTIME_DIR.
 """
 from __future__ import annotations
 
@@ -12,11 +14,11 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-CONFIG_DIR = ROOT / "config" / "sport"
-DASHBOARD_FILE = ROOT / "dashboard" / "sport.html"
-SAMPLE_DATA_DIR = ROOT / "data" / "sport"          # esempio del formato CSV generico per il backtest
+CONFIG_DIR = ROOT / "config"
+DASHBOARD_FILE = ROOT / "dashboard" / "index.html"
+SAMPLE_DATA_DIR = ROOT / "data"          # esempio del formato CSV generico per il backtest
 
-RUNTIME_DIR = Path(os.environ.get("SPORT_RUNTIME_DIR", ROOT / "runtime" / "sport"))
+RUNTIME_DIR = Path(os.environ.get("BETBOT_RUNTIME_DIR", ROOT / "runtime"))
 REPORTS_DIR = RUNTIME_DIR / "reports"
 DB_PATH = RUNTIME_DIR / "sport.db"
 LOCAL_SETTINGS = RUNTIME_DIR / "local_settings.json"

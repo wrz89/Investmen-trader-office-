@@ -5,8 +5,8 @@ import sqlite3
 
 import pytest
 
-from sport_office.odds import consensus, kelly, remove_margin, surebet
-from sport_office.store import Store
+from betbot.odds import consensus, kelly, remove_margin, surebet
+from betbot.store import Store
 
 
 # ── quote ───────────────────────────────────────────────────
@@ -48,11 +48,11 @@ def test_bets_are_immutable_and_settle_once(tmp_path):
 # ── ufficio ────────────────────────────────────────────────
 @pytest.fixture
 def office(tmp_path, monkeypatch):
-    from sport_office import local_settings
+    from betbot import local_settings
     monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
-    from sport_office.core import SportOffice
-    from sport_office.feeds.mock import MockFeed
-    from sport_office.config import load_settings
+    from betbot.core import SportOffice
+    from betbot.feeds.mock import MockFeed
+    from betbot.config import load_settings
     st = load_settings()
     st["feed"]["mock"]["seed"] = 5
     feed = MockFeed(st)
@@ -126,14 +126,14 @@ def test_settlement_updates_bankroll(office):
 
 
 def test_exchange_green_up_math():
-    from sport_office.agents.banco import exchange_green
+    from betbot.agents.banco import exchange_green
     assert exchange_green(10, 4.0, 3.8, 0.05) == pytest.approx(10 * (4 / 3.8 - 1) * 0.95)
     assert exchange_green(10, 4.0, 4.2, 0.05) == pytest.approx(10 * (4 / 4.2 - 1))
 
 
 def test_live_gates_closed_by_default(monkeypatch):
-    from sport_office import local_settings
-    from sport_office.execution import Gates
+    from betbot import local_settings
+    from betbot.execution import Gates
     monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
     ok, why = Gates.live_allowed({"mode": "live", "execution": {"provider": "betfair"}, "live_strategies": ["X"]}, "X")
     assert not ok and "verificata" in why
@@ -148,7 +148,7 @@ def test_sentiment_market_move_blocks(office):
             rows.append((ts, "M9", book, "h2h", "away", 9.0, 0))
             rows.append((ts, "M9", book, "h2h", "draw", 5.5, 0))
     office.store.executemany("INSERT INTO odds(ts, match_id, bookmaker, market, selection, price, live) VALUES(?,?,?,?,?,?,?)", rows)
-    from sport_office import clock
+    from betbot import clock
     from datetime import datetime
     clock.set_source(lambda: datetime.fromisoformat("2026-01-01T10:45:00+00:00").timestamp())
     try:
@@ -160,8 +160,8 @@ def test_sentiment_market_move_blocks(office):
 
 
 def test_sentiment_classifier_sensitivity():
-    from sport_office.agents.sentiment import classify, split_publisher, team_in_title
-    from sport_office.config import load_yaml
+    from betbot.agents.sentiment import classify, split_publisher, team_in_title
+    from betbot.config import load_yaml
     cfg = load_yaml("sentiment.yaml")["news"]
     assert classify("Inter, Lautaro out per infortunio: salta la partita", cfg)["severity"] == "high"
     assert classify("Napoli, Lukaku rientra dall'infortunio", cfg)["severity"] == "neutral"
@@ -171,7 +171,7 @@ def test_sentiment_classifier_sensitivity():
 
 
 def test_betfair_stream_cache_applies_deltas():
-    from sport_office.feeds.betfair import MarketCache
+    from betbot.feeds.betfair import MarketCache
     c = MarketCache()
     c.apply({"op": "mcm", "mc": [{"id": "1.2", "img": True, "rc": [{"id": 11, "batb": [[0, 3.5, 100], [1, 3.45, 50]],
                                                                     "batl": [[0, 3.55, 80]], "ltp": 3.5}]}]})
@@ -181,14 +181,14 @@ def test_betfair_stream_cache_applies_deltas():
 
 
 def test_team_matching():
-    from sport_office.feeds.api_football import same_team
+    from betbot.feeds.api_football import same_team
     assert same_team("Manchester City", "Man City") and same_team("AC Milan", "Milan")
     assert not same_team("Man United", "Man City") and not same_team("Real Madrid", "Atletico Madrid")
 
 
 def test_backtest_uses_opening_odds_and_settles_by_result():
     import pandas as pd
-    from sport_office.backtest import montecarlo, run
+    from betbot.backtest import montecarlo, run
     rows = []
     for i in range(30):
         rows.append({"date": pd.Timestamp("2024-01-01") + pd.Timedelta(days=i), "league": "X", "home": "A", "away": "B",
@@ -205,11 +205,11 @@ def test_backtest_uses_opening_odds_and_settles_by_result():
 
 
 def test_short_simulation_runs_and_books_balance(tmp_path, monkeypatch):
-    monkeypatch.setenv("SPORT_RUNTIME_DIR", str(tmp_path))
+    monkeypatch.setenv("BETBOT_RUNTIME_DIR", str(tmp_path))
     import importlib
-    import sport_office.config as cfg
+    import betbot.config as cfg
     importlib.reload(cfg)
-    import sport_office.simulate as sim
+    import betbot.simulate as sim
     importlib.reload(sim)
     m = asyncio.run(sim.run(hours=8, step_minutes=3, seed=3))
     s = Store(m["db"])
@@ -221,7 +221,7 @@ def test_short_simulation_runs_and_books_balance(tmp_path, monkeypatch):
 
 def test_odds_api_feed_parsing_and_throttling(monkeypatch):
     from datetime import datetime, timedelta, timezone
-    from sport_office.feeds import odds_api
+    from betbot.feeds import odds_api
     monkeypatch.setattr(odds_api, "api_key", lambda: "k")
     ko = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat().replace("+00:00", "Z")
     calls = []
@@ -246,7 +246,7 @@ def test_odds_api_feed_parsing_and_throttling(monkeypatch):
 
 
 def test_betfair_soccer_runners_mapped_by_name():
-    from sport_office.feeds.betfair import BetfairFeed
+    from betbot.feeds.betfair import BetfairFeed
     f = BetfairFeed.__new__(BetfairFeed)
     f.client = type("C", (), {"errors": 0, "calls": 1})()
     f.stream_task = None
@@ -264,7 +264,7 @@ def test_betfair_soccer_runners_mapped_by_name():
 
 def test_telegram_sends_on_bet_and_breaker(monkeypatch):
     import threading
-    from sport_office import local_settings, notifier
+    from betbot import local_settings, notifier
     sent = []
     monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
     monkeypatch.setattr(notifier, "channel", lambda: {"token": "1:x", "chat_id": "42"})

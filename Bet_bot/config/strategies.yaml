@@ -1,5 +1,5 @@
 # Parametri delle strategie. Ogni strategia è un file versionato in
-# sport_office/strategies/: per cambiarla si crea una versione nuova, mai si sovrascrive.
+# betbot/strategies/: per cambiarla si crea una versione nuova, mai si sovrascrive.
 
 S01_favoriti_v1:
   description: Favoriti netti pre-partita con quota migliore superiore alla probabilità di consenso.

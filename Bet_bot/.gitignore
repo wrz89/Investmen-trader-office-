@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# database, storico, report, chiavi: restano solo sul tuo PC
+runtime/

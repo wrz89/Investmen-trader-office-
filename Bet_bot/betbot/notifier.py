@@ -1,10 +1,9 @@
 """Notifiche Telegram dell'ufficio sportivo.
 
-Regola d'oro (come nell'ufficio crypto): una notifica che fallisce non ferma
+Regola d'oro: una notifica che fallisce non ferma
 MAI l'ufficio. Ogni invio parte in un thread separato con timeout.
 
-Canale: il bot configurato nelle impostazioni dell'ufficio sportivo; se manca,
-quello dell'ufficio crypto (stesso telefono, un solo bot).
+Canale: il bot configurato nelle Impostazioni di Bet_bot (runtime/local_settings.json).
 """
 from __future__ import annotations
 
@@ -57,17 +56,10 @@ def detect_chat(token: str) -> dict:
 
 
 def channel() -> dict | None:
-    """Token e chat da usare: prima quelli dell'ufficio sportivo, poi quelli dell'ufficio crypto."""
+    """Token e chat del bot Telegram configurato nelle Impostazioni di Bet_bot."""
     tg = local_settings.load()["telegram"]
     if tg.get("token") and tg.get("chat_id"):
         return tg
-    try:
-        from office import local_settings as crypto_settings
-        ctg = crypto_settings.load()["telegram"]
-        if ctg.get("token") and ctg.get("chat_id"):
-            return ctg
-    except Exception:
-        pass
     return None
 
 

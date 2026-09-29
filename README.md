@@ -16,7 +16,7 @@ Ufficio quantitativo con 8 agenti per il trading crypto di breve periodo.
 
 Nessun LLM sta nel percorso che porta a un ordine: tutte le decisioni sono regole numeriche.
 
-Nello stesso repository c'è anche l'**ufficio sportivo** (scommesse, 9 agenti, dashboard su `http://localhost:8766`): vedi la sezione [Sports Betting Office](#sports-betting-office) in fondo.
+Nello stesso repository c'è anche **Bet_bot**, il bot di scommesse su Betfair Exchange: è una cartella autonoma (`Bet_bot/`) da copiare dove vuoi, con istruzioni in [`Bet_bot/README.md`](Bet_bot/README.md).
 
 ## Installazione su Windows
 
@@ -86,85 +86,3 @@ Il token del bot resta in `runtime/local_settings.json`, solo sul tuo PC. Può e
 - **Bybit EU**: se i dati pubblici non rispondono, in `config/settings.yaml` imposta `options: {hostname: bybit.eu}`. Se le coppie in EUR hanno spread alti, lo Scanner lo segnala e il Risk Manager blocca: valuta le coppie /USDC.
 - **Commissioni**: verifica le tue commissioni reali e aggiorna `costs` in `config/settings.yaml`.
 
----
-
-# Sports Betting Office
-
-Ufficio gemello per le **scommesse sportive**, con la stessa filosofia di quello crypto: regole numeriche, veto del Risk Manager, registro immutabile, **paper di default**. Codice in `sport_office/`, configurazione in `config/sport/`, dati in `runtime/sport/`, dashboard su `http://localhost:8766`.
-
-| # | Agente | Cosa fa | File |
-|---|---|---|---|
-| 1 | Carlo · Direttore | attiva le strategie, controlla i cancelli per i soldi veri, riepilogo del ciclo | `sport_office/agents/direttore.py` |
-| 2 | Sara · Quote (Data Collector) | ogni ciclo scarica quote pre-partita e live, punteggi, statistiche e corse; salva tutto e scarta i dati vecchi | `sport_office/agents/quote.py`, `sport_office/feeds/` |
-| 3 | Davide · Analista | strategie sport: favoriti, live scalping, sure bet | `sport_office/agents/analista.py` |
-| 4 | Matteo · Trader cavalli | exchange: back-to-lay e green-up prima del via | `sport_office/strategies/s04_greenup_cavalli_v1.py` |
-| 5 | Giorgia · Sentiment | movimento delle quote e notizie pubbliche; **può solo frenare** | `sport_office/agents/sentiment.py`, `config/sport/sentiment.yaml` |
-| 6 | Bruno · Risk Manager (The Brain) | EV > 0, Kelly frazionario, limiti, circuit breaker, **veto assoluto** | `sport_office/agents/risk.py`, `config/sport/risk_limits.yaml` |
-| 7 | Pietro · Banco (Esecuzione e notifica) | piazza, chiude, cash-out, green-up, CLV; Telegram a ogni giocata | `sport_office/agents/banco.py`, `sport_office/execution.py` |
-| 8 | Anna · Tesoriera | bankroll = capitale + profitti, base di puntata con reinvestimento, ROI, drawdown | `sport_office/agents/tesoriere.py`, `sport_office/bankroll.py` |
-| 9 | Irene · Auditor | report giornaliero | `sport_office/agents/auditor.py` |
-
-## Avvio rapido (Windows)
-
-1. `installa.bat` (una volta, se non l'hai già fatto per l'ufficio crypto).
-2. `simula_sport.bat`: 3 giorni di ufficio simulati in circa un minuto, poi la dashboard.
-3. `backtest_sport.bat`: scarica 10 stagioni di 9 campionati da football-data.co.uk e confronta le strategie.
-4. `avvia_sport.bat`: l'ufficio vero, in paper, con un ciclo al minuto.
-
-```
-python sport.py avvia | ciclo | simula --ore 72 | backtest [--senza-kill] [--csv file.csv]
-python sport.py rischio --quota 1.22 --vinte 0.80 --puntata 0.02
-python sport.py dashboard [--simulazione] | report | stato | prova-telegram | betfair-verifica | reset-kill-switch
-```
-
-## Fonti dati (`config/sport/settings.yaml` → `feed`)
-
-| Fonte | Cosa dà | Costo | Chiave |
-|---|---|---|---|
-| `mock` (predefinita) | bookmaker simulati con margine e ritardi realistici, partite e corse che avvengono davvero nel tempo | gratis | nessuna |
-| `odds_api` | quote 1X2 di 20+ bookmaker europei, risultati | 500 richieste/mese gratis | the-odds-api.com |
-| `betfair` | exchange: cavalli GB/IE e calcio, **stream in tempo reale** (socket SSL) o polling | app key Betfair | developer.betfair.com |
-| `live_stats: api_football` | minuto, punteggio, tiri in porta, cartellini delle partite in corso | 100 richieste/giorno gratis | api-football.com |
-
-Le chiavi si inseriscono dalla dashboard (**Impostazioni**) e restano in `runtime/sport/local_settings.json`.
-
-**Perché solo Betfair per puntare in automatico.** È l'unico operatore con concessione ADM che offre un'API ufficiale per piazzare puntate (endpoint italiani: login su `identitysso.betfair.it`, chiamate su `api.betfair.com`). Sisal, Snai, Eurobet, Bet365 non hanno API pubbliche: automatizzarne il sito viola i termini d'uso e porta alla chiusura del conto. Per questo le occasioni trovate sulle loro quote vengono **registrate in paper e mandate su Telegram come "DA PIAZZARE A MANO"**.
-
-## Il cervello: quando una puntata ha valore
-
-- **Probabilità giusta** = consenso dei bookmaker senza margine, col metodo potenza (toglie meno margine ai favoriti, come avviene davvero) e peso triplo al bookmaker sharp (Pinnacle).
-- **EV** = probabilità giusta × quota migliore − 1. Si punta solo se EV ≥ 1,5%, con almeno 3 bookmaker concordi e quote più fresche di 3 minuti.
-- **Puntata** = ¼ di Kelly sulla **base di puntata**, con tetto al 2% del bankroll. La base è capitale iniziale + profitti × `reinvest_fraction` (1,0 = compounding pieno); se il bankroll scende sotto il 90% del capitale, la base è il bankroll stesso, così dopo una perdita le puntate si riducono da sole.
-- **Circuit breaker**: −3% nel giorno → stop fino a domani; 6 perdite di fila → pausa di 2 ore; −12% dal massimo → **kill switch** (reset solo manuale); file dei limiti modificato a ufficio acceso → blocco.
-- **Sentiment (Giorgia)**: se la probabilità della nostra squadra è scesa del 3% in 90 minuti la puntata si dimezza, del 6% c'è il veto. Una notizia grave (infortunio, squalifica, turnover) confermata da 2 testate diverse dà il veto; da una sola testata dà la cautela, che diventa veto se anche il mercato si muove contro. Rientri e smentite annullano l'allarme; i titoli "riassunto" (punto infermeria, probabili formazioni) vengono ignorati.
-
-## Telegram
-
-Pietro ti scrive a **ogni puntata piazzata** (paper, reale o da piazzare a mano) e a ogni chiusura; Bruno a ogni **blocco di sicurezza**; Giorgia a ogni veto o cautela. Se colleghi un bot dalle impostazioni sportive si usa quello, altrimenti quello già collegato all'ufficio crypto. Una notifica che fallisce non ferma mai l'ufficio.
-
-## Soldi veri: cinque cancelli
-
-Tutti aperti, altrimenti l'ufficio resta in paper e lo scrive nel registro: `mode: live`, `execution.provider: betfair`, conto Betfair verificato, ordine di prova riuscito (quota 1000, annullato subito, costo zero), interruttore **Puntate reali** acceso, strategia elencata in `live_strategies`. Gli ordini sono LIMIT **fill-or-kill**: abbinati subito per intero o annullati. Criteri minimi suggeriti in `config/sport/promotion_criteria.yaml`.
-
-## Cosa dicono i dati veri (backtest del 29/09/2026)
-
-33.574 partite di Serie A, Serie B, Premier, Championship, Liga, Bundesliga, Ligue 1, Eredivisie e Primeira Liga, stagioni 2015/16–2024/25. Quote di apertura, chiusura Pinnacle per il CLV.
-
-| Strategia | Puntate | Vinte | Pareggio | ROI | CLV | Esito |
-|---|---|---|---|---|---|---|
-| "80% a quota 1,15–1,25" alla lettera | 757 | 83,6% | 83,1% | +0,5% | +0,2% | kill switch a febbraio 2021 |
-| S01 favoriti con EV ≥ 1,5% | 126 | 84,9% | 80,5% | +6,0% | +3,3% | 100 → 116 € in 10 anni |
-| S03 sure bet | 709 | 100% | 98,8% | +1,2% | — | 100 → 118 €, quasi tutto nel 2016–2018 |
-
-- **Il win rate non è l'obiettivo.** A quota 1,20 serve l'83% solo per andare in pari: la strategia dell'80% "alla lettera" vince tanto e guadagna zero, con drawdown sufficienti a far scattare il kill switch.
-- **Il valore c'è ma è raro.** S01 trova circa 13 occasioni l'anno su 9 campionati, sempre meno negli ultimi anni: il compounding di micro-puntate cresce lentamente.
-- **Limiti del test.** Le quote d'apertura sono rilevate giorni prima e nella realtà alcune sparirebbero prima della puntata; i bookmaker limitano i conti che vincono con costanza, soprattutto chi fa sure bet.
-- **Monte Carlo** (`python sport.py rischio`): 80% di vincite a quota 1,22 con puntate al 2% perde nel 95% degli scenari. Anche con l'84% (EV +2,5%) le puntate fisse al 2% fanno scattare il kill switch nel 93% dei casi: per questo il sizing è Kelly frazionario, che dimezza o annulla la puntata quando il vantaggio è piccolo.
-
-## Simulazione e mondo simulato
-
-Il feed `mock` ha bookmaker con margine realistico, un bookmaker sharp che si aggiorna subito e bookmaker soft che si aggiornano in ritardo dopo le notizie: quelle quote "vecchie" sono la fonte vera del valore. I profitti della simulazione servono a collaudare l'ufficio e **non sono una prova** delle strategie: la prova è il backtest sui dati veri e poi il paper trading sulle quote vere.
-
-## Dal bot Betfair di riferimento (cavalli)
-
-Lo zip `betfair-python-trading-bot-automation` contiene solo un README promozionale, senza codice. Le idee utili sono diventate `S04_greenup_cavalli_v1`: back-to-lay con obiettivo in tick, stop loss in tick, uscita forzata 60 secondi prima del via, weight of money, ordini fill-or-kill. Il "profitto garantito" del README vale solo quando il prezzo si muove a favore: con lo stop la perdita è reale.

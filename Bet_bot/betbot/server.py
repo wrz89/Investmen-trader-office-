@@ -1,6 +1,6 @@
 """Server locale della dashboard sportiva (http://localhost:8766, solo sul tuo PC).
 
-Stesse regole di sicurezza dell'ufficio crypto:
+Regole di sicurezza:
   • ascolta solo su 127.0.0.1;
   • le modifiche (POST) arrivano solo dalla dashboard stessa (host localhost, header X-Office, JSON);
   • segreti (token, password) mai restituiti al browser.
@@ -26,8 +26,7 @@ def settings_view() -> dict:
     return {"version": API_VERSION, **local_settings.public(local_settings.load()),
             "mode": s.get("mode"), "feed": s["feed"]["provider"], "live_stats": s["feed"].get("live_stats"),
             "exchange": s["feed"].get("exchange"), "execution": (s.get("execution") or {}).get("provider"),
-            "live_strategies": s.get("live_strategies") or [],
-            "telegram_fallback": notifier.channel() is not None and not local_settings.load()["telegram"].get("chat_id")}
+            "live_strategies": s.get("live_strategies") or []}
 
 
 def handle_action(path: str, body: dict) -> dict:
@@ -36,7 +35,7 @@ def handle_action(path: str, body: dict) -> dict:
         if body.get("clear"):
             s["telegram"] = dict(local_settings.DEFAULTS["telegram"])
             local_settings.save(s)
-            return {"message": "Bot Telegram dell'ufficio sportivo scollegato (resta quello dell'ufficio crypto, se c'è)."}
+            return {"message": "Bot Telegram scollegato."}
         token = (body.get("token") or "").strip()
         if ":" not in token:
             raise ValueError("Il token non sembra valido: deve contenere i due punti (es. 123456:ABC...).")

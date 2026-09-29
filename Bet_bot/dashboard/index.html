@@ -455,7 +455,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     src.innerHTML = `<span class="dot"></span><span>${live ? "Collegato all'ufficio" : "Fotografia statica"}</span>`;
     const b = [];
     if (!live) b.push(`<div class="banner warn">Fotografia in sola lettura${S.settings_view?.feed === "mock" ? " di una simulazione: partite, quote e corse vengono dal feed simulato, nessun soldo vero" : ""}. Generata ${new Date((S.generated || 0) * 1000).toLocaleString("it-IT")}.</div>`);
-    if (S.kill_switch) b.push(`<div class="banner">KILL SWITCH ATTIVO: ${esc(S.kill_switch)}. Nessuna nuova puntata. Reset solo manuale: <span class="mono">python sport.py reset-kill-switch</span></div>`);
+    if (S.kill_switch) b.push(`<div class="banner">KILL SWITCH ATTIVO: ${esc(S.kill_switch)}. Nessuna nuova puntata. Reset solo manuale: <span class="mono">python betbot.py reset-kill-switch</span></div>`);
     if (rs.cooldown_until) b.push(`<div class="banner warn">Pausa per serie negativa fino alle ${new Date(rs.cooldown_until * 1000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.</div>`);
     if (S.live_gate) b.push(`<div class="banner warn">Modalità live: ${esc(S.live_gate)}</div>`);
     $("banners").innerHTML = b.join("");
@@ -628,7 +628,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   function renderBacktest() {
     const bt = S.backtest;
     $("bt-note").textContent = bt ? bt.name : "";
-    $("backtest").innerHTML = bt ? mdToHtml(bt.markdown) : `<p class="empty">Nessun backtest ancora. Lancia <span class="mono">python sport.py backtest</span>: scarica lo storico reale e confronta le strategie.</p>`;
+    $("backtest").innerHTML = bt ? mdToHtml(bt.markdown) : `<p class="empty">Nessun backtest ancora. Lancia <span class="mono">python betbot.py backtest</span>: scarica lo storico reale e confronta le strategie.</p>`;
   }
 
   // ── cassetto agente ───────────────────────────
@@ -661,14 +661,14 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
   function renderSettings() {
     const b = $("set-body");
-    if (!live) { b.innerHTML = `<div class="set-sec"><h3>Solo lettura</h3><p>Questa è una fotografia dell'ufficio. Le impostazioni si cambiano dalla dashboard locale: avvia <span class="mono">avvia_sport.bat</span> e apri http://localhost:8766.</p></div>`; return; }
+    if (!live) { b.innerHTML = `<div class="set-sec"><h3>Solo lettura</h3><p>Questa è una fotografia dell'ufficio. Le impostazioni si cambiano dalla dashboard locale: avvia <span class="mono">avvia.bat</span> e apri http://localhost:8766.</p></div>`; return; }
     if (!SET) { b.innerHTML = `<p class="empty">Carico le impostazioni…</p>`; return; }
     const tg = SET.telegram, n = SET.notify, bf = SET.betfair;
     const msg = setMsg ? `<div class="set-msg ${setMsg.ok ? "ok" : "bad"}" role="status">${esc(setMsg.text)}</div>` : "";
     const chk = (id, label, hint, on) => `<label class="check-row" for="${id}"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span>${label}<small>${hint}</small></span></label>`;
     b.innerHTML = msg + `
       <section class="set-sec"><h3>Telegram</h3>
-        <p>${tg.configured ? `Collegato a <b>${esc(tg.chat_name)}</b>.` : SET.telegram_fallback ? "Uso il bot già collegato all'ufficio crypto. Puoi collegarne uno dedicato qui sotto." : "Non collegato."}</p>
+        <p>${tg.configured ? `Collegato a <b>${esc(tg.chat_name)}</b>.` : "Non collegato: senza Telegram il bot lavora lo stesso, ma non ti avvisa."}</p>
         <ol><li>Su Telegram apri @BotFather, scrivi /newbot e copia il token.
           <div class="field"><input type="password" id="tg-token" autocomplete="off" placeholder="${tg.has_token ? `salvato: ${esc(tg.token)}` : "incolla il token"}"><button class="btn primary" id="tg-save" type="button">Salva</button></div></li>
           <li>Apri il bot, premi AVVIA, poi: <div class="field"><button class="btn" id="tg-detect" type="button" ${tg.has_token ? "" : "disabled"}>Trova la mia chat</button></div></li>
@@ -736,7 +736,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       S = await r.json(); live = true;
     } catch (e) {
       if (!S && SNAP) { S = SNAP; live = false; }
-      else if (!S) { $("source").innerHTML = `<span class="dot"></span><span>Ufficio spento: avvia avvia_sport.bat</span>`; $("source").className = "chip bad"; return; }
+      else if (!S) { $("source").innerHTML = `<span class="dot"></span><span>Ufficio spento: avvia avvia.bat</span>`; $("source").className = "chip bad"; return; }
     }
     renderAll();
   }
