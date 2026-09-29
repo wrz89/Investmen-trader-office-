@@ -228,7 +228,8 @@ td.r, th.r { text-align: right; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--room); border-left: 1px solid var(--wall);
   box-shadow: -20px 0 40px -30px rgba(0, 0, 0, .6); transform: translateX(100%); transition: transform .25s; z-index: 20; display: grid; grid-template-rows: auto 1fr;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.drawer[aria-hidden="false"] { transform: none; }
+.drawer[aria-hidden="true"] { box-shadow: none; visibility: hidden; transition: transform .25s, visibility 0s .25s; }
+.drawer[aria-hidden="false"] { transform: none; visibility: visible; transition: transform .25s; }
 .drawer .hd { display: flex; justify-content: space-between; gap: 10px; padding: 16px; border-bottom: 1px solid var(--wall); }
 .drawer .hd .eyebrow { font: 600 11px var(--f-data); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
 .drawer .bd { overflow-y: auto; padding: 16px; display: grid; gap: 16px; align-content: start; }
@@ -243,6 +244,7 @@ td.r, th.r { text-align: right; }
 .check-row small { display: block; color: var(--muted); }
 .set-msg { font-size: 13px; padding: 8px 10px; border-radius: var(--r); }
 .set-msg.ok { background: var(--ok-soft); color: var(--ok); } .set-msg.bad { background: var(--bad-soft); color: var(--bad); }
+.set-msg.wait { background: var(--idle-soft); color: var(--ink); }
 footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 [hidden] { display: none !important; }
 
@@ -261,8 +263,10 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 .hq-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .hq-tools .btn { padding: 6px 10px; font-size: 13px; }
 .hq3 { position: relative; border: 1px solid var(--wall); border-radius: var(--r); overflow: hidden; background: var(--floor); min-height: 300px; }
-.hq3 canvas { display: block; width: 100% !important; cursor: grab; touch-action: none; }
+/* un dito scorre la pagina, due dita girano e zoomano la sala */
+.hq3 canvas { display: block; width: 100% !important; cursor: grab; touch-action: pan-y; }
 .hq3 canvas:active { cursor: grabbing; }
+.hq3.ready { min-height: 0; }
 .hq3 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
 .hq-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .hq-tag { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: auto; cursor: pointer; background: var(--room); color: var(--ink);
@@ -273,6 +277,20 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 .hq-tag .rl { color: var(--muted); }
 .hq-tag .st { font: 600 10.5px/1.3 var(--f-data); font-variant-numeric: tabular-nums; }
 .hq-tag .st:empty { display: none; }
+.hq-tag .nd { color: var(--muted); font-weight: 500; }
+.hq-tag.front { z-index: 3; }
+/* chi porta il biglietto giallo della puntata: lo si vede anche accanto all'etichetta */
+.hq-tag.has-ticket::before { content: ""; position: absolute; left: -17px; top: 50%; width: 13px; height: 17px; border-radius: 2px; transform: translateY(-50%) rotate(-12deg);
+  background: repeating-linear-gradient(180deg, #f2c14e 0 3px, #d9a633 3px 4px); box-shadow: 0 2px 5px -1px rgba(0, 0, 0, .45); animation: tk-bob .9s ease-in-out infinite; }
+@keyframes tk-bob { 50% { transform: translateY(-65%) rotate(-4deg); } }
+.hq3.meeting .hq-tag .st, .hq3.meeting .hq-tag .rl { display: none; }
+.hq-stem { position: absolute; left: 0; top: 0; width: 1px; transform-origin: 0 0; background: var(--muted); opacity: .75; pointer-events: none; }
+.hq-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(20, 28, 23, .82); color: #f2f6f2; font-size: 12.5px;
+  padding: 5px 11px; border-radius: 999px; pointer-events: none; opacity: 0; transition: opacity .25s; z-index: 6; white-space: nowrap; }
+.hq-hint.on { opacity: 1; }
+.hq-pop { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 5; pointer-events: none; }
+.hq-pop i { position: absolute; left: -4px; top: -3px; width: 8px; height: 5px; border-radius: 1px; animation: pop 1.3s cubic-bezier(.15, .7, .4, 1) forwards; }
+@keyframes pop { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
 .hq-tag.st-alert { border-color: var(--bad); }
 .hq3.compact .hq-tag .rl { display: none; }
 .hq3.compact .hq-tag { padding: 1px 5px 2px; border-radius: 6px; }
@@ -283,6 +301,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   border-radius: 10px; padding: 6px 9px; font-size: 12px; line-height: 1.35; box-shadow: var(--shadow); z-index: 4; }
 .hq-bub::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 10px; height: 10px; background: var(--room); border-right: 1px solid var(--wall);
   border-bottom: 1px solid var(--wall); transform: translateX(-50%) rotate(45deg); }
+.hq-bub.below::after { bottom: auto; top: -6px; transform: translateX(-50%) rotate(225deg); }
 .hq-num { position: absolute; left: 0; top: 0; font: 700 20px/1 var(--f-data); color: var(--ok); white-space: nowrap; z-index: 5;
   text-shadow: 0 1px 0 var(--room), 0 0 6px var(--room), 0 0 12px var(--room); font-variant-numeric: tabular-nums; }
 .hq-num.neg { color: var(--bad); } .hq-num.zero { color: var(--muted); }
@@ -332,6 +351,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     <header><h2>La sala</h2>
       <div class="hq-tools">
         <button class="btn" id="btn-daynight" type="button">Notte</button>
+        <button class="btn" id="btn-center" type="button" title="Rimetti la sala com'era all'inizio">Centra</button>
         <button class="btn" id="btn-meeting" type="button">Riunione</button>
         <button class="btn" id="btn-replay-win" type="button">Rivedi l'ultima vincita</button>
         <button class="btn" id="btn-replay-bet" type="button">Rivedi l'ultima puntata</button>
@@ -340,10 +360,11 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     <div class="hq3" id="hq3">
       <div class="loading" id="hq-loading">Sto aprendo l'ufficio in 3D…</div>
       <div class="hq-overlay" id="hq-overlay"></div>
+      <div class="hq-hint" id="hq-hint" aria-hidden="true"></div>
     </div>
     <div class="floor" id="floor" hidden></div>
     <div class="hq-foot">
-      <p class="hq-note" id="floor-note" role="status">Trascina per girare la sala, rotellina o due dita per lo zoom. Il biglietto giallo è una puntata: va da chi l'ha trovata a Bruno (rischio) e poi a Pietro (banco).</p>
+      <p class="hq-note" id="floor-note" role="status">Trascina per girare la sala, tasto destro per spostarti, Ctrl + rotellina per lo zoom, doppio clic su un collega per avvicinarti. Il biglietto giallo è una puntata: va da chi l'ha trovata a Bruno (rischio) e poi a Pietro (banco).</p>
       <div class="hq-people" id="hq-people" aria-label="Apri il registro di un collega"></div>
     </div>
   </section>
@@ -385,7 +406,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     </div>
   </div>
 
-  <footer class="foot"><span id="foot-note"></span><span>Dati e segreti restano sul tuo PC, in runtime/sport/.</span></footer>
+  <footer class="foot"><span id="foot-note"></span><span>Dati e segreti restano sul tuo PC, nella cartella runtime/.</span></footer>
 </div>
 
 <aside class="drawer" id="drawer" aria-hidden="true">
@@ -416,7 +437,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   ];
   const BY = Object.fromEntries(AGENTS.map(a => [a.key, a]));
   const SNAP = JSON.parse(document.getElementById("office-snapshot").textContent || "null");
-  let S = null, live = false, lastEventId = null, filter = "all", SET = null, setMsg = null, openAgent = null;
+  let S = null, live = false, lastEventId = null, filter = "all", SET = null, setMsg = null, openAgent = null, killWas = false;
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const eur = (v, d = 2) => v == null || isNaN(v) ? "—" : `${Number(v).toLocaleString("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d })} €`;
@@ -430,6 +451,8 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   const signEur = v => v == null || isNaN(v) ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${eur(Math.abs(v))}`;
   const clip = (t, n) => { t = String(t ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
   const tone = v => v > 0 ? "pos" : v < 0 ? "neg" : "";
+  const pl = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const LOCAL_PC = ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
   const REDUCED = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   let mode3d = "loading", onScreen = true;   // loading | on | off (ripiego 2D)
 
@@ -452,8 +475,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
   function statLine(k, st) {
     if (!st) return "";
-    if (k === "quote") return `${st.partite ?? 0} partite · ${st.live ?? 0} live · ${st.corse ?? 0} corse`;
-    if (k === "analista" || k === "cavalli") return `${st.proposte ?? 0} proposte`;
+    if (k === "quote") return `${pl(st.partite ?? 0, "partita", "partite")} · ${st.live ?? 0} live · ${pl(st.corse ?? 0, "corsa", "corse")}`;
     if (k === "tesoriere") return `${eur(st.bankroll)} · ROI ${pct(st.roi, 1, true)}`;
     if (k === "sentiment") return `${st.flags ?? 0} segnalazioni · ${st.news_24h ?? 0} notizie 24h`;
     if (k === "direttore") return `${st.piazzate ?? 0} piazzate · ${st.chiuse ?? 0} chiuse`;
@@ -468,7 +490,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       el.className = `room st-${st}`;
       el.querySelector(".msg").textContent = d?.message || "In attesa del primo ciclo.";
       el.querySelector(".when").textContent = d?.updated ? hhmm(d.updated) : "";
-      el.querySelector(".stat").textContent = statLine(a.key, d?.stats);
+      // Davide, Matteo e Pietro: gli stessi numeri (vinte e ROI, piazzate) che hanno sopra la testa nella sala 3D
+      const html = ["analista", "cavalli", "banco", "risk", "auditor"].includes(a.key) ? tagStat(a.key) : esc(statLine(a.key, d?.stats));
+      const stEl = el.querySelector(".stat"); if (stEl.innerHTML !== html) stEl.innerHTML = html;
     });
   }
 
@@ -510,25 +534,51 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
   // chi "possiede" una puntata: le strategie S04 sono di Matteo (cavalli), tutte le altre di Davide
   function ownerOf(e) {
+    const a = e?.payload?.agent;
+    if (a === "analista" || a === "cavalli") return a;       // il bot lo scrive già (tennis e basket vanno a Matteo)
     const s = e?.payload?.strategy || "";
-    if (s) return s.startsWith("S04") ? "cavalli" : "analista";
+    if (s) return /^S0[48]/.test(s) ? "cavalli" : "analista";
     return /back→lay|cavall|exchange/i.test(`${e?.message || ""} ${e?.payload?.label || ""}`) ? "cavalli" : "analista";
   }
   // eventi nuovi tra un poll e l'altro → animazioni (solo con l'ufficio collegato, mai in fotografia)
+  // priorità: allarmi, poi chiusure, poi puntate; i veti per ultimi (a ogni ciclo possono essere decine)
+  const PRIO = { kill_switch: 0, circuit: 0, settle: 1, cashout: 1, bet: 2, veto: 3 };
+  const seenAnim = new Map(), DEDUP_MS = 15 * 60 * 1000;
+  // il bot rivaluta la stessa proposta a ogni ciclo: lo stesso veto (o lo stesso allarme) si anima una volta ogni 15 minuti
+  function isRepeat(e) {
+    const key = `${e.kind}|${String(e.message || "").replace(/\s*\(\+\d+\)\s*$/, "")}`, now = Date.now(), last = seenAnim.get(key);
+    if (seenAnim.size > 400) for (const [k, t] of seenAnim) if (now - t > DEDUP_MS) seenAnim.delete(k);
+    if (last && now - last < DEDUP_MS) return true;
+    seenAnim.set(key, now); return false;
+  }
   function detectNew() {
     const evs = S.events || [];
     if (!evs.length) return;
     const maxId = Math.max(...evs.map(e => e.id || 0));
-    if (lastEventId != null && live) {
-      const fresh = evs.filter(e => (e.id || 0) > lastEventId).sort((a, b) => a.id - b.id);
+    // una risposta vecchia arrivata in ritardo non riporta indietro il segno (un database nuovo sì)
+    if (lastEventId != null && maxId < lastEventId && maxId > lastEventId - 1000) return;
+    if (lastEventId != null && live && maxId > lastEventId) {
+      const fresh = evs.filter(e => (e.id || 0) > lastEventId && e.kind in PRIO).sort((a, b) => a.id - b.id);
+      const pickNew = () => fresh.filter(e => {
+        // l'allarme parte una volta sola: con il kill switch già attivo restano solo le luci rosse
+        if ((e.kind === "kill_switch" || e.kind === "circuit") && (killWas || alarmUntil > nowMs())) return false;
+        return !isRepeat(e);
+      });
       if (mode3d === "on") {
-        if (!document.hidden && onScreen) fresh.map(e => eventAnim(e)).filter(Boolean).slice(-4).forEach(enqueue);
-      } else if (mode3d === "off" && !REDUCED) {
-        fresh.filter(e => e.kind === "bet" || e.kind === "veto").slice(-3).forEach(e => queue.push(e));
+        if (!document.hidden && onScreen) {
+          const cand = pickNew();
+          const main = cand.filter(e => e.kind !== "veto").sort((a, b) => PRIO[a.kind] - PRIO[b.kind] || a.id - b.id).slice(0, 4);
+          const v = cand.filter(e => e.kind === "veto");
+          if (main.length < 4 && v.length) main.push(v[v.length - 1]);
+          main.sort((a, b) => a.id - b.id).forEach(e => enqueue(eventAnim(e), PRIO[e.kind]));
+        }
+      } else if (mode3d === "off" && !REDUCED && !document.hidden) {
+        pickNew().filter(e => e.kind === "bet" || e.kind === "veto").slice(-3).forEach(e => queue.push(e));
+        while (queue.length > 3) queue.shift();
         pump();
       }
     }
-    lastEventId = maxId;
+    lastEventId = maxId; killWas = !!S.kill_switch;
   }
 
   // ── testata, allarmi, indicatori ───────────────────────────
@@ -557,8 +607,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   // obiettivo: capitale di partenza, bankroll di oggi e soglie di sblocco delle strategie (se configurate)
   function unlocks() {
     const P = S.strategy_params || {};
-    return (S.strategies || []).map(s => ({ id: s.id, code: String(s.id).split("_")[0], name: s.name, at: Number(s.unlock_at ?? P[s.id]?.unlock_at) }))
-      .filter(s => s.at > 0).sort((a, b) => a.at - b.at);
+    // una strategia in OSSERVAZIONE non si sblocca col bankroll: resta fuori dal box Obiettivo
+    return (S.strategies || []).map(s => ({ id: s.id, code: String(s.id).split("_")[0], name: s.name, status: s.status, at: Number(s.unlock_at ?? P[s.id]?.min_bankroll) }))
+      .filter(s => s.at > 0 && s.status !== "OSSERVAZIONE").sort((a, b) => a.at - b.at);
   }
   function renderGoal() {
     const rs = S.risk_state || {}, m = S.metrics || {};
@@ -577,7 +628,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     } else {
       const p = Math.max(0, prof || 0), nextCup = (Math.floor(p / 5) + 1) * 5, cups = Math.min(6, Math.floor(p / 5));
       html += `<div class="meter"><i style="width:${cups >= 6 ? 100 : ((p % 5) / 5 * 100).toFixed(1)}%"></i></div>
-        <small>${cups >= 6 ? "Bacheca piena: 6 coppe!" : `Prossima coppa in bacheca a +${nextCup} € di profitti`} · profitti <span class="${tone(prof)}">${signEur(prof)}</span></small>`;
+        <small>${cups >= 6 ? "Bacheca piena: 6 coppe!" : `${cups === 0 ? "Prima coppa" : "Prossima coppa"} in bacheca a +${nextCup} € di profitti`} · ora <span class="${tone(prof)}">${signEur(prof)}</span>${prof < 0 && init != null ? ` · recupera ${eur(-prof)} per tornare a ${eur(init, 0)}` : ""}</small>`;
     }
     $("goal").innerHTML = html;
   }
@@ -678,13 +729,15 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
         <td class="r mono">${b.clv == null ? "—" : pct(b.clv, 1, true)}</td></tr>`).join("") + `</tbody>`
       : `<tbody><tr><td class="empty">Ancora nessuna puntata chiusa.</td></tr></tbody>`;
   }
+  const STRAT_PILL = { "ATTIVA": ["ok", "ATTIVA"], "IN ATTESA": ["warn", "IN ATTESA"], "OSSERVAZIONE": ["", "OSSERVAZIONE"] };
   function renderStrats() {
     const by = S.metrics?.by_strategy || {}, P = S.strategy_params || {};
     const shadow = Object.fromEntries((S.shadow || []).map(r => [r.strategy_id, r]));
     const live = S.meta?.live_strategies || [], bank = S.risk_state?.bankroll ?? S.metrics?.bankroll ?? 0;
     $("strats").innerHTML = (S.strategies || []).map(s => {
-      const m = by[s.id], p = P[s.id] || {}, sh = shadow[s.id], unl = Number(s.unlock_at ?? p.unlock_at) || 0;
-      const pill = s.status === "ATTIVA" ? `<span class="pill ok">ATTIVA</span>` : `<span class="pill">OSSERVAZIONE</span>`;
+      const m = by[s.id], p = P[s.id] || {}, sh = shadow[s.id], unl = Number(s.unlock_at ?? p.min_bankroll) || 0;
+      const [pc, pt] = STRAT_PILL[s.status] || ["", s.status || "—"];
+      const pill = `<span class="pill ${pc}">${esc(pt)}</span>`;
       return `<div class="strat"><div class="head"><h3>${esc(s.name)}</h3>${pill}</div>
         <div class="muted" style="font-size:12px">${esc(p.description || "")}</div>
         <dl><dt>Versione</dt><dd>${esc(s.id)}</dd>
@@ -754,15 +807,25 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
 
   // ── cassetto agente ───────────────────────────
-  function openDrawer(k) {
-    openAgent = k;
-    const a = BY[k], d = (S.agents || []).find(x => x.agent === k);
+  // riempire il registro è separato dall'aprirlo: il poll ogni 3 s lo aggiorna senza perdere scroll e focus
+  let drawerSig = "";
+  const drawerKey = k => { const d = (S?.agents || []).find(x => x.agent === k), e = (S?.events || []).find(x => x.agent === k); return `${k}|${d?.state}|${d?.message}|${e?.id}`; };
+  function fillDrawer(k) {
+    const a = BY[k], d = (S.agents || []).find(x => x.agent === k), bd = $("dr-body"), top = bd.scrollTop;
     $("dr-eyebrow").textContent = d?.state ? `stato: ${d.state}` : "";
     $("dr-title").textContent = a.name;
     $("dr-role").textContent = a.role;
     const evs = (S.events || []).filter(e => e.agent === k).slice(0, 60);
-    $("dr-body").innerHTML = `<p>${esc(d?.message || "")}</p>` +
+    bd.innerHTML = `<p>${esc(d?.message || "")}</p>` +
       (evs.length ? `<ul class="feed" style="max-height:none">${feedRows(evs)}</ul>` : `<p class="empty">Nessun evento registrato.</p>`);
+    bd.scrollTop = top;
+    drawerSig = drawerKey(k);
+  }
+  function openDrawer(k) {
+    const other = k !== openAgent;
+    openAgent = k;
+    fillDrawer(k);
+    if (other) $("dr-body").scrollTop = 0;
     $("drawer").setAttribute("aria-hidden", "false");
     $("dr-close").focus();
   }
@@ -776,19 +839,30 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (!r.ok) throw new Error(j.error || "Operazione non riuscita");
     return j;
   }
+  // un'azione alla volta: niente doppio clic (sull'ordine di prova vorrebbe dire due ordini veri su Betfair)
+  let pending = false;
   async function act(path, body) {
-    try { const j = await post(path, body); setMsg = { ok: true, text: j.message }; }
-    catch (e) { setMsg = { ok: false, text: e.message }; }
+    if (pending) return;
+    pending = true;
+    setMsg = { wait: true, text: "Attendi… (verifica e ordine di prova possono richiedere qualche secondo)" };
     renderSettings();
+    try { const j = await post(path, body); setMsg = { ok: true, text: j.message }; }
+    catch (e) { setMsg = { ok: false, text: e.message === "Failed to fetch" ? "Ufficio non raggiungibile: è acceso?" : e.message }; }
+    finally { pending = false; renderSettings(); }
   }
   function renderSettings() {
     const b = $("set-body");
     if (!live) { b.innerHTML = `<div class="set-sec"><h3>Solo lettura</h3><p>Questa è una fotografia dell'ufficio. Le impostazioni si cambiano dalla dashboard locale: avvia <span class="mono">avvia.bat</span> e apri http://localhost:8766.</p></div>`; return; }
-    if (!SET) { b.innerHTML = `<p class="empty">Carico le impostazioni…</p>`; return; }
-    const tg = SET.telegram, n = SET.notify, bf = SET.betfair;
-    const msg = setMsg ? `<div class="set-msg ${setMsg.ok ? "ok" : "bad"}" role="status">${esc(setMsg.text)}</div>` : "";
+    if (!LOCAL_PC) { b.innerHTML = `<div class="set-sec"><h3>Solo lettura</h3><p>Dal telefono vedi l'ufficio, ma chiavi, Telegram e Betfair si cambiano solo dal PC dove gira Bet_bot (http://localhost:8766).</p></div>`; return; }
+    if (!SET) { b.innerHTML = setMsg ? `<div class="set-msg bad" role="status">${esc(setMsg.text)}</div>` : `<p class="empty">Carico le impostazioni…</p>`; return; }
+    const tg = SET.telegram, n = SET.notify, bf = SET.betfair, as = SET.autostart || {};
+    const msg = setMsg ? `<div class="set-msg ${setMsg.wait ? "wait" : setMsg.ok ? "ok" : "bad"}" role="status">${esc(setMsg.text)}</div>` : "";
     const chk = (id, label, hint, on) => `<label class="check-row" for="${id}"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span>${label}<small>${hint}</small></span></label>`;
     b.innerHTML = msg + `
+      <section class="set-sec"><h3>Questo PC</h3>
+        ${chk("pc-autostart", "Avvia Bet_bot quando accendo il PC", as.supported ? "parte ridotto a icona quando accedi a Windows" : "disponibile solo su Windows", as.enabled)}
+        ${chk("pc-awake", "Tieni sveglio il PC mentre lavora", "Windows non va in sospensione finché il bot è acceso (lo schermo può spegnersi)", SET.keep_awake !== false)}
+      </section>
       <section class="set-sec"><h3>Telegram</h3>
         <p>${tg.configured ? `Collegato a <b>${esc(tg.chat_name)}</b>.` : "Non collegato: senza Telegram il bot lavora lo stesso, ma non ti avvisa."}</p>
         <ol><li>Su Telegram apri @BotFather, scrivi /newbot e copia il token.
@@ -805,15 +879,15 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
         ${chk("n-daily_report", "Report serale", "", n.daily_report)}
       </section>
       <section class="set-sec"><h3>Chiavi dei dati</h3>
-        <p>Feed attuale: <b>${esc(SET.feed)}</b>${SET.live_stats && SET.live_stats !== "none" ? ` + statistiche ${esc(SET.live_stats)}` : ""}. Per cambiare fonte modifica <span class="mono">feed</span> in config/sport/settings.yaml e riavvia.</p>
+        <p>Feed attuale: <b>${esc(SET.feed)}</b>${SET.live_stats && SET.live_stats !== "none" ? ` + statistiche ${esc(SET.live_stats)}` : ""}. Per cambiare fonte modifica <span class="mono">feed</span> in runtime/impostazioni.yaml (o config/settings.yaml) e riavvia.</p>
         <label for="k-odds">The Odds API (quote di 20+ bookmaker)</label>
         <div class="field"><input type="password" id="k-odds" autocomplete="off" placeholder="${SET.odds_api_key ? `salvata: ${esc(SET.odds_api_key)}` : "chiave da the-odds-api.com"}"></div>
         <label for="k-foot">API-Football (minuto, punteggio, tiri, cartellini)</label>
         <div class="field"><input type="password" id="k-foot" autocomplete="off" placeholder="${SET.api_football_key ? `salvata: ${esc(SET.api_football_key)}` : "chiave da api-football.com"}"><button class="btn primary" id="k-save" type="button">Salva le chiavi</button></div>
       </section>
       <section class="set-sec"><h3>Betfair Exchange Italia</h3>
-        <p>L'unico operatore con concessione ADM che offre un'API ufficiale per puntare. I bookmaker a quota fissa non hanno API: le loro occasioni arrivano su Telegram da piazzare a mano.</p>
-        <ol><li>Conto su betfair.it e una app key (developer.betfair.com). Utente e password restano in runtime/sport/.
+        <p>L'unico operatore con concessione ADM che offre un'API ufficiale per puntare: il bot punta solo qui. Gli altri bookmaker servono solo come riferimento per le quote.</p>
+        <ol><li>Conto su betfair.it e una app key (developer.betfair.com). Utente e password restano sul tuo PC, in runtime/.
           <div class="field"><input type="password" id="bf-app" autocomplete="off" placeholder="${bf.app_key ? `app key: ${esc(bf.app_key)}` : "app key"}"></div>
           <div class="field"><input type="text" id="bf-user" autocomplete="off" placeholder="${bf.username ? esc(bf.username) : "utente Betfair"}"><input type="password" id="bf-pass" autocomplete="off" placeholder="password"><button class="btn primary" id="bf-save" type="button">Salva</button></div></li>
           <li><div class="field"><button class="btn" id="bf-verify" type="button" ${bf.has_login ? "" : "disabled"}>${bf.verified ? "Conto verificato ✓" : "Verifica il conto"}</button></div></li>
@@ -835,6 +909,10 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     on("bf-test", () => act("/api/betfair/test_order"));
     on("bf-clear", () => act("/api/settings/betfair", { clear: true }));
     const liveBox = $("bf-live"); if (liveBox) liveBox.addEventListener("change", () => act("/api/settings/betfair_live", { enabled: liveBox.checked }));
+    const auto = $("pc-autostart");
+    if (auto) { auto.disabled = !as.supported; auto.addEventListener("change", () => act("/api/settings/autostart", { enabled: auto.checked })); }
+    const awake = $("pc-awake"); if (awake) awake.addEventListener("change", () => act("/api/settings/notify", { keep_awake: awake.checked }));
+    if (pending) b.querySelectorAll("button, input").forEach(x => { x.disabled = true; });
   }
   async function openSettings() {
     setMsg = null;
@@ -845,16 +923,20 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
 
   // ══ l'ufficio sportivo in 3D ═══════════════════════════════════════════════
-  // Three.js r128 + OrbitControls caricati al volo: se mancano (niente rete, niente WebGL) resta la pianta 2D.
+  // Three.js r128 + OrbitControls: prima la copia sul PC (dashboard/vendor/, servita da server.py), poi il CDN
+  // (serve alla fotografia statica). Se mancano entrambi, o manca WebGL, resta la pianta 2D.
   // Pianta 26 × 20 m; x verso est, z verso sud. Telecamera ortografica da sud-est.
-  const THREE_SRC = ["https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js",
-    "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"];
+  const THREE_SRC = [["vendor/three.min.js", "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"],
+    ["vendor/OrbitControls.js", "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"]];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const nowMs = () => performance.now();
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let T = null, renderer, scene3, camera, controls, hemi, sun, spot, spotTarget, beacons = [], lamps = [], wallCanvas, wallTex, wallSig = "";
   let raceCanvas, raceTex, raceSig = "", clockCanvas, clockTex, clockMin = -1, trophies = [], horses = [], labelMeshes = [];
   let compactTags = false, loopOn = false, lastT = 0, alarmUntil = 0, alarmOn = false, sceneBusy = false, ambT = null, tmpV = null;
+  let camAnim = null, orbitUntil = 0, lastShadow = 0, noteLock = "", hintT = null, clickT = null;
+  const VIEW0 = { target: [0.4, 0.8, -1.3], pos: [24, 22, 26], zoom: 1.1 };
+  const CHAIRS = {};
   const hippo = { running: false, t: 0, n: 6 };
   const W = {}, MAT = {}, TINT = [], COLOR_MAT = {}, confetti = [], fx = [];
   const ORDER = AGENTS.map(a => a.key);
@@ -888,9 +970,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 
   // ── percorsi: grafo di waypoint lungo i corridoi (nessun lato attraversa mobili) ──
   const N = {
-    w1: [-11, -3.3], w2: [-7, -3.3], nw: [-4.6, -3.3], n: [0, -3.3], ne: [4.6, -3.3], e1: [6.6, -3.3], cd: [8.3, -3.3], e2: [10, -3.3],
-    w3: [-11, 2.7], w4: [-7, 2.7], sw: [-4.6, 2.7], se: [4.6, 2.7], e3: [6.6, 2.7], e4: [10.4, 2.7],
-    ssw: [-4.6, 7.6], sse: [4.6, 7.6], cof: [10.5, 7.6], ci: [8.3, -5.2], cs: [8.2, -8.6],
+    w1: [-11, -3.3], w2: [-7, -3.3], nw: [-4.8, -3.3], n: [0, -3.3], ne: [4.8, -3.3], e1: [6.6, -3.3], cd: [8.3, -3.3], e2: [10, -3.3],
+    w3: [-11, 2.7], w4: [-7, 2.7], sw: [-4.8, 2.7], se: [4.8, 2.7], e3: [6.6, 2.7], e4: [10.4, 2.7],
+    ssw: [-4.8, 7.6], sse: [4.8, 7.6], cof: [10.5, 7.6], ci: [8.3, -5.2], cs: [8.2, -9.1],
   };
   const EDGES = [["w1", "w2"], ["w2", "nw"], ["nw", "n"], ["n", "ne"], ["ne", "e1"], ["e1", "cd"], ["cd", "e2"], ["cd", "ci"], ["ci", "cs"],
     ["w3", "w4"], ["w4", "sw"], ["sw", "nw"], ["sw", "se"], ["ne", "se"], ["se", "e3"], ["e3", "e4"], ["sw", "ssw"], ["se", "sse"], ["sse", "cof"]];
@@ -913,7 +995,16 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     direttore: { node: "cs", x: 10, z: -8 },
   };
   const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
-  // riunione nell'ufficio vetrato di Carlo: tutti in piedi davanti alla sua scrivania
+  // corridoio accanto alla sedia: ci si alza e ci si siede di lato, senza attraversare lo schienale
+  const side = k => ({ x: HOME[k].x + 0.65, z: HOME[k].z - 0.1 });
+  // riunione sul cerchio di centrocampo: Carlo in mezzo, gli altri in cerchio (c'è spazio per le etichette)
+  const MEETC = { x: 0, z: 1.5 };
+  const MEETRING = Object.fromEntries(["quote", "analista", "cavalli", "sentiment", "risk", "banco", "tesoriere", "auditor"].map((k, i) => {
+    const a = Math.PI * (0.625 + i * 0.25), x = +(MEETC.x + 2.6 * Math.sin(a)).toFixed(2), z = +(MEETC.z + 2.6 * Math.cos(a)).toFixed(2);
+    return [k, { node: z < MEETC.z ? "n" : x < 0 ? "sw" : "se", x, z, pose: "stand", face: faceTo(x, z, MEETC.x, MEETC.z) }];
+  }));
+  MEETRING.direttore = { node: "n", x: MEETC.x, z: MEETC.z, pose: "stand", face: faceTo(0, 0, 1, 1.1) };
+  // allarme nell'ufficio vetrato di Carlo: tutti in piedi davanti alla sua scrivania
   const MEETPOS = Object.fromEntries([["quote", 7.0, -6.0], ["analista", 7.0, -7.2], ["cavalli", 7.0, -8.4], ["sentiment", 8.1, -6.2],
     ["risk", 9.4, -5.6], ["banco", 10.6, -5.6], ["tesoriere", 11.8, -5.6], ["auditor", 12.4, -6.6]]
     .map(([k, x, z]) => [k, { node: "ci", x, z, pose: "stand", face: faceTo(x, z, 10, -7.6) }]));
@@ -1014,9 +1105,12 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     face.position.set(x - 0.35, 1.06, z + 0.922); face.rotation.y = Math.PI; scene3.add(face);
     box(0.08, 0.2, 0.08, mat("metal"), x - 0.35, 0.86, z + 0.95);
     box(0.5, 0.03, 0.18, cmat("#39424d"), x + 0.2, 0.795, z + 0.45);
-    box(0.55, 0.08, 0.55, mat("chair"), x, 0.48, z);
-    box(0.55, 0.6, 0.08, mat("chair"), x, 0.82, z - 0.3);
-    cyl(0.04, 0.04, 0.44, mat("metal"), x, 0.24, z);
+    // la sedia è un gruppo: quando il collega si alza scivola indietro, quando si siede torna sotto di lui
+    const ch = new T.Group(); ch.position.set(x, 0, z); scene3.add(ch);
+    box(0.55, 0.08, 0.55, mat("chair"), 0, 0.48, 0, ch);
+    box(0.55, 0.6, 0.08, mat("chair"), 0, 0.82, -0.3, ch);
+    cyl(0.04, 0.04, 0.44, mat("metal"), 0, 0.24, 0, ch);
+    CHAIRS[`${x},${z}`] = ch;
   }
   function plant(x, z, s) {
     s = s || 1;
@@ -1054,7 +1148,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     });
     box(0.07, 0.07, 0.06, s, 0, 0.25, -0.01, g);
     sph(0.028, cmat("#f1c7a3"), 0, 0.31, 0.0, g);
-    g.scale.setScalar(1.55);
+    g.scale.setScalar(2.1);
     g.traverse(o => { if (o.isMesh) o.castShadow = false; });
     return { g, legs, a: 0, b: 0, th: 0, v: 1 };
   }
@@ -1123,12 +1217,17 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     sph(0.18, mat("plant"), HX - 0.6, 1.0, HZ); sph(0.14, mat("plant"), HX + 0.5, 0.98, HZ - 0.1);
     const coats = ["#6b4226", "#3b2a20", "#8a5a2b", "#1d1a17", "#a0703f", "#5a3a24"], silks = ["#d33c32", "#2f5bd3", "#f2c14e", "#2f9a6a", "#8b4fa8", "#f4f4ee"];
     for (let i = 0; i < 6; i++) {
-      const h = makeHorse(coats[i], silks[i]); h.a = 1.64 + i * 0.12; h.b = 0.63 + i * 0.1; h.v = 1.0 + (i % 3) * 0.05;
+      // corsie separate e velocità diverse: dopo il primo giro il gruppo si allunga e la corsa si legge
+      const h = makeHorse(coats[i], silks[i]); h.i = i; h.a = 1.66 + i * 0.11; h.b = 0.64 + i * 0.095; h.v = 0.92 + i * 0.06 + Math.random() * 0.04;
       h.g.position.y = 0.865; scene3.add(h.g); horses.push(h);
     }
     resetGate();
+    // tabellone della corsa su due pali, dietro il bordo nord del plastico: non copre più la pista
     const rc = canvasTex(512, 112, () => {}); raceCanvas = rc.canvas; raceTex = rc.tex;
-    const sign = new T.Sprite(new T.SpriteMaterial({ map: raceTex, depthWrite: false })); sign.scale.set(2.9, 0.64, 1); sign.position.set(HX, 2.05, HZ); scene3.add(sign);
+    const tote = new T.Group(); tote.position.set(HX, 0, HZ - 1.65); tote.rotation.y = Math.atan2(VIEW0.pos[0] - VIEW0.target[0], VIEW0.pos[2] - VIEW0.target[2]); scene3.add(tote);
+    [-1.15, 1.15].forEach(dx => cyl(0.035, 0.035, 1.3, mat("metal"), dx, 0.65, -0.03, tote, 8));
+    box(2.62, 0.62, 0.05, cmat("#1b2026"), 0, 1.3, -0.03, tote);
+    const sign = new T.Mesh(new T.PlaneGeometry(2.5, 0.55), new T.MeshBasicMaterial({ map: raceTex, transparent: true })); sign.position.set(0, 1.3, 0.001); tote.add(sign);
     // ufficio vetrato di Carlo (nord-est)
     const glass = mat("glass", { transparent: true, opacity: 0.26 });
     wall(6, -4.2, 13, -4.2, 2.4, glass, [[7.6, 9.0]]); wall(6, -10, 6, -4.2, 2.4, glass);
@@ -1183,7 +1282,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     floorLabel("DIREZIONE", 9.5, -4.8, 3.2); floorLabel("BANCO", 10.4, 0.1, 2); floorLabel("IPPODROMO", HX, 9.55, 3.2);
     floorLabel("CAFFÈ", 12.2, 7.2, 1.8); floorLabel("SALA OPERATIVA", -9, 6.4, 4.4);
   }
-  function resetGate() { horses.forEach(h => { h.th = Math.PI / 2; placeHorse(h, 0); }); }
+  function resetGate() { horses.forEach(h => { h.th = Math.PI / 2 + h.i * 0.18; placeHorse(h, 0); }); }
   function placeHorse(h, gallop) {
     const c = Math.cos(h.th), s = Math.sin(h.th);
     h.g.position.x = HX + h.a * c; h.g.position.z = HZ + h.b * s;
@@ -1220,7 +1319,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     // oggetti in mano: biglietto giallo, tazzina, timbro
     const hand = arms[1];
     const tk = canvasTex(64, 96, (c, w, h) => { c.fillStyle = "#f2c14e"; c.fillRect(0, 0, w, h); c.fillStyle = "#6b4e10"; [16, 30, 44, 58, 72].forEach((y, i) => c.fillRect(8, y, i === 4 ? 30 : 48, 5)); });
-    const ticket = new T.Mesh(new T.PlaneGeometry(0.2, 0.28), new T.MeshBasicMaterial({ map: tk.tex, side: T.DoubleSide })); ticket.position.set(0.02, -0.7, 0.09); hand.add(ticket);
+    const ticket = new T.Mesh(new T.PlaneGeometry(0.34, 0.46), new T.MeshBasicMaterial({ map: tk.tex, side: T.DoubleSide })); ticket.position.set(0.03, -0.78, 0.12); hand.add(ticket);
     const stampG = new T.Group(); hand.add(stampG);
     cyl(0.03, 0.03, 0.16, cmat("#8a6440"), 0, -0.68, 0.02, stampG, 8); box(0.16, 0.06, 0.1, cmat("#d33c32"), 0, -0.79, 0.02, stampG);
     const props = { ticket, cup: cyl(0.06, 0.05, 0.13, cmat("#f4f1ea"), 0, -0.64, 0.06, hand), stamp: stampG };
@@ -1244,16 +1343,20 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       this.tag = document.createElement("div"); this.tag.className = "hq-tag";
       this.tag.innerHTML = `<b>${esc(BY[k].name)}</b> <span class="rl">· ${esc(BY[k].short)}</span><div class="st"></div>`;
       this.tag.title = `${BY[k].name}, ${BY[k].role}: clicca per il registro`;
-      this.tag.addEventListener("click", () => openDrawer(k));
+      // un clic apre il registro, un doppio clic avvicina la telecamera
+      this.tag.addEventListener("click", () => clickPerson(k));
+      this.tag.addEventListener("dblclick", e => { e.preventDefault(); focusPerson(k); });
       ov.appendChild(this.tag);
+      this.stem = document.createElement("div"); this.stem.className = "hq-stem"; this.stem.style.visibility = "hidden"; ov.appendChild(this.stem);
       this.bub = document.createElement("div"); this.bub.className = "hq-bub"; this.bub.hidden = true; ov.appendChild(this.bub);
-      this.tw = 90; this.th = 30; this.tagX = 0; this.tagY = 0;
+      this.tw = 90; this.th = 30; this.tagX = 0; this.tagY = 0; this.bubW = 160; this.bubH = 40;
+      this.chair = CHAIRS[`${h.x},${h.z}`] || null;
       this.apply(0);
     }
     claim() { return ++this.job; }
     atHome() { const h = HOME[this.k]; return Math.hypot(this.x - h.x, this.z - h.z) < 0.05; }
     lift() { return this.fx.jump > nowMs() ? 0.45 : 0; }
-    setProp(prop) { this.prop = prop; Object.entries(this.props).forEach(([k, o]) => { o.visible = k === prop; }); }
+    setProp(prop) { this.prop = prop; Object.entries(this.props).forEach(([k, o]) => { o.visible = k === prop; }); this.tag.classList.toggle("has-ticket", prop === "ticket"); }
     standUp() { if (this.pose === "sit") this.pose = "stand"; }
     sitIfHome() { if (this.atHome() && !this.path) { this.pose = "sit"; this.face = S_FWD; } }
     apply(dt) {
@@ -1280,6 +1383,12 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       this.head.rotation.x = shaking ? 0.22 : 0;
       this.head.position.y = 0.9 + (sit && this.typing ? Math.sin(this.phase * 0.7) * 0.012 : 0);
       if (this.alert.visible) this.alert.position.y = 2.2 + Math.sin(this.phase * 2) * 0.05;
+      if (this.chair) {
+        // in piedi accanto alla scrivania: la sedia scivola indietro di 45 cm, così nessuno ci resta dentro
+        const h = HOME[this.k], near = Math.hypot(this.x - h.x, this.z - h.z) < 0.7;
+        const want = h.z - (!sit && near ? 0.45 : 0), cz = this.chair.position.z;
+        this.chair.position.z = cz + (want - cz) * Math.min(1, dt * 6 || 1);
+      }
     }
     step(dt) {
       if (this.path) {
@@ -1304,29 +1413,36 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
         if (this.path) { const r = this.path.done; this.path = null; r(false); }
         this.x = dest.x; this.z = dest.z; this.node = dest.node; this.face = dest.face ?? this.face; this.pose = dest.pose || "stand"; return true;
       }
+      const fromHome = this.atHome();
       if (this.pose === "sit") { this.pose = "stand"; await sleep(220); if (id !== this.goId) return false; }
       this.pose = "walk";
-      const pts = route(this.node, dest.node).map(n => ({ x: N[n][0], z: N[n][1], node: n }));
+      let pts = route(this.node, dest.node).map(n => ({ x: N[n][0], z: N[n][1], node: n }));
+      const d = (p, q) => Math.hypot(p.x - q.x, p.z - q.z), onEdge = (a, p, b) => d(a, p) + d(p, b) - d(a, b) < 0.05;
+      // dalla scrivania: prima di lato alla sedia, poi dritti fino al corridoio
+      const s0 = side(this.k), pre = fromHome ? [s0, { x: s0.x, z: N[HOME[this.k].node][1] }] : [];
+      const tail = (dest.via || []).concat([{ x: dest.x, z: dest.z }]);
       // se la meta sta sul lato che si sta percorrendo, niente giro fino al nodo e ritorno
-      if (pts.length >= 2) {
-        const a = pts[pts.length - 2], b = pts[pts.length - 1], d = (p, q) => Math.hypot(p.x - q.x, p.z - q.z);
-        if (d(a, dest) + d(dest, b) - d(a, b) < 0.05) pts.pop();
-      }
-      pts.push({ x: dest.x, z: dest.z });
+      if (pts.length >= 2 && onEdge(pts[pts.length - 2], tail[0], pts[pts.length - 1])) pts.pop();
+      if (pre.length && pts.length >= 2 && onEdge(pts[0], pre[pre.length - 1], pts[1])) pts.shift();
+      pts = pre.concat(pts, tail);
       const ok = await this.walkPts(pts);
       if (!ok || id !== this.goId) return false;
       this.face = dest.face ?? this.face; this.pose = dest.pose || "stand";
       return true;
     }
     async home() {
-      const h = HOME[this.k];
-      if (this.atHome() && !this.path) { this.pose = "sit"; this.face = S_FWD; if (this.prop !== "stamp") this.setProp(null); return true; }
-      const ok = await this.go({ node: h.node, x: h.x, z: h.z, pose: "sit", face: S_FWD });
+      const h = HOME[this.k], s0 = side(this.k);
+      // già alla scrivania: si annulla anche un go() ancora nei suoi 220 ms per alzarsi
+      if (this.atHome() && !this.path) { ++this.goId; this.pose = "sit"; this.face = S_FWD; if (this.prop !== "stamp") this.setProp(null); return true; }
+      const ok = await this.go({ node: h.node, x: h.x, z: h.z, pose: "sit", face: S_FWD, via: [{ x: s0.x, z: N[h.node][1] }, s0] });
       if (ok) this.setProp(null);
       return ok;
     }
     say(text, ms = 3000) {
-      this.bub.textContent = clip(text, 120); this.bub.hidden = false; this.bubH = this.bub.offsetHeight;
+      // il fumetto resta invisibile finché layoutOverlay non gli ha dato la posizione (niente lampo nell'angolo)
+      this.bub.textContent = clip(text, 120); this.bub.classList.remove("below");
+      this.bub.style.visibility = "hidden"; this.bub.hidden = false;
+      this.bubH = this.bub.offsetHeight; this.bubW = this.bub.offsetWidth;
       clearTimeout(this.bubT); this.bubT = setTimeout(() => { this.bub.hidden = true; }, ms);
       return sleep(ms);
     }
@@ -1334,27 +1450,34 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 
   // ── etichette sopra la testa ──
   function tagStat(k) {
-    const st = S?.agent_stats || {}, ag = (S?.agents || []).find(a => a.agent === k)?.stats || {};
+    const st = S?.agent_stats, ag = (S?.agents || []).find(a => a.agent === k)?.stats || {};
     const perf = p => {
       if (!p) return "";
-      const c = tone(p.roi);
-      return `<span class="${c}">${compactTags ? "" : "Vinte "}${p.win_rate == null ? "—" : pct(p.win_rate, 0)} · ROI ${p.roi == null ? "—" : pctS(p.roi, 1)}</span>`;
+      if (!p.bets || p.win_rate == null) return `<span class="nd">${compactTags ? "0 chiuse" : "nessuna chiusa"}</span>`;
+      return `<span class="${tone(p.roi)}">${compactTags ? "V " : "Vinte "}${pct(p.win_rate, 0)} · ROI ${p.roi == null ? "—" : pctS(p.roi, 1)}</span>`;
     };
-    if (compactTags) {
-      if (k === "risk") return `<span class="pos">✓ ${st.risk?.approvals ?? 0}</span> · <span class="neg">✗ ${st.risk?.vetoes ?? 0}</span>`;
-      if (k === "quote") return ag.partite != null ? `${ag.partite} partite · ${ag.live ?? 0} live` : "";
-      if (k === "auditor") return st.auditor?.clv_avg != null ? `CLV ${pctS(st.auditor.clv_avg, 1)}` : "";
-      if (k === "tesoriere") return eur(st.tesoriere?.bankroll ?? S?.risk_state?.bankroll);
-      if (k === "direttore") return `DD ${pct(st.direttore?.drawdown ?? S?.risk_state?.drawdown, 1)}`;
-      if (k === "sentiment") return ag.flags != null ? `${ag.flags} segnal.` : "";
+    if (k === "analista" || k === "cavalli") return perf(st?.[k]);
+    if (k === "banco") {
+      // Pietro non sceglie le puntate: mostra il suo lavoro (piazzate e in gioco), non una copia dei numeri di Davide
+      const b = st?.banco; if (!b) return "";
+      const placed = (b.bets || 0) + (b.open || 0);
+      return `<span class="${tone(b.pnl)}">${compactTags ? `${placed} piazz.` : pl(placed, "piazzata", "piazzate")} · ${b.open || 0} in gioco</span>`;
     }
-    if (k === "analista" || k === "cavalli" || k === "banco") return perf(st[k]);
-    if (k === "tesoriere") return `Bankroll ${eur(st.tesoriere?.bankroll ?? S?.risk_state?.bankroll)}`;
-    if (k === "risk") return `<span class="pos">✓ ${st.risk?.approvals ?? 0}</span> approvate · <span class="neg">✗ ${st.risk?.vetoes ?? 0}</span> veti`;
-    if (k === "direttore") { const dd = st.direttore?.drawdown ?? S?.risk_state?.drawdown; return `Drawdown <span class="${dd > 0.06 ? "neg" : ""}">${pct(dd, 1)}</span>`; }
-    if (k === "quote") return ag.partite != null ? `${ag.partite} partite · ${ag.live ?? 0} live · ${ag.corse ?? 0} corse` : "";
-    if (k === "sentiment") return ag.flags != null ? `${ag.flags} segnalazioni` : "";
-    if (k === "auditor") return st.auditor?.clv_avg != null ? `CLV medio ${pctS(st.auditor.clv_avg, 1)}` : "";
+    if (k === "risk") {
+      if (!st?.risk) return "—";
+      return compactTags ? `<span class="pos">✓ ${st.risk.approvals ?? 0}</span> · <span class="neg">✗ ${st.risk.vetoes ?? 0}</span>`
+        : `<span class="pos">✓ ${st.risk.approvals ?? 0}</span> ${(st.risk.approvals ?? 0) === 1 ? "approvata" : "approvate"} · <span class="neg">✗ ${pl(st.risk.vetoes ?? 0, "veto", "veti")}</span>`;
+    }
+    if (k === "auditor") {
+      const a = st?.auditor; if (!a) return "";
+      if (a.clv_avg != null) return `${compactTags ? "CLV" : "CLV medio"} ${pctS(a.clv_avg, 1)}`;
+      if (a.bets == null) return "";
+      return a.bets ? `${compactTags ? a.bets : pl(a.bets, "chiusa", "chiuse")} · ROI ${pctS(a.roi, 1)}` : `<span class="nd">${compactTags ? "0 chiuse" : "nessuna chiusa"}</span>`;
+    }
+    if (k === "tesoriere") return `${compactTags ? "" : "Bankroll "}${eur(st?.tesoriere?.bankroll ?? S?.risk_state?.bankroll)}`;
+    if (k === "direttore") { const dd = st?.direttore?.drawdown ?? S?.risk_state?.drawdown; return `${compactTags ? "DD" : "Drawdown"} <span class="${dd > 0.06 ? "neg" : ""}">${pct(dd, 1)}</span>`; }
+    if (k === "quote") return ag.partite != null ? `${pl(ag.partite, "partita", "partite")} · ${ag.live ?? 0} live${compactTags ? "" : ` · ${pl(ag.corse ?? 0, "corsa", "corse")}`}` : "";
+    if (k === "sentiment") return ag.flags != null ? (compactTags ? `${ag.flags} segnal.` : pl(ag.flags, "segnalazione", "segnalazioni")) : "";
     return "";
   }
   function updateTags() {
@@ -1371,39 +1494,78 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const items = ORDER.map(k => {
       const w = W[k], top = (w.pose === "sit" ? 1.9 : 2.22) + w.lift();
       tmpV.set(w.x, top, w.z).project(camera);
-      return { w, x: (tmpV.x + 1) / 2 * cw, y: (1 - tmpV.y) / 2 * ch, vis: tmpV.z > -1 && tmpV.z < 1, bw: w.tw * sc, bh: w.th * sc };
-    }).sort((a, b) => b.y - a.y);
+      return { w, x: (tmpV.x + 1) / 2 * cw, y: (1 - tmpV.y) / 2 * ch, vis: tmpV.z > -1 && tmpV.z < 1, bw: w.tw * sc, bh: w.th * sc, talk: !w.bub.hidden };
+    }).sort((a, b) => b.y - a.y);   // prima chi sta davanti (più in basso sullo schermo)
     const placed = [];
+    const hit = (it, l, b) => placed.find(p => l < p.left + p.bw + 3 && l + it.bw + 3 > p.left && b > p.bottom - p.bh - 2 && b - it.bh - 2 < p.bottom);
     for (const it of items) {
-      let left = Math.min(Math.max(it.x - it.bw / 2, 2), cw - it.bw - 2), bottom = it.y;
-      for (let pass = 0; pass < 12; pass++) {
-        let moved = false;
-        for (const p of placed) {
-          if (left < p.left + p.bw + 3 && left + it.bw + 3 > p.left && bottom > p.bottom - p.bh - 2 && bottom - it.bh - 2 < p.bottom) { bottom = p.bottom - p.bh - 3; moved = true; }
+      const w = it.w;
+      // testa fuori dall'inquadratura: niente etichetta schiacciata sul bordo sopra un altro collega
+      const off = !it.vis || it.x < 4 || it.x > cw - 4 || it.y < 4 || it.y > ch + 40;
+      const base = Math.min(Math.max(it.x - it.bw / 2, 2), cw - it.bw - 2);
+      let pos = null, b = it.y;
+      if (!off) {
+        // prima di lato, poi su di un piano; al massimo due piani sopra la testa
+        for (let lv = 0; lv < 3 && !pos; lv++) {
+          if (b - it.bh < 2) break;
+          const c = hit(it, base, b);
+          if (!c) { pos = [base, b]; break; }
+          const opts = [c.left + c.bw + 3, c.left - it.bw - 3].sort((p, q) => Math.abs(p - base) - Math.abs(q - base));
+          for (const l of opts) if (l >= 2 && l + it.bw <= cw - 2 && Math.abs(l - base) < it.bw * 1.4 && !hit(it, l, b)) { pos = [l, b]; break; }
+          b = c.bottom - c.bh - 3;
         }
-        if (!moved) break;
+        // senza posto libero l'etichetta resta nascosta, a meno che quel collega stia parlando
+        if (!pos && it.talk) pos = [base, Math.max(it.y, it.bh + 2)];
       }
-      it.left = left; it.bottom = bottom; placed.push(it);
-      const out = !it.vis || it.x < -30 || it.x > cw + 30 || it.y < -10 || it.y > ch + 40 || bottom - it.bh < -it.bh * 0.5;
-      it.w.tag.style.visibility = out ? "hidden" : "";
-      it.w.tag.style.transform = `translate(${left.toFixed(1)}px, ${(bottom - it.bh).toFixed(1)}px) scale(${sc.toFixed(3)})`;
-      it.w.tagX = it.x; it.w.tagY = bottom - it.bh; it.w.headY = it.y;
-      if (!it.w.bub.hidden) it.w.bub.style.transform = `translate(${Math.min(Math.max(it.x, 108), cw - 108).toFixed(1)}px, ${(bottom - it.bh - 8).toFixed(1)}px) translate(-50%, -100%)`;
+      const show = !!pos;
+      w.tag.style.visibility = show ? "" : "hidden";
+      w.tag.classList.toggle("front", show && it.talk);
+      const [left, bottom] = pos || [base, it.y];
+      if (show) placed.push(Object.assign(it, { left, bottom }));
+      w.tag.style.transform = `translate(${left.toFixed(1)}px, ${(bottom - it.bh).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+      w.tagX = left + it.bw / 2; w.tagY = bottom - it.bh; w.headY = it.y;
+      // gambo sottile dall'etichetta alla testa quando l'etichetta si è spostata
+      const sx = left + it.bw / 2, dx = it.x - sx, dy = it.y - bottom, len = Math.hypot(dx, dy);
+      if (show && len > 20) {
+        w.stem.style.visibility = "";
+        w.stem.style.height = `${len.toFixed(1)}px`;
+        w.stem.style.transform = `translate(${sx.toFixed(1)}px, ${bottom.toFixed(1)}px) rotate(${(Math.atan2(-dx, dy) * 180 / Math.PI).toFixed(1)}deg)`;
+      } else w.stem.style.visibility = "hidden";
+      if (!w.bub.hidden) {
+        // il fumetto sta sopra l'etichetta; se uscirebbe dal bordo in alto, va sotto
+        const half = (w.bubW || 160) / 2 + 4, bx = Math.min(Math.max(show ? w.tagX : it.x, half), cw - half);
+        const above = (show ? bottom - it.bh : it.y) - 8, below = above - (w.bubH || 40) < 4;
+        w.bub.classList.toggle("below", below);
+        w.bub.style.transform = below ? `translate(${bx.toFixed(1)}px, ${((show ? bottom : it.y) + 8).toFixed(1)}px) translate(-50%, 0)`
+          : `translate(${bx.toFixed(1)}px, ${above.toFixed(1)}px) translate(-50%, -100%)`;
+        w.bub.style.visibility = "";
+        w.bubAbove = !below;
+      }
     }
     // numeri che salgono, timbri e altri effetti agganciati a un collega
     const now = nowMs();
     for (let i = fx.length - 1; i >= 0; i--) {
       const f = fx[i], age = (now - f.t0) / f.dur;
       if (age >= 1) { f.el.remove(); fx.splice(i, 1); continue; }
-      const rise = (REDUCED ? 0 : age * 46) + (f.w.bub.hidden ? 0 : (f.w.bubH || 40) + 10);
+      const rise = (REDUCED ? 0 : age * (f.rise ?? 46)) + (f.w.bub.hidden || !f.w.bubAbove ? 0 : (f.w.bubH || 40) + 10);
       f.el.style.opacity = String(age < 0.75 ? 1 : 1 - (age - 0.75) / 0.25);
       f.el.style.transform = `translate(${f.w.tagX.toFixed(1)}px, ${(f.w.tagY - 6 - rise).toFixed(1)}px) translate(-50%, -100%)`;
     }
   }
-  function addFx(w, cls, html, dur) {
+  function addFx(w, cls, html, dur, rise) {
     const el = document.createElement("div"); el.className = cls; el.innerHTML = html;
     $("hq-overlay").appendChild(el);
-    fx.push({ el, w, t0: nowMs(), dur });
+    fx.push({ el, w, t0: nowMs(), dur, rise });
+  }
+  // coriandoli di carta sopra l'etichetta di chi ha vinto (quelli 3D partono dalle spalle, questi non li copre nessuno)
+  function popConfetti(w) {
+    if (REDUCED) return;
+    const cols = ["#f2c14e", "#2fbf71", "#e5534b", "#3f7fc4", "#f07ab8", "#8b4fa8"];
+    const bits = Array.from({ length: 16 }, (_, i) => {
+      const a = -Math.PI * (0.08 + 0.84 * Math.random()), r = 40 + Math.random() * 55;
+      return `<i style="background:${cols[i % cols.length]};--dx:${(Math.cos(a) * r).toFixed(0)}px;--dy:${(Math.sin(a) * r + 30).toFixed(0)}px;--r:${Math.round(Math.random() * 720 - 360)}deg;animation-delay:${(Math.random() * 0.12).toFixed(2)}s"></i>`;
+    }).join("");
+    addFx(w, "hq-pop", bits, 1500, 0);
   }
   const floatNum = (w, v) => addFx(w, `hq-num ${v > 0 ? "" : v < 0 ? "neg" : "zero"}`, esc(signEur(v)), 2600);
   const stampOn = w => addFx(w, "hq-stamp", "<span>VETO</span>", 2600);
@@ -1412,13 +1574,13 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   let confGeo = null, confMats = null;
   function burst(x, y, z) {
     if (REDUCED) return;
-    confGeo = confGeo || new T.PlaneGeometry(0.1, 0.06);
+    confGeo = confGeo || new T.PlaneGeometry(0.2, 0.12);
     confMats = confMats || ["#f2c14e", "#2fbf71", "#e5534b", "#3f7fc4", "#ffffff", "#f07ab8", "#8b4fa8"].map(c => new T.MeshBasicMaterial({ color: c, side: T.DoubleSide }));
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 140; i++) {
       const m = new T.Mesh(confGeo, confMats[i % confMats.length]);
-      const a = Math.random() * Math.PI * 2, s = 0.6 + Math.random() * 1.6;
-      m.position.set(x, y, z);
-      m.userData = { vx: Math.cos(a) * s, vy: 3 + Math.random() * 3.2, vz: Math.sin(a) * s, sx: Math.random() * 8, sy: Math.random() * 8, life: 2.6 + Math.random() * 0.8 };
+      const a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 1.5;
+      m.position.set(x + Math.cos(a) * 0.3, y, z + Math.sin(a) * 0.3);
+      m.userData = { vx: Math.cos(a) * s, vy: 2.5 + Math.random() * 2, vz: Math.sin(a) * s, sx: Math.random() * 8, sy: Math.random() * 8, life: 2.6 + Math.random() * 0.8 };
       scene3.add(m); confetti.push(m);
     }
   }
@@ -1444,7 +1606,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const all = S.board?.matches || [];
     const rows = all.filter(x => x.status === "LIVE").sort((a, b) => (b.minute || 0) - (a.minute || 0))
       .concat(all.filter(x => x.status === "SCHEDULED").sort((a, b) => String(a.kickoff).localeCompare(String(b.kickoff)))).slice(0, 3);
-    const hm = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    const hm = officeNow().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
     const sig = JSON.stringify([bank, roi, prof, (S.open_bets || []).length, rows.map(r => [r.home, r.away, r.minute, r.home_score, r.away_score, r.status]), hm]);
     if (sig === wallSig) return;
     wallSig = sig;
@@ -1460,7 +1622,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     g.fillStyle = roi > 0 ? G : roi < 0 ? R : "#c9d6cc"; g.fillText(roi == null ? "—" : pctS(roi, 1), 28, 278);
     g.fillStyle = prof > 0 ? G : prof < 0 ? R : "#c9d6cc"; g.fillText(signEur(prof), 248, 278);
     g.fillStyle = "#8fa396"; g.font = "500 21px Archivo, Arial, sans-serif";
-    g.fillText(`${(S.open_bets || []).length} puntate in gioco · capitale ${eur(init, 0)}`, 30, 330);
+    g.fillText(`${pl((S.open_bets || []).length, "puntata in gioco", "puntate in gioco")} · capitale ${eur(init, 0)}`, 30, 330);
     g.fillStyle = "#1e3527"; g.fillRect(470, 76, 3, 290);
     g.fillStyle = "#8fa396"; g.font = "600 22px Archivo, Arial, sans-serif"; g.fillText(rows.some(r => r.status === "LIVE") ? "PARTITE LIVE" : "PROSSIME PARTITE", 500, 100);
     rows.forEach((r, i) => {
@@ -1478,9 +1640,11 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (!rows.length) { g.fillStyle = "#8fa396"; g.font = "500 24px Archivo, Arial, sans-serif"; g.fillText("Nessuna partita nel feed per ora.", 500, 160); }
     wallTex.needsUpdate = true;
   }
+  // in fotografia l'orologio e la parete mostrano l'ora della fotografia, non quella di oggi
+  const officeNow = () => live ? new Date() : new Date((S?.generated || Date.now() / 1000) * 1000);
   function drawClock() {
     if (!clockCanvas) return;
-    const d = new Date(), mi = d.getHours() * 60 + d.getMinutes();
+    const d = officeNow(), mi = d.getHours() * 60 + d.getMinutes();
     if (mi === clockMin) return; clockMin = mi;
     const g = clockCanvas.getContext("2d");
     g.clearRect(0, 0, 128, 128); g.fillStyle = "#fbfaf6"; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill(); g.lineWidth = 6; g.strokeStyle = "#2b2f35"; g.stroke();
@@ -1527,8 +1691,16 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     });
   }
   const agentMsg = k => ((S?.agents || []).find(a => a.agent === k) || {}).message || "Tutto tranquillo.";
-  function setNote(html) { $("floor-note").innerHTML = html || DEFAULT_NOTE; }
-  const DEFAULT_NOTE = "Trascina per girare la sala, rotellina o due dita per lo zoom. Il biglietto giallo è una puntata: va da chi l'ha trovata a Bruno (rischio) e poi a Pietro (banco).";
+  function setNote(html) { $("floor-note").innerHTML = noteLock || html || defaultNote(); }
+  const TOUCH = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
+  const defaultNote = () => (TOUCH || (compactTags && navigator.maxTouchPoints > 0) ? "Due dita per girare e zoomare la sala, doppio tocco su un collega per avvicinarti."
+    : "Trascina per girare la sala, tasto destro per spostarti, Ctrl + rotellina per lo zoom, doppio clic su un collega per avvicinarti.")
+    + " Il biglietto giallo è una puntata: va da chi l'ha trovata a Bruno (rischio) e poi a Pietro (banco).";
+  function hint(text) {
+    const h = $("hq-hint"); if (!h) return;
+    h.textContent = text; h.classList.add("on");
+    clearTimeout(hintT); hintT = setTimeout(() => h.classList.remove("on"), 1400);
+  }
 
   // ── palette giorno/notte ──
   function applyPalette() {
@@ -1547,13 +1719,14 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   // ── motore ──
   function frameCamera() {
     const host = $("hq3"), w = host.clientWidth || 800;
-    const h = w < 640 ? Math.round(w * 0.95) : Math.round(Math.min(Math.max(w * 0.58, 360), 700));
+    const h = w < 640 ? Math.round(w * 0.8) : Math.round(Math.min(Math.max(w * 0.58, 360), 700));
     renderer.setSize(w, h, false);
     renderer.domElement.style.height = h + "px";
-    // sul telefono si taglia un po' la sala ai lati (si gira col dito) per avere omini più grandi
-    const aspect = w / h, view = w < 640 ? Math.max(6.5, 12 / aspect) : Math.max(9.2, 16.8 / aspect);
+    // sul telefono si vede tutta la sala (niente colleghi tagliati fuori); per avvicinarsi: doppio tocco o due dita
+    const aspect = w / h, view = w < 640 ? Math.max(7, 15.5 / aspect) : Math.max(9.2, 16.8 / aspect);
     const cmp = w < 560;
     if (cmp !== compactTags) { compactTags = cmp; host.classList.toggle("compact", cmp); if (S) updateTags(); }
+    wake();
     Object.assign(camera, { left: -view * aspect, right: view * aspect, top: view, bottom: -view });
     camera.updateProjectionMatrix();
   }
@@ -1561,10 +1734,30 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (loopOn || mode3d !== "on" || document.hidden || !onScreen) return;
     loopOn = true; lastT = nowMs(); requestAnimationFrame(loop);
   }
+  // si disegna a piena velocità solo quando qualcosa si muove; da ferma la sala va a 10 immagini al secondo
+  // e le ombre si ricalcolano due volte al secondo: la dashboard aperta tutto il giorno non tiene la GPU al massimo
+  const wake = (ms = 1500) => { orbitUntil = Math.max(orbitUntil, nowMs() + ms); };
+  function busyScene() {
+    const now = nowMs();
+    return orbitUntil > now || !!camAnim || confetti.length > 0 || alarmOn || hippo.running || fx.length > 0
+      || ORDER.some(k => { const w = W[k], f = w.fx; return w.path || !w.bub.hidden || f.jump > now || f.clap > now || f.shake > now || f.stamp > now; });
+  }
   function loop(t) {
     if (document.hidden || !onScreen || mode3d !== "on") { loopOn = false; return; }
-    const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+    const busy = busyScene();
+    if (t - lastT < (busy ? 0 : 95)) { requestAnimationFrame(loop); return; }
+    const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
+    if (camAnim) {
+      const k = Math.min(1, (t - camAnim.t0) / 650), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      controls.target.lerpVectors(camAnim.t1, camAnim.t2, e);
+      camera.position.lerpVectors(camAnim.p1, camAnim.p2, e);
+      camera.zoom = camAnim.z1 + (camAnim.z2 - camAnim.z1) * e; camera.updateProjectionMatrix();
+      if (k >= 1) camAnim = null;
+    }
     controls.update();
+    // spostamento limitato alla sala: il punto guardato resta sul pavimento, dentro le pareti
+    const tg = controls.target, cx = Math.max(-11, Math.min(11, tg.x)), cz = Math.max(-8, Math.min(8, tg.z));
+    if (cx !== tg.x || cz !== tg.z || Math.abs(tg.y - 0.8) > 1e-3) { const dx = cx - tg.x, dy = 0.8 - tg.y, dz = cz - tg.z; tg.set(cx, 0.8, cz); camera.position.x += dx; camera.position.y += dy; camera.position.z += dz; }
     ORDER.forEach(k => W[k].step(dt));
     if (hippo.running && !REDUCED) { hippo.t += dt; horses.forEach(h => { h.th += dt * (0.55 + 0.08 * Math.sin(hippo.t * 0.9 + h.v * 7)) * h.v; placeHorse(h, true); }); }
     stepConfetti(dt);
@@ -1575,29 +1768,48 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       beacons.forEach(b => { b.refl.rotation.y = a; b.dome.material.emissiveIntensity = 0.6 + 0.4 * Math.abs(Math.sin(a)); b.light.intensity = 1.2 + Math.sin(a * 2); });
       spot.intensity = 4; spotTarget.position.set(Math.cos(a * 0.4) * 9, 0, Math.sin(a * 0.4) * 6);
     }
+    if (busy || t - lastShadow > 500) { renderer.shadowMap.needsUpdate = true; lastShadow = t; }
     renderer.render(scene3, camera);
     layoutOverlay(renderer.domElement.clientWidth, renderer.domElement.clientHeight);
     requestAnimationFrame(loop);
   }
+  // telecamera: avvicinarsi a un collega (doppio clic) e tornare alla vista di partenza (Centra)
+  function flyTo(tx, tz, zoom, pos) {
+    if (!camera) return;
+    const t2 = new T.Vector3(tx, 0.8, tz);
+    const p2 = pos ? new T.Vector3(...pos) : t2.clone().add(camera.position.clone().sub(controls.target));
+    camAnim = { t0: nowMs(), t1: controls.target.clone(), t2, p1: camera.position.clone(), p2, z1: camera.zoom, z2: zoom };
+    if (REDUCED) { controls.target.copy(t2); camera.position.copy(p2); camera.zoom = zoom; camera.updateProjectionMatrix(); camAnim = null; }
+    wake(); kick();
+  }
+  function focusPerson(k) { clearTimeout(clickT); const w = W[k]; if (w) flyTo(w.x, w.z, 2.2); }
+  function centerView() { flyTo(VIEW0.target[0], VIEW0.target[2], VIEW0.zoom, VIEW0.pos); }
+  // un clic apre il registro, ma aspetta un attimo: se arriva il secondo clic è un doppio clic (avvicinati)
+  function clickPerson(k) { clearTimeout(clickT); clickT = setTimeout(() => openDrawer(k), 260); }
   function loadScript(src) {
     return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.async = false; s.onload = res; s.onerror = () => rej(new Error(src)); document.head.appendChild(s); });
   }
   function fallback2D(why) {
     mode3d = "off";
     $("hq3").hidden = true; $("floor").hidden = false;
-    ["btn-daynight", "btn-meeting"].forEach(id => { $(id).hidden = true; });
+    ["btn-daynight", "btn-meeting", "btn-center"].forEach(id => { $(id).hidden = true; });
     setNote(`${esc(why)} Ecco la pianta semplice: il biglietto giallo è una puntata che attraversa l'ufficio; quello rosso si ferma al veto.`);
   }
   function start3D() {
-    if (!window.WebGLRenderingContext) { fallback2D("Questo browser non ha WebGL, quindi niente 3D."); return; }
+    // prova WebGL prima di scaricare 600 KB di libreria
+    let gl = null;
+    try { const probe = document.createElement("canvas"); gl = probe.getContext("webgl") || probe.getContext("experimental-webgl"); } catch (e) { gl = null; }
+    if (!gl) { fallback2D("La vista 3D richiede WebGL, non attivo in questo browser (o accelerazione grafica disattivata)."); return; }
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000));
-    Promise.race([loadScript(THREE_SRC[0]).then(() => loadScript(THREE_SRC[1])), timeout])
+    const loadAny = ([local, cdn]) => loadScript(local).catch(() => loadScript(cdn));
+    Promise.race([loadAny(THREE_SRC[0]).then(() => loadAny(THREE_SRC[1])), timeout])
       .then(() => {
         T = window.THREE;
         if (!T || !T.OrbitControls) throw new Error("three");
         init3D();
       })
-      .catch(() => { if (mode3d === "loading") fallback2D("L'ufficio 3D non si è caricato (serve internet per la libreria grafica)."); });
+      .catch(() => { if (mode3d === "loading") fallback2D("L'ufficio 3D non si è caricato (manca la libreria grafica in dashboard/vendor/ e internet non risponde)."); });
   }
   function init3D() {
     try {
@@ -1607,14 +1819,14 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     pal = isNight() ? PAL.dark : PAL.light;
     tmpV = new T.Vector3();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     renderer.domElement.setAttribute("role", "img");
     renderer.domElement.setAttribute("aria-label", "Ufficio sportivo in 3D: parete schermo con bankroll e partite, campo da calcio, plastico dell'ippodromo, banco, ufficio vetrato del direttore e i nove colleghi con le loro statistiche");
     const host = $("hq3");
     host.prepend(renderer.domElement);
     scene3 = new T.Scene(); scene3.background = new T.Color(pal.bg);
     camera = new T.OrthographicCamera(-10, 10, 10, -10, -100, 200);
-    camera.position.set(24, 22, 26); camera.zoom = 1.1;
+    camera.position.set(...VIEW0.pos); camera.zoom = VIEW0.zoom;
     hemi = new T.HemisphereLight(0xffffff, 0x6b7684, pal.hemi); scene3.add(hemi);
     sun = new T.DirectionalLight(0xffffff, pal.dir); sun.position.set(12, 22, 9); sun.castShadow = true;
     Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 60 });
@@ -1623,29 +1835,58 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     lamps.forEach(l => { l.intensity = pal.lamp; });
     ORDER.forEach(k => { W[k] = new Walker(k); });
     controls = new T.OrbitControls(camera, renderer.domElement);
-    Object.assign(controls, { enablePan: false, enableDamping: true, dampingFactor: 0.08, minZoom: 0.7, maxZoom: 3, minPolarAngle: 0.35, maxPolarAngle: 1.2 });
-    controls.target.set(0.4, 0.8, -1.3); controls.update();
+    // spostamento col tasto destro (sul pavimento, limitato alla sala); zoom con Ctrl + rotellina, così la rotellina scorre la pagina
+    Object.assign(controls, { enablePan: true, screenSpacePanning: false, enableDamping: true, dampingFactor: 0.08, minZoom: 0.7, maxZoom: 3.2, minPolarAngle: 0.35, maxPolarAngle: 1.2 });
+    controls.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_ROTATE };
+    controls.target.set(...VIEW0.target); controls.update();
+    controls.addEventListener("start", () => { camAnim = null; wake(60000); kick(); });
+    controls.addEventListener("end", () => { orbitUntil = nowMs() + 1500; });
+    const cv = renderer.domElement;
+    cv.addEventListener("wheel", e => {
+      controls.enableZoom = e.ctrlKey || e.metaKey;
+      if (controls.enableZoom) wake(); else hint("Per lo zoom tieni premuto Ctrl mentre giri la rotellina");
+    }, { capture: true, passive: true });
+    cv.addEventListener("pointerdown", () => { controls.enableZoom = true; }, { capture: true });
+    // sul telefono un dito scorre la pagina: il tocco singolo non arriva a OrbitControls
+    ["touchstart", "touchmove"].forEach(t => cv.addEventListener(t, e => { if (e.touches.length < 2) e.stopImmediatePropagation(); }, { capture: true, passive: true }));
+    cv.addEventListener("webglcontextlost", e => {
+      e.preventDefault(); mode3d = "lost";
+      noteLock = "La scheda grafica si è riavviata (sospensione o driver): <b>ricarica la pagina</b> se la sala non torna da sola.";
+      setNote("");
+    });
+    cv.addEventListener("webglcontextrestored", () => location.reload());
     frameCamera();
-    if (window.ResizeObserver) new ResizeObserver(() => frameCamera()).observe(host);
+    let lastW = 0;
+    if (window.ResizeObserver) new ResizeObserver(() => { const w = host.clientWidth; if (w === lastW) return; lastW = w; requestAnimationFrame(frameCamera); }).observe(host);
     if (window.IntersectionObserver) new IntersectionObserver(es => { onScreen = es[es.length - 1].isIntersecting; kick(); }).observe(host);
     document.addEventListener("visibilitychange", kick);
     // clic su un collega → il suo registro
     const ray = new T.Raycaster(), ptr = new T.Vector2(); let down = null;
     renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
-    renderer.domElement.addEventListener("pointerup", e => {
-      if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+    const aim = e => {
       const r = renderer.domElement.getBoundingClientRect();
       ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(ptr, camera);
-      const hit = ray.intersectObjects(ORDER.map(k => W[k].g), true)[0];
-      if (hit && hit.object.userData.k) openDrawer(hit.object.userData.k);
+      return ray.intersectObjects(ORDER.map(k => W[k].g), true)[0];
+    };
+    renderer.domElement.addEventListener("pointerup", e => {
+      if (e.button > 0 || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+      const hit = aim(e);
+      if (hit && hit.object.userData.k) clickPerson(hit.object.userData.k);
+    });
+    // doppio clic: su un collega lo segue da vicino, sul pavimento avvicina quel punto
+    const floorP = new T.Plane(new T.Vector3(0, 1, 0), 0), fp = new T.Vector3();
+    renderer.domElement.addEventListener("dblclick", e => {
+      const hit = aim(e);
+      if (hit && hit.object.userData.k) { focusPerson(hit.object.userData.k); return; }
+      if (ray.ray.intersectPlane(floorP, fp)) flyTo(fp.x, fp.z, Math.max(2.2, camera.zoom));
     });
     const themeSync = () => applyPalette();
     if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", themeSync);
     new MutationObserver(themeSync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     if (document.fonts?.ready) document.fonts.ready.then(() => { wallSig = ""; raceSig = ""; if (S) render3D(); labelMeshes.forEach(paintLabel); });
-    $("hq-loading").remove();
-    mode3d = "on";
+    $("hq-loading").remove(); host.classList.add("ready");
+    mode3d = "on"; setNote("");
     if (S) { render3D(); lastEventId = Math.max(0, ...(S.events || []).map(e => e.id || 0)); }
     kick();
     if (!REDUCED) scheduleAmbient();
@@ -1655,14 +1896,26 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     syncAgents(); updateTags(); drawWall(); drawClock(); updateRace(); updateTrophies();
   }
 
-  // ── animazioni: coda, al massimo 4 nuove per poll ──
+  // ── animazioni: coda con priorità, al massimo 4 nuove per poll ──
+  // a coda piena esce per primo il meno importante (i veti); un allarme o una chiusura non si perdono mai
   const q3 = []; let q3Running = false;
-  function enqueue(fn) { if (q3.length >= 6) q3.shift(); q3.push(fn); pump3(); }
+  function enqueue(fn, prio = 2, tag = null, onDrop = null) {
+    if (!fn) return false;
+    if (tag && q3.some(x => x.tag === tag)) return false;
+    if (q3.length >= 6) {
+      let worst = 0; q3.forEach((x, i) => { if (x.prio > q3[worst].prio) worst = i; });
+      if (q3[worst].prio > 1 || prio > 1) {
+        if (q3[worst].prio < prio) return false;
+        q3.splice(worst, 1)[0].onDrop?.();
+      }
+    }
+    q3.push({ fn, prio, tag, onDrop }); pump3(); return true;
+  }
   async function pump3() {
     if (q3Running) return; q3Running = true;
     while (q3.length) {
-      const fn = q3.shift(); sceneBusy = true;
-      try { await fn(); } catch (e) { /* un'animazione andata storta non deve bloccare le altre */ }
+      const item = q3.shift(); sceneBusy = true;
+      try { await item.fn(); } catch (e) { /* un'animazione andata storta non deve bloccare le altre */ }
     }
     sceneBusy = false; q3Running = false; setNote("");
   }
@@ -1675,12 +1928,14 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
   function betText(e) {
     let t = String(e.message || "").replace(/^\[[^\]]+\]\s*/, "").replace(/^Puntata #\d+:\s*/, "");
-    t = t.replace(/\s*\(.*$/, "").replace(/^(\d+(?:\.\d+)?) €/, (_, v) => eur(Number(v)));
+    // toglie solo la coda "(Betfair), prob. stimata …" dopo la quota; le parentesi dentro l'etichetta restano
+    t = t.replace(/,\s*prob\..*$/, "").replace(/\s*\([^()]*\)\s*\.?$/, "").replace(/\.$/, "");
+    t = t.replace(/^(\d+(?:\.\d+)?) €/, (_, v) => eur(Number(v))).replace(/ a (\d+)\.(\d+)$/, " a $1,$2");
     return clip(t, 70);
   }
   async function animBet(e) {
     const ok = ownerOf(e), o = W[ok], b = W.risk, p = W.banco, txt = betText(e);
-    const stake = (String(e.message).match(/(\d+(?:\.\d+)?) €/) || [])[1];
+    const stake = e.payload?.stake ?? (String(e.message).match(/(\d+(?:\.\d+)?) €/) || [])[1];
     setNote(`<b>Nuova puntata</b> di ${esc(BY[ok].name)}: ${esc(txt)}`);
     [o, b, p].forEach(w => w.claim());
     if (REDUCED) { await o.say(`Ho una puntata: ${txt}`, 2200); await b.say("Approvata ✓", 1500); await p.say(`Piazzata: ${txt}`, 2200); return; }
@@ -1705,19 +1960,24 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (!REDUCED) { if (b.pose === "sit") b.standUp(); b.setProp("stamp"); b.fx.stamp = nowMs() + 1400; }
     stampOn(b);
     await b.say(`✗ ${String(e.message).replace(/^VETO\s*/, "")}`, 3000);
-    b.setProp(null); b.sitIfHome();
+    b.setProp(null); backToDesk(b);
   }
+  // finita la scena: chi è alla scrivania si risiede, chi è in giro torna al suo posto
+  function backToDesk(x) { if (x.atHome()) x.sitIfHome(); else if (!x.path) x.home(); }
   async function animSettle(e) {
     const ok = ownerOf(e), o = W[ok], pnl = Number(e.payload?.pnl ?? 0), label = e.payload?.label || clip(e.message, 60);
     o.claim();
     floatNum(o, pnl);
     if (pnl > 0) {
       setNote(`<b>${esc(BY[ok].name)} ha vinto</b> ${esc(signEur(pnl))}: ${esc(label)}`);
+      const fans = [W.banco, W.tesoriere].filter(x => x !== o);
       if (!REDUCED) {
-        o.standUp(); o.fx.jump = nowMs() + 2400; burst(o.x, 2.3, o.z);
-        W.banco.fx.clap = nowMs() + 2600; W.tesoriere.fx.clap = nowMs() + 2600;
+        o.standUp(); o.fx.jump = nowMs() + 2400; burst(o.x, 1.4, o.z); popConfetti(o);
+        // Pietro e Anna si alzano ad applaudire
+        fans.forEach(x => { if (!x.path) x.standUp(); x.fx.clap = nowMs() + 2600; });
       }
       await o.say(`Vinta! ${label}`, 2800);
+      fans.forEach(x => { if (!x.path) x.sitIfHome(); });
     } else if (pnl < 0) {
       setNote(`<b>${esc(BY[ok].name)} ha perso</b> ${esc(signEur(pnl))}: ${esc(label)}`);
       if (!REDUCED) o.fx.shake = nowMs() + 2200;
@@ -1726,15 +1986,21 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       setNote(`Chiusa in pari: ${esc(label)}`);
       await o.say(`In pari: ${label}`, 2000);
     }
-    o.sitIfHome();
+    backToDesk(o);
   }
-  async function gather(note, talk) {
+  // tutti insieme: durante la scena le etichette mostrano solo il nome (meno affollamento sopra le teste)
+  async function gather(note, talk, spots) {
     setNote(note);
     ORDER.forEach(k => W[k].claim());
-    const c = W.direttore;
-    await Promise.all(ORDER.filter(k => k !== "direttore").map((k, i) => sleep(REDUCED ? 0 : i * 220).then(() => W[k].go(MEETPOS[k])))
-      .concat([c.home().then(() => { c.standUp(); })]));
-    await talk();
+    const host = $("hq3"); host.classList.add("meeting");
+    try {
+      const c = W.direttore, ring = spots || MEETPOS;
+      await Promise.all(ORDER.filter(k => k !== "direttore").map((k, i) => sleep(REDUCED ? 0 : i * 220).then(() => W[k].go(ring[k])))
+        .concat([(ring.direttore ? c.go(ring.direttore) : c.home()).then(() => { c.standUp(); })]));
+      await talk();
+    } finally {
+      host.classList.remove("meeting");
+    }
     await Promise.all(ORDER.map(k => W[k].home()));
   }
   function animAlarm(e) {
@@ -1746,20 +2012,34 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     });
   }
   function meetingScene() {
-    return gather("<b>Riunione</b> nell'ufficio di Carlo: ognuno dice a che punto è, con i messaggi veri del registro.", async () => {
+    return gather("<b>Riunione</b> a centrocampo: ognuno dice a che punto è, con i messaggi veri del registro.", async () => {
       await W.direttore.say("Riunione! Facciamo il punto.", 2000);
       for (const k of ["quote", "analista", "cavalli", "sentiment", "risk", "banco", "tesoriere", "auditor"]) await W[k].say(agentMsg(k), 2800);
       await W.direttore.say("Bene, tutti al lavoro. Prima i dati, poi le puntate.", 2400);
-    });
+    }, MEETRING);
   }
 
   // ── vita d'ufficio: caffè, visite ai colleghi, occhiata alla corsa ──
   function scheduleAmbient() {
     clearTimeout(ambT);
     ambT = setTimeout(async () => {
-      try { if (!sceneBusy && !document.hidden && onScreen && mode3d === "on") await ambientOnce(); } catch (e) { /* si riprova al giro dopo */ }
+      try {
+        if (mode3d === "on") rescueStuck();
+        if (!sceneBusy && !document.hidden && onScreen && mode3d === "on") await ambientOnce();
+      } catch (e) { /* si riprova al giro dopo */ }
       scheduleAmbient();
     }, 4500 + Math.random() * 5000);
+  }
+  // rete di sicurezza: chi resta fermo fuori posto per due giri di fila (niente scena, niente fumetto) torna alla scrivania
+  function rescueStuck() {
+    const now = nowMs();
+    ORDER.forEach(k => {
+      const w = W[k], f = w.fx;
+      const idle = !sceneBusy && !w.path && w.bub.hidden && !(f.jump > now) && !(f.clap > now) && !(f.stamp > now);
+      const off = idle && (!w.atHome() || w.pose !== "sit");
+      w.stuck = off ? (w.stuck || 0) + 1 : 0;
+      if (w.stuck >= 2) { w.stuck = 0; w.claim(); if (w.atHome()) { w.sitIfHome(); w.setProp(null); } else w.home(); }
+    });
   }
   async function ambientOnce() {
     const free = ORDER.filter(k => { const w = W[k]; return w.atHome() && !w.path && w.bub.hidden; });
@@ -1782,7 +2062,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
         await w.say(`${BY[o].name}, novità?`, 1700);
         if (w.job !== j) return;
         if (W[o].atHome() && W[o].bub.hidden && !sceneBusy) await W[o].say(agentMsg(o), 3200);
-        if (w.job === j && !sceneBusy) await w.home();
+        if (w.job === j) await w.home();
         return;
       } else return;
     }
@@ -1790,14 +2070,27 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (!(await w.go(dest)) || w.job !== j) return;
     if (prop) w.setProp(prop);
     await w.say(line, stay);
-    if (w.job === j && !sceneBusy) await w.home();
+    if (w.job === j) await w.home();
   }
+  // chi possiede una puntata letta dal libro (stesse regole di state.py: S04/S08, tennis e basket → Matteo)
+  function betOwner(b) {
+    let sport = ""; try { sport = (typeof b.extra === "string" ? JSON.parse(b.extra || "{}") : b.extra || {}).sport || ""; } catch (e) { sport = ""; }
+    return /^(tennis|basket)/.test(sport) || /^S0[48]/.test(b.strategy_id || "") ? "cavalli" : "analista";
+  }
+  const fromBet = (b, kind) => ({
+    id: 0, kind, agent: "banco",
+    message: kind === "bet" ? `Puntata #${b.id}: ${Number(b.stake).toFixed(2)} € su ${b.label} a ${Number(b.odds).toFixed(2)}` : `#${b.id} ${b.label}: ${b.status}`,
+    payload: { strategy: b.strategy_id, agent: betOwner(b), bet_id: b.id, pnl: b.pnl, status: b.status, label: b.label, stake: b.stake, odds: b.odds },
+  });
   function replay(kind) {
     const evs = S?.events || [];
-    const e = kind === "win" ? evs.find(x => (x.kind === "settle" || x.kind === "cashout") && Number(x.payload?.pnl) > 0) : evs.find(x => x.kind === kind);
-    if (!e) { setNote(kind === "win" ? "Nel registro recente non c'è ancora una vincita." : kind === "veto" ? "Nel registro recente non c'è un veto." : "Nel registro recente non c'è una puntata."); return; }
-    if (mode3d === "on") enqueue(eventAnim(e));
-    else if (mode3d === "off") { queue.push(e); pump(); }
+    // il registro tiene solo gli ultimi eventi (quasi tutti proposte e veti): se manca, si ricostruisce dal libro delle puntate
+    let e = kind === "win" ? evs.find(x => (x.kind === "settle" || x.kind === "cashout") && Number(x.payload?.pnl) > 0) : evs.find(x => x.kind === kind);
+    if (!e && kind === "win") { const b = (S?.bets || []).find(x => Number(x.pnl) > 0); if (b) e = fromBet(b, "settle"); }
+    if (!e && kind === "bet") { const b = (S?.open_bets || [])[0] || (S?.bets || [])[0]; if (b) e = fromBet(b, "bet"); }
+    if (!e) { setNote(kind === "win" ? "Non c'è ancora una puntata vinta da rivedere." : kind === "veto" ? "Nel registro recente non c'è un veto." : "Non c'è ancora una puntata da rivedere."); return; }
+    if (mode3d === "on") enqueue(eventAnim(e), 2, `replay-${kind}`);
+    else if (mode3d === "off") { queue.push(e); while (queue.length > 3) queue.shift(); pump(); }
   }
   function renderPeople() {
     $("hq-people").innerHTML = AGENTS.map(a => `<button type="button" data-k="${a.key}" title="${esc(a.role)}"><i style="background:${a.color}"></i>${esc(a.name)}</button>`).join("");
@@ -1808,19 +2101,33 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   function renderAll() {
     renderHeader(); renderKpis(); renderFloor(); render3D(); renderBoard(); renderBets(); renderStrats(); renderFeed(); renderSentiment(); renderBacktest();
     $("foot-note").textContent = `Aggiornato alle ${new Date((S.generated || Date.now() / 1000) * 1000).toLocaleTimeString("it-IT")}`;
-    if (openAgent) openDrawer(openAgent);
+    if (openAgent && drawerKey(openAgent) !== drawerSig) fillDrawer(openAgent);
     detectNew();
   }
+  // una richiesta alla volta; se l'ufficio non risponde più lo si dice (i numeri sulla pagina sono fermi)
+  let inFlight = false, failSince = 0;
+  function showOffline() {
+    const secs = Math.round((Date.now() - failSince) / 1000), when = secs < 90 ? `${secs} s` : `${Math.round(secs / 60)} min`;
+    $("source").className = "chip bad";
+    $("source").innerHTML = `<span class="dot"></span><span>Ufficio non raggiungibile da ${when}: avvia avvia.bat</span>`;
+    const ban = `<div class="banner" id="offline-banner">L'ufficio non risponde da ${when}: i numeri qui sotto sono fermi all'ultimo aggiornamento. Se il PC è acceso, avvia <span class="mono">avvia.bat</span>.</div>`;
+    const old = $("offline-banner"); if (old) old.outerHTML = ban; else $("banners").insertAdjacentHTML("afterbegin", ban);
+  }
   async function tick() {
+    if (inFlight) return;
+    inFlight = true;
     try {
-      const r = await fetch("/api/state", { cache: "no-store" });
-      if (!r.ok) throw new Error(r.status);
-      S = await r.json(); live = true;
-    } catch (e) {
-      if (!S && SNAP) { S = SNAP; live = false; }
-      else if (!S) { $("source").innerHTML = `<span class="dot"></span><span>Ufficio spento: avvia avvia.bat</span>`; $("source").className = "chip bad"; return; }
-    }
-    renderAll();
+      try {
+        const r = await fetch("/api/state", { cache: "no-store" });
+        if (!r.ok) throw new Error(r.status);
+        S = await r.json(); live = true; failSince = 0;
+      } catch (e) {
+        if (!S && SNAP) { S = SNAP; live = false; }
+        else if (!S) { $("source").innerHTML = `<span class="dot"></span><span>Ufficio spento: avvia avvia.bat</span>`; $("source").className = "chip bad"; return; }
+        else if (live) { failSince = failSince || Date.now(); showOffline(); return; }
+      }
+      renderAll();
+    } finally { inFlight = false; }
   }
   renderFloorOnce(); renderFilters(); renderPeople(); applyPalette();
   $("dr-close").addEventListener("click", closeDrawer);
@@ -1829,7 +2136,15 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   $("btn-replay-bet").addEventListener("click", () => replay("bet"));
   $("btn-replay-veto").addEventListener("click", () => replay("veto"));
   $("btn-replay-win").addEventListener("click", () => replay("win"));
-  $("btn-meeting").addEventListener("click", () => { if (mode3d === "on") enqueue(meetingScene); });
+  // una riunione alla volta: il pulsante resta spento finché non è finita
+  let meetingQueued = false;
+  $("btn-meeting").addEventListener("click", () => {
+    if (mode3d !== "on" || meetingQueued) return;
+    meetingQueued = true; $("btn-meeting").disabled = true;
+    const done = () => { meetingQueued = false; $("btn-meeting").disabled = false; };
+    if (!enqueue(() => meetingScene().finally(done), 2, "meeting", done)) done();
+  });
+  $("btn-center").addEventListener("click", () => { if (mode3d === "on") centerView(); });
   $("btn-daynight").addEventListener("click", () => {
     memMode = isNight() ? "day" : "night";
     try { localStorage.setItem("sbo-office-mode", memMode); } catch (e) { /* vale solo per questa visita */ }
@@ -1840,7 +2155,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S) renderKpis(); }, 150); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); $("settings").setAttribute("aria-hidden", "true"); } });
   tick();
-  setInterval(() => { if (live || !S) tick(); }, 3000);
+  // ogni 3 s con la pagina davanti, ogni 30 s con la scheda nascosta; al ritorno si aggiorna subito
+  (function poll() { setTimeout(() => { if (live || !S) tick(); poll(); }, document.hidden ? 30000 : 3000); })();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && (live || !S)) tick(); });
 })();
 </script>
 </body>

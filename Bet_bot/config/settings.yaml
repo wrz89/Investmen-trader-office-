@@ -82,3 +82,5 @@ feed:
 
 cycle_seconds: 60
 dashboard_port: 8766
+dashboard_lan: false     # true = la dashboard si vede anche dal telefono sulla rete di casa (solo lettura:
+                         # impostazioni e azioni restano sul PC). Poi apri http://<IP del PC>:8766 dal telefono.

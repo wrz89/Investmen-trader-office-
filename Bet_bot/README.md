@@ -164,6 +164,8 @@ active_strategies: [S05_favoriti_exchange_v2]
 
 Dashboard: `http://localhost:8766` (solo sul tuo PC).
 
+Dal telefono: metti `dashboard_lan: true` in `runtime/impostazioni.yaml` (o in `config/settings.yaml`), riavvia e apri l'indirizzo che Bet_bot scrive all'avvio (`http://192.168.x.x:8766`) con il telefono sulla stessa rete Wi-Fi. Dal telefono si guarda soltanto: impostazioni, chiavi e Betfair si cambiano solo dal PC. La prima volta Windows chiede se consentire l'accesso alla rete privata: rispondi sì solo per le reti private.
+
 ## Note pratiche
 
 - **PC acceso e sveglio**: il bot lavora solo a PC acceso; mentre gira chiede a Windows di non andare in sospensione. Gli ordini sono fill-or-kill, quindi non restano ordini "appesi" se il PC si spegne; un trade aperto viene chiuso al riavvio successivo.

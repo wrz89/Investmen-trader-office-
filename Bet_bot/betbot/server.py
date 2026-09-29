@@ -1,12 +1,15 @@
 """Server locale della dashboard sportiva (http://localhost:8766, solo sul tuo PC).
 
 Regole di sicurezza:
-  • ascolta solo su 127.0.0.1;
-  • le modifiche (POST) arrivano solo dalla dashboard stessa (host localhost, header X-Office, JSON);
+  • ascolta solo su 127.0.0.1; con `dashboard_lan: true` in settings.yaml ascolta anche sulla rete di casa,
+    ma dal telefono si può solo guardare (pagina e /api/state, host = IP privato);
+  • le modifiche (POST) e le impostazioni arrivano solo dal PC stesso (client 127.0.0.1, host localhost,
+    header X-Office, JSON);
   • segreti (token, password) mai restituiti al browser.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import socket
 import sys
@@ -130,7 +133,28 @@ def handle_action(path: str, body: dict) -> dict:
     raise LookupError(path)
 
 
-def make_handler(store: Store, port: int):
+def _lan_host(host: str, port: int) -> bool:
+    """Host di un IP privato della rete di casa (192.168.x.x, 10.x.x.x, 172.16-31.x.x) sulla porta giusta."""
+    name, _, p = host.rpartition(":")
+    if p != str(port):
+        return False
+    try:
+        ip = ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return ip.version == 4 and ip.is_private and not ip.is_loopback
+
+
+def lan_address() -> str | None:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.168.1.1", 9))          # nessun pacchetto parte: serve solo a sapere l'interfaccia di casa
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def make_handler(store: Store, port: int, lan: bool = False):
     allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
     allowed_origins = {f"http://{h}" for h in allowed_hosts}
 
@@ -145,12 +169,18 @@ def make_handler(store: Store, port: int):
         def _json(self, code: int, data: dict) -> None:
             self._send(code, json.dumps(data, default=str).encode(), "application/json")
 
+        def _from_pc(self) -> bool:
+            return self.client_address[0] in ("127.0.0.1", "::1") and self.headers.get("Host", "") in allowed_hosts
+
         def do_GET(self):
-            if self.headers.get("Host", "") not in allowed_hosts:
+            host = self.headers.get("Host", "")
+            if not (self._from_pc() or (lan and _lan_host(host, port))):
                 return self._json(403, {"error": "host non consentito"})
             if self.path.startswith("/api/state"):
                 self._json(200, build_state(store))
             elif self.path.startswith("/api/settings"):
+                if not self._from_pc():
+                    return self._json(403, {"error": "le impostazioni si vedono solo dal PC"})
                 self._json(200, settings_view())
             elif self.path in ("/", "/index.html"):
                 self._send(200, DASHBOARD_FILE.read_bytes(), "text/html; charset=utf-8")
@@ -167,7 +197,7 @@ def make_handler(store: Store, port: int):
 
         def do_POST(self):
             origin = self.headers.get("Origin")
-            if (self.headers.get("Host", "") not in allowed_hosts or self.headers.get("X-Office") != "1"
+            if (not self._from_pc() or self.headers.get("X-Office") != "1"
                     or (origin and origin not in allowed_origins)
                     or "application/json" not in (self.headers.get("Content-Type") or "")):
                 return self._json(403, {"error": "richiesta non consentita"})
@@ -202,7 +232,11 @@ def office_running(port: int) -> bool:
 def serve(port: int, background: bool = False, db_path=None) -> ThreadingHTTPServer:
     ensure_dirs()
     store = Store(db_path or DB_PATH)
-    httpd = _Server(("127.0.0.1", port), make_handler(store, port))
+    lan = bool(load_settings().get("dashboard_lan"))
+    httpd = _Server(("0.0.0.0" if lan else "127.0.0.1", port), make_handler(store, port, lan))
+    if lan:
+        ip = lan_address()
+        print(f"Dal telefono (stessa rete Wi-Fi, solo lettura): http://{ip or '<IP del PC>'}:{port}")
     if background:
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
     else:
