@@ -52,8 +52,8 @@ max_table_edge: 0.05           # EV massimo: oltre, la tabella non descrive quel
 # limiti ASSOLUTI (budget di perdita), sopra si passa alle percentuali.
 small_bankroll: 100             # sotto questa soglia: limiti assoluti e trade alla puntata minima
 kill_below_bankroll: 20.0       # KILL SWITCH se il bankroll scende sotto 20 € (−10 € dal capitale)…
-max_drawdown_small: 0.33        # …o sotto picco × (1 − 0,33): la soglia sale col picco (a 30 € resta ~20 €,
-                                # a 60 € diventa 40,20 €), così un profitto non si restituisce tutto senza stop
+max_drawdown_small: 0.334       # …o sotto picco × (1 − 0,334): la soglia sale col picco (a 30 € resta 20 €,
+                                # a 60 € diventa 39,96 €), così un profitto non si restituisce tutto senza stop
 max_daily_loss_eur: 4.0         # stop fino a domani dopo 4 € persi nel giorno
 max_daily_loss: 0.05            # sopra i 100 €: −5% nel giorno → stop fino a domani
 max_drawdown: 0.15              # sopra i 100 €: −15% dal massimo → KILL SWITCH (reset solo dal PC)

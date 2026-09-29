@@ -168,9 +168,9 @@ def test_kill_switch_trailing_in_portfolio_state(office):
     office.risk.portfolio_state()                                               # picco 60 €
     _new_day(office, 41.0)
     assert not office.risk.portfolio_state()["kill_switch"]
-    _new_day(office, 40.0)
+    _new_day(office, 39.5)
     st = office.risk.portfolio_state()
-    assert st["kill_switch"] and "sotto la soglia" in st["kill_switch"] and st["kill_floor"] == pytest.approx(40.2)
+    assert st["kill_switch"] and "sotto la soglia" in st["kill_switch"] and st["kill_floor"] == pytest.approx(39.96)
 
 
 # ── n.5: le perdite chiuse nel primo ciclo del giorno contano per lo stop giornaliero ──────────
