@@ -118,6 +118,8 @@ class Notifier:
             authorized = (payload or {}).get("strategy_status") == "PAPER"
             if authorized or n.get("vetoes_all"):
                 text = f"{ICON['veto']} <b>{who}</b>\n{_escape(message)}"
+        elif kind == "reminder":                                   # promemoria: sempre, se Telegram è collegato
+            text = f"🗓️ <b>{who}</b>\n{_escape(message)}"
         elif kind == "news_alert" and n.get("news", True):
             text = f"{ICON['news_alert']} <b>{who}</b>\n{_escape(message)}"
         elif kind == "kill_switch" and n.get("alerts"):

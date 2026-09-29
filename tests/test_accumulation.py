@@ -123,3 +123,13 @@ def test_carry_stats_halves_yield_on_capital_and_charges_costs():
     assert abs(s["gross_annual"] - 0.1095) < 1e-3
     assert abs(s["net_annual_on_capital"] - (s["gross_annual"] - s["cost_annual"]) / 2) < 1e-9
     assert s["positive_share"] == 1.0
+
+
+def test_reminder_sent_once_from_its_date(office_):
+    acc = office_.accumulation
+    acc.cfg["reminders"] = [{"date": "2027-02-01", "text": "porta il piano a 70 €"}]
+    acc.reminders("2027-01-31")
+    acc.reminders("2027-02-01")
+    acc.reminders("2027-02-02")
+    msgs = office_.store.query("SELECT message FROM events WHERE kind='reminder'")
+    assert len(msgs) == 1 and "70 €" in msgs[0]["message"]

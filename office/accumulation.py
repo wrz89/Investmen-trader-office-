@@ -117,7 +117,19 @@ class Accumulation:
         q["usdc_eur"] = usdc_eur
         return q
 
+    def reminders(self, today: str | None = None) -> None:
+        """Promemoria per l'utente: una volta sola, dalla data indicata."""
+        today = today or datetime.now().strftime("%Y-%m-%d")
+        sent = set(self.store.get("reminders_sent") or [])
+        for r in self.cfg.get("reminders") or []:
+            key = f"{r['date']}|{r['text'][:40]}"
+            if str(r["date"]) <= today and key not in sent:
+                self.office.pm.say(f"Promemoria: {r['text']}", "alert", "reminder")
+                sent.add(key)
+                self.store.set("reminders_sent", sorted(sent))
+
     def run(self, snapshot: dict) -> None:
+        self.reminders()
         cfg, costs = self.cfg, self.office.settings["costs"]
         fee, slip = costs["taker_fee"], costs["slippage_bps"] / 10_000
         try:
