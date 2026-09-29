@@ -71,8 +71,6 @@ go_live:
     - "interruttore 'Acquisti reali' acceso da te nelle Impostazioni"
 
 # Promemoria per te (Marco li manda su Telegram, una volta sola, dalla data indicata).
-# L'Acquisto ricorrente di Bybit con soldi veri è impostato da te nell'app: l'ufficio non
-# può modificarlo, quindi ti avvisa quando va cambiato.
 reminders:
   - date: "2027-02-01"
-    text: "Da febbraio porta l'Acquisto ricorrente di Bybit da 105 € a 70 € al mese: le 4 rate del capitale iniziale (ottobre-gennaio) sono finite. Quote invariate: BTC 49%, ETH 21%, SOL 15%, XRP 15%."
+    text: "Da febbraio l'ufficio passa da solo da 105 € a 70 € al mese: le 4 rate del capitale iniziale sono finite. Controlla solo che il bonifico periodico di 70 € verso Bybit resti attivo."

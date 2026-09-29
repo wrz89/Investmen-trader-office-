@@ -16,7 +16,7 @@ sleeves:
   - name: Accumulo · nucleo 70% (BTC 49%, ETH 21%) · rischio 30% (SOL 15%, XRP 15%)
     status: paper                 # scelta C del 29/09/2026 · primo acquisto paper dal 5 ottobre 2026
     max_share: 1.00
-    note: "70 € al mese dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), prima alle monete sotto quota, strada più economica. Con soldi veri, da subito: Acquisto ricorrente di Bybit EU pagato con il saldo in euro. Nessuna promessa di vantaggio. Mai vendite automatiche"
+    note: "70 € al mese dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), prima alle monete sotto quota. Con soldi veri eseguito dall'ufficio via API (ordini limite, commissione 0,10%): solo acquisti, tetto mensile, chiave senza prelievi. Nessuna promessa di vantaggio. Mai vendite automatiche"
   - name: Motore trend (STRATEGY_01_v5)
     status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
     max_share: 0.0
@@ -37,11 +37,11 @@ sleeves:
 # Cosa fai tu (non si può automatizzare) e cosa fa l'ufficio
 you_do:
   - Aprire il conto Bybit EU e fare il riconoscimento (KYC)
-  - Creare le chiavi API solo trading (niente prelievi, IP del tuo PC)
+  - Creare la chiave API solo trading (niente prelievi, IP del tuo PC) e inserirla nelle Impostazioni dell'ufficio
   - Impostare in banca un bonifico periodico di 70 € verso Bybit (una volta sola)
   - Dichiarazione dei redditi (l'Auditor ti prepara il riepilogo annuale)
 office_does:
-  - Ogni mese investe 70 € in BTC, ETH, SOL e XRP secondo le quote (in paper, per confronto con l'Acquisto ricorrente di Bybit)
+  - Ogni mese compra su Bybit BTC, ETH, SOL e XRP secondo le quote, con ordini limite (0,10%); dopo 24 ore senza esecuzione compra a mercato
   - Rimanda l'acquisto (mai lo salta) con dati anomali, spread alto o allarmi di Nora
   - Segue in ombra, senza soldi, le strategie promettenti per raccogliere prove
   - Usa strategie di trading solo se superano la verifica con i costi reali
@@ -51,11 +51,9 @@ phases:
   - when: 29/09/2026
     what: "Verificate con i costi reali: v5 e BTC di lungo periodo non superano tutti i criteri. Nessuna strategia approvata"
   - when: questi giorni
-    what: "Soldi veri con l'Acquisto ricorrente di Bybit EU: KYC, bonifico SEPA, piano pagato con il SALDO EUR (non con la carta). 105 € al mese fino a gennaio, poi 70 €"
-  - when: 5 ottobre e 5 novembre 2026
-    what: "L'ufficio fa gli stessi acquisti in paper, con ordini limite: confronto dei costi con l'Acquisto ricorrente"
-  - when: dicembre 2026
-    what: "Se l'ufficio ha funzionato: puoi passare all'esecuzione dell'ufficio (commissione 0,10% invece di 0,25%). Decisione tua"
+    what: "Conto Bybit EU verificato e fondi depositati (fatto). Chiave API nelle Impostazioni, verifica, ordine di prova da 5 € e interruttore 'Acquisti reali' acceso"
+  - when: 5 ottobre 2026
+    what: "Primo acquisto REALE dall'ufficio: 105 € (70 + 35 di capitale iniziale) divisi tra BTC, ETH, SOL e XRP. 105 € fino a gennaio, poi 70 € in automatico"
   - when: ottobre 2027
     what: "Revisione della strategia BTC di lungo periodo dopo 12 mesi in ombra: se supera, potrà decidere quando stare fuori da BTC"
 
