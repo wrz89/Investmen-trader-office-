@@ -55,6 +55,9 @@ feed:
     race_hours: 2         # corse in partenza entro 2 ore
     soccer: true          # anche i mercati MATCH_ODDS del calcio
     soccer_hours: 36
+  odds_api:
+    odds_refresh_seconds: 7200     # piano gratuito: quote ogni 2 ore (con un piano a pagamento scendi a 60–300)
+    scores_refresh_seconds: 21600  # punteggi ogni 6 ore (i risultati servono per chiudere le puntate)
   api_football:
     live_refresh_seconds: 120
     stats_from_minute: 55

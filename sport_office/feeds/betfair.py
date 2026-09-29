@@ -315,14 +315,19 @@ class BetfairFeed(Feed):
                                           for rid, v in p["runners"].items() if v.get("back") and v.get("lay")}}
             else:
                 runners = cat.get("runners", [])
-                if len(runners) != 3:
+                home, _, away = cat["event"]["name"].partition(" v ")
+                if len(runners) != 3 or not away:
                     continue
-                order = {str(runners[0]["selectionId"]): "home", str(runners[1]["selectionId"]): "away",
-                         str(runners[2]["selectionId"]): "draw"}          # MATCH_ODDS: casa, ospite, pareggio
-                prices_ = {order[rid]: v["back"] for rid, v in p["runners"].items() if rid in order and v.get("back")}
+                order = {}
+                for r in runners:                      # abbinamento per nome, non per posizione
+                    name = r["runnerName"].strip()
+                    order[str(r["selectionId"])] = ("draw" if name.lower() in ("the draw", "pareggio", "draw")
+                                                    else "home" if name == home.strip() else "away" if name == away.strip() else None)
+                if sorted(v for v in order.values() if v) != ["away", "draw", "home"]:
+                    continue                           # nomi non riconosciuti: meglio saltare che invertire casa e ospite
+                prices_ = {order[rid]: v["back"] for rid, v in p["runners"].items() if order.get(rid) and v.get("back")}
                 if len(prices_) < 3:
                     continue
-                home, _, away = cat["event"]["name"].partition(" v ")
                 live = bool(p.get("inplay"))
                 matches[mid] = {"match_id": mid, "sport": "soccer", "league": (cat.get("competition") or {}).get("name", "Calcio"),
                                 "home": home.strip(), "away": away.strip(), "kickoff": start.isoformat(),

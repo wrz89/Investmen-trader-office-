@@ -217,3 +217,65 @@ def test_short_simulation_runs_and_books_balance(tmp_path, monkeypatch):
     open_stakes = sum(r["stake"] for r in s.query("SELECT stake FROM bets WHERE status='OPEN'"))
     assert float(s.get("cash")) + open_stakes == pytest.approx(m["initial"] + pnl, abs=1e-3)
     importlib.reload(cfg)
+
+
+def test_odds_api_feed_parsing_and_throttling(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from sport_office.feeds import odds_api
+    monkeypatch.setattr(odds_api, "api_key", lambda: "k")
+    ko = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat().replace("+00:00", "Z")
+    calls = []
+
+    def fake_get(self, path, **params):
+        calls.append(path)
+        if path.endswith("/odds"):
+            return [{"id": "e1", "home_team": "Inter", "away_team": "Lecce", "commence_time": ko, "sport_title": "Serie A",
+                     "bookmakers": [{"title": b, "markets": [{"key": "h2h", "outcomes": [
+                         {"name": "Inter", "price": 1.25}, {"name": "Lecce", "price": 12.0}, {"name": "Draw", "price": 6.5}]}]}
+                                    for b in ("Pinnacle", "Bet365", "Unibet")]}]
+        return []
+    monkeypatch.setattr(odds_api.OddsApiFeed, "_get", fake_get)
+    settings = {"feed": {"sports": ["soccer_italy_serie_a"], "odds_api": {"odds_refresh_seconds": 3600}}}
+    f = odds_api.OddsApiFeed(settings)
+    snap = asyncio.run(f.fetch())
+    m = snap["matches"]["e1"]
+    assert m["status"] == "SCHEDULED" and m["books"]["Bet365"] == {"home": 1.25, "away": 12.0, "draw": 6.5}
+    n = len(calls)
+    asyncio.run(f.fetch())
+    assert len(calls) == n                                     # entro l'intervallo nessuna nuova richiesta
+
+
+def test_betfair_soccer_runners_mapped_by_name():
+    from sport_office.feeds.betfair import BetfairFeed
+    f = BetfairFeed.__new__(BetfairFeed)
+    f.client = type("C", (), {"errors": 0, "calls": 1})()
+    f.stream_task = None
+    f.cat = {"1.5": {"_kind": "soccer", "marketStartTime": "2030-01-01T18:00:00Z", "event": {"name": "Inter v Lecce"},
+                     "competition": {"name": "Serie A"},
+                     "runners": [{"selectionId": 3, "runnerName": "The Draw"}, {"selectionId": 2, "runnerName": "Lecce"},
+                                 {"selectionId": 1, "runnerName": "Inter"}]}}
+    prices = {"1.5": {"status": "OPEN", "inplay": False, "runners": {
+        "1": {"back": 1.25, "lay": 1.26, "back_size": 1, "lay_size": 1}, "2": {"back": 13.0, "lay": 13.5, "back_size": 1, "lay_size": 1},
+        "3": {"back": 6.6, "lay": 6.8, "back_size": 1, "lay_size": 1}}}}
+    m = f._snapshot(prices)["matches"]["1.5"]
+    assert m["books"]["Betfair"] == {"home": 1.25, "away": 13.0, "draw": 6.6}
+    assert m["betfair"]["selection_ids"] == {"home": 1, "away": 2, "draw": 3}
+
+
+def test_telegram_sends_on_bet_and_breaker(monkeypatch):
+    import threading
+    from sport_office import local_settings, notifier
+    sent = []
+    monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
+    monkeypatch.setattr(notifier, "channel", lambda: {"token": "1:x", "chat_id": "42"})
+    monkeypatch.setattr(notifier, "call", lambda token, method, payload=None, timeout=10: sent.append(payload["text"]))
+
+    class Now(threading.Thread):                    # thread eseguito subito, per il test
+        def start(self):
+            self.run()
+    monkeypatch.setattr(notifier.threading, "Thread", Now)
+    n = notifier.Notifier()
+    n.on_event("Pietro · Banco", "INFO", "bet", "[PAPER] Puntata #1: 2,00 € su Inter")
+    n.on_event("Bruno · Risk Manager", "WARN", "circuit", "Circuit breaker: 6 perdite di fila")
+    n.on_event("Sara · Quote", "INFO", "scan", "routine")
+    assert len(sent) == 2 and "Puntata #1" in sent[0] and "Circuit breaker" in sent[1]

@@ -25,5 +25,9 @@ class Direttore(Agent):
     def summary(self, proposals: int, placed: int, settled: int, state: dict) -> None:
         msg = (f"Ciclo chiuso: {proposals} proposte, {placed} puntate piazzate, {settled} chiuse. "
                f"Bankroll {state['bankroll']:.2f} € (profitti {state['profits']:+.2f} €).")
-        self.say(msg, "alert" if state.get("kill_switch") else "ok", "cycle",
-                 stats={"proposte": proposals, "piazzate": placed, "chiuse": settled})
+        stats = {"proposte": proposals, "piazzate": placed, "chiuse": settled}
+        st = "alert" if state.get("kill_switch") else "ok"
+        if placed or settled:
+            self.say(msg, st, "cycle", stats=stats)          # nel registro solo i cicli con movimenti
+        else:
+            self.status(st, msg, stats)

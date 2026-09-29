@@ -28,9 +28,9 @@ class Tesoriere(Agent):
                    "drawdown_now": state["drawdown"], "by_strategy": by_strategy,
                    "reinvest_fraction": L["reinvest_fraction"]}
         self.store.set("metrics", metrics)
-        self.say(f"Bankroll {state['bankroll']:.2f} € = capitale {br.initial_capital:.2f} + profitti "
+        self.status("ok", f"Bankroll {state['bankroll']:.2f} € = capitale {br.initial_capital:.2f} + profitti "
                  f"{state['profits']:+.2f}. Base di puntata {state['stake_base']:.2f} € "
                  f"(puntata massima prossimo ciclo {next_cap:.2f} €). ROI {m['roi']:+.1%} su {m['bets']} chiuse.",
-                 "ok", "bankroll", stats={"bankroll": round(state["bankroll"], 2), "roi": m["roi"],
+                    {"bankroll": round(state["bankroll"], 2), "roi": m["roi"],
                                           "win_rate": m["win_rate"]})
         return metrics

@@ -61,6 +61,9 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
     for b in open_bets:
         r = snapshot.get("races", {}).get(b["match_id"])
         if not r:
+            # la corsa non è più nel feed: mai lasciare una posizione aperta alla cieca
+            actions.append({"bet_id": b["id"], "action": "hedge", "price": b["odds"],
+                            "reason": "corsa partita: mercato non più nel feed, chiusura prudenziale"})
             continue
         run = r["runners"].get(b["selection"])
         if r["status"] != "OPEN" or not run:

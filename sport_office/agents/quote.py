@@ -40,6 +40,18 @@ class Quote(Agent):
     name = "Sara"
     role = "Feed real-time: calendario, quote, punteggi live, corse"
 
+    def _prune(self, keep_days: int = 3) -> None:
+        """Lo storico delle quote serve al sentiment di mercato e al CLV: bastano pochi giorni.
+        (Il libro scommesse e il registro eventi invece non si cancellano mai.)"""
+        import time as _t
+        from datetime import datetime, timezone
+        from .. import clock
+        if _t.time() - (self.office.__dict__.get("_last_prune") or 0) < 3600:
+            return
+        self.office._last_prune = _t.time()
+        cutoff = datetime.fromtimestamp(clock.now() - keep_days * 86400, timezone.utc).isoformat(timespec="seconds")
+        self.store.execute("DELETE FROM odds WHERE ts < ?", (cutoff,))
+
     async def scan(self) -> dict:
         self.status("working", "Leggo quote e punteggi…")
         snap = await self.office.feed.fetch()
@@ -65,11 +77,12 @@ class Quote(Agent):
                              "selection": rid, "price": run["back"], "live": False})
         if rows:
             self.store.record_odds(rows)
+        self._prune()
         self.office.cache = snap                               # cache in memoria (il ruolo di Redis)
         self.store.set("board", board(snap))                   # tabellone per la dashboard
         live = sum(1 for m in snap["matches"].values() if m["status"] == "LIVE")
         races = sum(1 for r in snap.get("races", {}).values() if r["status"] == "OPEN")
-        self.say(f"{open_matches} partite in cartellone ({live} live), {races} corse aperte, "
-                 f"{len(rows)} quote salvate. Fonte: {snap['health']['source']}.", "ok", "scan",
-                 stats={"partite": open_matches, "live": live, "corse": races, "quote": len(rows)})
+        self.status("ok", f"{open_matches} partite in cartellone ({live} live), {races} corse aperte, "
+                    f"{len(rows)} quote salvate. Fonte: {snap['health']['source']}.",
+                    {"partite": open_matches, "live": live, "corse": races, "quote": len(rows)})
         return snap
