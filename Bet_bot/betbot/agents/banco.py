@@ -18,7 +18,7 @@ from ..state import bet_agent, strategy_agent
 
 CASHOUT_MARGIN = 0.05
 TRADE_MARKETS = ("exchange_win", "exchange_trade")      # trade back→lay: si chiudono con un lay, non col risultato       # il bookmaker trattiene ~5% sul cash-out
-MODE_LABEL = {"paper": "PAPER · exchange simulato", "live": "SOLDI VERI · Betfair"}
+MODE_LABEL = {"paper": "PAPER · exchange simulato", "live": "SOLDI VERI · Betfair", "shadow": "OMBRA · nessun capitale"}
 
 
 def exchange_green(stake: float, back: float, lay: float, commission: float) -> float:
@@ -33,6 +33,9 @@ class Banco(Agent):
     role = "Esegue le puntate approvate, cash-out, green-up, chiusure e notifiche"
 
     def place(self, p: dict, decision: dict, cycle_id: str, snapshot: dict) -> int | None:
+        if self.office.executor.route(p, snapshot) == "shadow":
+            self.shadow(p, snapshot)                      # mai scalare il bankroll vero per una puntata in ombra
+            return None
         res = self.office.executor.place(p, decision["stake"], snapshot)
         if not res["ok"]:
             self.say(f"Puntata NON piazzata su {p['label']}: {res['error']}.", "blocked", "exec_fail", level="WARN")
@@ -215,5 +218,6 @@ class Banco(Agent):
                 self.store.execute("UPDATE shadow_bets SET status=?, settled_ts=?, pnl=? WHERE id=?",
                                    ("WON" if won else "LOST", now_iso(), net if won else -1.0, sb["id"]))
         if not n:
-            self.status("idle", f"{len(self.office.bankroll.open_bets())} puntate in gioco, nessuna da chiudere.")
+            k = len(self.office.bankroll.open_bets())
+            self.status("idle", f"{k} {'puntata' if k == 1 else 'puntate'} in gioco, nessuna da chiudere.")
         return n

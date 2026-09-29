@@ -123,7 +123,9 @@ class SportOffice:
         proposals.sort(key=lambda p: -p["edge"])
         placed = 0
         for p in proposals:
-            if p["strategy_status"] != "ATTIVA":
+            # in osservazione, oppure in live senza via libera ai soldi veri (o con prezzi ritardati): solo in ombra,
+            # prima del Risk Manager, così il bankroll vero non viene mai toccato
+            if p["strategy_status"] != "ATTIVA" or self.executor.route(p, snap) == "shadow":
                 self.banco.shadow(p, snap)
                 continue
             decision = self.risk.evaluate(p, snap, state)
