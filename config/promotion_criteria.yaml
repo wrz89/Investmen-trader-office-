@@ -10,3 +10,14 @@ mc_lower_percentile: 5         # risultato netto non peggiore del 5° percentile
 max_cost_vs_model: 1.5         # commissioni + slippage reali ≤ 1,5 × modello
 min_coverage: 0.80             # quota di candele 4h elaborate (PC acceso)
 max_critical_errors: 0         # errori critici non gestiti o regole di rischio violate
+
+# Strategie LENTE (SIZING allocation, pochi trade l'anno). Fissato il 29/09/2026
+# prima di testare STRATEGY_06_v1: in 12 settimane una strategia così fa 0-2 trade,
+# quindi il paper verifica l'ESECUZIONE (segnali, ordini, costi), non il rendimento.
+slow:
+  min_weeks: 12
+  min_closed_trades: 0
+  require_signal_match: true   # ogni ingresso/uscita in paper coincide con il backtest sulle stesse candele
+  max_cost_vs_model: 1.5
+  min_coverage: 0.80           # quota di candele giornaliere elaborate (PC acceso)
+  max_critical_errors: 0

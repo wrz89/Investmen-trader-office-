@@ -37,6 +37,29 @@ diversification:
   max_monthly_correlation: 0.50            # correlazione con la strategia di riferimento
   require_portfolio_sharpe_improvement: true   # riferimento + nuova > riferimento da sola
 
+# ── STRATEGIE LENTE (SIZING = allocation, es. filtro di trend giornaliero) ──
+# Fissati il 29/09/2026 PRIMA di testare STRATEGY_06_v1.
+# Una strategia lenta fa poche decine di trade in 8 anni: i criteri "per trade"
+# qui sopra (100-200 trade) la boccerebbero a prescindere. Si giudica quindi sul
+# rendimento GIORNALIERO fuori campione e sul confronto con "compra e tieni BTC"
+# negli stessi giorni: deve guadagnare in modo più regolare e perdere molto meno.
+# Stessa procedura: walk-forward, costi × 1,5, Monte Carlo, Deflated Sharpe
+# (sui rendimenti giornalieri, con tutti i tentativi cumulati), hold-out una volta.
+slow:
+  min_oos_trades: 8                 # almeno 8 giri completi fuori campione
+  min_profit_factor: 1.50           # pochi trade: si chiede un margine più ampio
+  min_sharpe_annual: 0.50           # Sharpe dei rendimenti giornalieri, al netto dei costi
+  require_sharpe_vs_buy_hold: true  # Sharpe ≥ quello di "compra e tieni" negli stessi giorni
+  max_dd_vs_buy_hold: 0.60          # drawdown massimo ≤ 60% di quello di "compra e tieni"
+  min_gross_edge_vs_costs: 2.0
+  min_profitable_windows: 0.50      # finestre con trade in utile
+  cost_stress_multiplier: 1.5
+  max_mc_drawdown_95: 0.10          # sul capitale, con la size reale (20%)
+  min_param_stability: 0.75         # combinazioni in utile sullo sviluppo
+  min_deflated_sharpe: 0.90
+  holdout_max_dd_vs_buy_hold: 1.00  # hold-out: drawdown non peggiore di "compra e tieni"
+  holdout_min_return: -0.10         # hold-out: risultato (a piena esposizione) non sotto il -10%
+
 # Regole di sospensione durante il paper trading
 paper_min_trades_for_review: 30
 paper_suspend_profit_factor: 0.90
