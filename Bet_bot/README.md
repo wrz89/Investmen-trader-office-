@@ -11,8 +11,8 @@ I soldi veri si accendono solo aprendo cinque cancelli, uno per uno, quando i nu
 |---|---|
 | Carlo · Direttore | decide quali strategie lavorano, apre e chiude i cicli, sblocca strategie quando il bankroll cresce |
 | Sara · Quote | ogni minuto legge da Betfair partite, prezzi back/lay e denaro disponibile (calcio, tennis, basket); se i dati sono vecchi, nessuna puntata |
-| Davide · Analista | cerca i favoriti netti con valore atteso positivo (pre-partita e nel finale) |
-| Matteo · Trader | trade back→lay prima dell'inizio (in osservazione finché i dati veri non lo giustificano) |
+| Davide · Analista calcio | cerca i favoriti netti con valore atteso positivo nel calcio (pre-partita e nel finale) |
+| Matteo · Analista tennis e basket | stesso lavoro di Davide sul tennis (ATP/WTA) e sul basket; su betfair.it l'ippica non c'è, quindi niente cavalli |
 | Giorgia · Sentiment | controlla se il mercato "scappa" contro la nostra scelta e legge le notizie; può solo frenare |
 | Bruno · Risk Manager | EV netto di commissione > 0, Kelly frazionario, limiti, circuit breaker, **veto assoluto** |
 | Pietro · Banco | piazza gli ordini (fill-or-kill), chiude i trade, registra gli esiti, ti avvisa su Telegram |
@@ -28,6 +28,7 @@ I soldi veri si accendono solo aprendo cinque cancelli, uno per uno, quando i nu
 
 Tutto quello che il bot produce (database, storico, registrazioni, report, chiavi) sta in `D:\claude\Bet_bot\runtime\`, che non va mai su GitHub.
 Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codice; runtime e .venv restano intatti).
+**Non modificare `config/settings.yaml`**: ogni aggiornamento lo sostituisce con la versione di GitHub. Le tue scelte (modalità, feed, strategie, registrazione) vanno in **`runtime/impostazioni.yaml`**, che gli aggiornamenti non toccano (vedi [Comandi](#comandi)).
 
 ## Il percorso consigliato (in quest'ordine)
 
@@ -35,7 +36,7 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 |---|---|---|
 | 1 | `simula.bat` | 3 giorni simulati in un minuto e l'ufficio 3D sulla simulazione: vedi come lavora |
 | 2 | `backtest.bat` | le strategie sui **prezzi veri di Betfair Exchange** 2024-2026 (calcio; tennis dal tuo PC) |
-| 3 | `avvia.bat` con `feed.provider: betfair` e `feed.record: true` | paper sui prezzi veri di betfair.it per 2-4 settimane, registrando tutto |
+| 3 | `avvia.bat` con `feed.provider: betfair` e `feed.record: true` in `runtime/impostazioni.yaml` | paper sui prezzi veri di betfair.it per 2-4 settimane, registrando tutto |
 | 4 | `python betbot.py replay` | tutte le strategie sui giorni registrati: quali funzionano davvero sul pool italiano |
 | 5 | soldi veri, una strategia sola | solo se il passo 4 dà CLV positivo e ROI positivo su almeno 200 operazioni |
 
@@ -44,7 +45,7 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 1. Conto su **betfair.it** con la verifica dell'identità completata.
 2. App key: su developer.betfair.com crea le chiavi. La **delayed** è gratuita: prezzi in ritardo da 1 a 180 secondi, va bene per il paper e per le puntate pre-partita. La **live** per i conti italiani è gratuita, si chiede dopo aver usato la delayed (serve per l'in-play e il trading).
 3. Nella dashboard: **Impostazioni → Betfair Exchange Italia** → app key, utente, password → **Verifica il conto** → **Ordine di prova** (quota 1000, annullato subito: costa zero).
-4. In `config/settings.yaml`: `feed.provider: betfair`. Per il confronto con i bookmaker: `feed.reference: odds_api` e la chiave di The Odds API nelle Impostazioni.
+4. In `runtime/impostazioni.yaml` (non in `config/settings.yaml`, che gli aggiornamenti sovrascrivono): `feed: {provider: betfair}`. Per il confronto con i bookmaker: `feed: {provider: betfair, reference: odds_api}` e la chiave di The Odds API nelle Impostazioni.
 
 Regole di betfair.it che il bot rispetta da solo: puntata back minima **2 €, a multipli di 0,50 €**; lay pari a una puntata back di almeno 0,50 €; commissione **4,5%** sulla vincita netta di mercato; back e lay in richieste separate; la sessione scade dopo 20 minuti e il bot la rinnova ogni 10. **L'ippica su betfair.it non c'è**: il trading sui cavalli gira solo nel mondo simulato. Il pool italiano ha una liquidità sua, separata da quella internazionale: per questo esiste il registratore.
 
@@ -75,7 +76,7 @@ Comandi dal telefono (solo dalla tua chat):
 | S08 Basket +15 nel 4° quarto | osservazione | chi conduce di 15+ punti vince il 96,5–99,5% delle volte, ma paga 1,01–1,04: si punta solo se Betfair paga più della probabilità storica |
 | S04 Green-up cavalli | osservazione | solo mondo simulato: su betfair.it l'ippica non c'è |
 
-In **osservazione** una strategia lavora "in ombra": le puntate secche valgono 1 € virtuale, i trade sono trade veri dell'exchange simulato (2 €, stesse regole), ma il bankroll non si tocca. Si attiva spostandola in `active_strategies` quando i numeri in ombra la giustificano.
+In **osservazione** una strategia lavora "in ombra": le puntate secche valgono 1 € virtuale, i trade sono trade veri dell'exchange simulato (2 €, stesse regole), ma il bankroll non si tocca. Si attiva spostandola in `active_strategies` (in `runtime/impostazioni.yaml`) quando i numeri in ombra la giustificano.
 
 **Alta probabilità, ma con valore.** Il bot cerca favoriti netti (tre vittorie su quattro o più), come chiesto, ma punta solo quando la quota Betfair, tolta la commissione, paga più di quanto "meriti" la probabilità stimata dai bookmaker. Senza questo filtro un favorito a quota 1,20 va indovinato l'84% delle volte solo per non perdere.
 
@@ -83,8 +84,8 @@ In **osservazione** una strategia lavora "in ombra": le puntate secche valgono 1
 
 - **Puntate secche**: 1/4 di Kelly sulla quota netta. Con 30 € quasi sempre il risultato è sotto i 2 € minimi: la puntata minima passa solo se resta al massimo **metà del Kelly pieno**, cioè solo con un vantaggio netto. Tetto 10% del bankroll.
 - **Trade con stop**: la puntata si sceglie dalla **perdita massima** allo stop, con 6 tick di scivolamento; sotto i 100 € un solo trade aperto, sempre alla puntata minima.
-- **Rischio aperto** complessivo ≤ 8% del bankroll; massimo 4 posizioni aperte.
-- **Circuit breaker sotto i 100 €** (limiti assoluti): **kill switch se il bankroll scende sotto 20 €**; stop fino a domani dopo 4 € persi nel giorno; 6 perdite di fila → pausa di 2 ore.
+- **Rischio aperto** complessivo ≤ 8% del bankroll; massimo 4 posizioni aperte. Una puntata che sforerebbe l'8% non viene scartata: si **riduce** allo spazio che resta, e il veto scatta solo se quello spazio è sotto i 2 € minimi. Sotto i 100 €, con niente di aperto, **una puntata da 2 € alla volta resta sempre possibile** (fino al kill switch).
+- **Circuit breaker sotto i 100 €** (limiti assoluti): **kill switch se il bankroll scende sotto max(20 €, picco × 0,666)**: la soglia segue il picco, 20 € con 30 € di picco, circa 40 € con 60 €, così un profitto non si restituisce tutto; stop fino a domani dopo 4 € persi nel giorno; 6 perdite di fila → pausa di 2 ore.
 - **Circuit breaker sopra i 100 €** (percentuali): −5% nel giorno → stop fino a domani; −15% dal massimo → kill switch. Il reset è solo dal PC: `python betbot.py reset-kill-switch`.
 - **Quote di riferimento** più vecchie di 2,5 ore, o un vantaggio sopra l'8% (quasi sempre un errore di dato): veto.
 - **Compounding**: la base di puntata è capitale + profitti; se il bankroll scende sotto il 90% del capitale, la base è il bankroll stesso e le puntate si riducono da sole.
@@ -162,13 +163,14 @@ feed: {provider: betfair, reference: odds_api, record: true}
 active_strategies: [S05_favoriti_exchange_v2]
 ```
 
-Dashboard: `http://localhost:8766` (solo sul tuo PC).
+Dashboard: `http://localhost:8766` (solo sul tuo PC). In modalità live mostra il database dei soldi veri (`runtime/betbot_live.db`), in paper quello dei soldi finti (`runtime/betbot.db`).
 
-Dal telefono: metti `dashboard_lan: true` in `runtime/impostazioni.yaml` (o in `config/settings.yaml`), riavvia e apri l'indirizzo che Bet_bot scrive all'avvio (`http://192.168.x.x:8766`) con il telefono sulla stessa rete Wi-Fi. Dal telefono si guarda soltanto: impostazioni, chiavi e Betfair si cambiano solo dal PC. La prima volta Windows chiede se consentire l'accesso alla rete privata: rispondi sì solo per le reti private.
+Dal telefono: metti `dashboard_lan: true` in `runtime/impostazioni.yaml`, riavvia e apri l'indirizzo che Bet_bot scrive all'avvio (`http://192.168.x.x:8766`) con il telefono sulla stessa rete Wi-Fi. Dal telefono si guarda soltanto: impostazioni, chiavi e Betfair si cambiano solo dal PC. La prima volta Windows chiede se consentire l'accesso alla rete privata: rispondi sì solo per le reti private.
 
 ## Note pratiche
 
 - **PC acceso e sveglio**: il bot lavora solo a PC acceso; mentre gira chiede a Windows di non andare in sospensione. Gli ordini sono fill-or-kill, quindi non restano ordini "appesi" se il PC si spegne; un trade aperto viene chiuso al riavvio successivo.
-- **Un solo bot alla volta**: se lo rilanci mentre è acceso, si apre solo la dashboard.
+- **Un solo bot alla volta**: se lo rilanci mentre è acceso, si apre solo la dashboard. Se la porta 8766 è occupata da un'altra finestra (per esempio la dashboard di `simula.bat`), Bet_bot non parte e lo dice: chiudi quella finestra.
+- **Spegnere**: `python betbot.py ferma` oppure CTRL+C nella finestra del bot. In entrambi i casi niente nuove puntate e i trade aperti vengono chiusi prima di uscire (al massimo 2 minuti; un secondo CTRL+C esce subito).
 - **Termini d'uso**: Betfair consente i bot personali tramite API ufficiale con la tua app key. Da novembre 2025 su betfair.it sono stati disattivati i software di terze parti: Bet_bot è tuo e usa solo le tue chiavi.
 - **Gioco responsabile**: metti in Betfair un limite di deposito. Il bot non deposita e non preleva mai.

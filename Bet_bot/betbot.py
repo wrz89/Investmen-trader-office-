@@ -78,15 +78,32 @@ def main() -> int:
     a = p.parse_args()
 
     from betbot.config import RUNTIME_DIR, load_settings
-    from betbot.server import office_running, serve
+    from betbot.server import is_addr_in_use, office_running, serve
     port = load_settings()["dashboard_port"]
 
     if a.comando == "dashboard":
+        # senza opzioni: il database della modalità attuale (in live quello dei soldi veri), scelto da serve()
         db = RUNTIME_DIR / "simulazione.db" if a.simulazione else RUNTIME_DIR / "replay.db" if a.replay else None
+        try:
+            serve(port, background=True, db_path=db)
+        except OSError as exc:
+            if office_running(port):
+                print(f"La porta {port} è usata da Bet_bot acceso: la sua dashboard è su http://localhost:{port}. "
+                      "Per vedere la simulazione o il replay spegni prima il bot (python betbot.py ferma).")
+            elif is_addr_in_use(exc):
+                print(f"La porta {port} è occupata da un'altra finestra (forse un'altra dashboard): chiudila e riprova.")
+            else:
+                print(f"Non riesco ad aprire la porta {port}: {exc}. Cambia dashboard_port in runtime/impostazioni.yaml.")
+            return 1
         print(f"Dashboard su http://localhost:{port}  (CTRL+C per chiudere)")
         if not a.no_browser:
             webbrowser.open(f"http://localhost:{port}")
-        serve(port, db_path=db)
+        try:
+            import time as _t
+            while True:
+                _t.sleep(3600)
+        except KeyboardInterrupt:
+            pass
         return 0
 
     if a.comando == "rischio":
@@ -122,11 +139,13 @@ def main() -> int:
     if a.comando == "ferma":
         import time as _t
         from betbot.config import STOP_FILE
-        if not office_running(port):
-            print("Bet_bot non è acceso.")
-            return 0
         STOP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        # il file si crea anche a bot spento: avvia.bat, se sta aspettando 30 s per ripartire dopo un errore,
+        # lo trova e non riparte (al prossimo avvio normale il bot lo cancella da solo)
         STOP_FILE.write_text("ferma", encoding="utf-8")
+        if not office_running(port):
+            print("Bet_bot non è acceso (se avvia.bat stava per riavviarlo, non ripartirà).")
+            return 0
         print("Richiesta di spegnimento inviata: chiudo i trade aperti e spengo (al massimo 2 minuti)…")
         for _ in range(150):
             if not office_running(port):
@@ -155,13 +174,18 @@ def main() -> int:
     if a.comando == "replay":
         from betbot.feeds.recorder import recorded_files
         from betbot.simulate import replay
+        from betbot.simulate import DbInUse
         files = recorded_files(a.da, a.fino)
         if not files:
-            print("Nessuna registrazione in runtime/recordings/. Imposta feed.record: true in config/settings.yaml, "
+            print("Nessuna registrazione in runtime/recordings/. Imposta feed.record: true in runtime/impostazioni.yaml, "
                   "lascia girare Bet_bot sui prezzi veri di betfair.it per qualche giorno, poi rilancia.")
             return 1
         print(f"Replay di {len(files)} giorni registrati con TUTTE le strategie attive (paper)…")
-        m = asyncio.run(replay(files))
+        try:
+            m = asyncio.run(replay(files))
+        except DbInUse as exc:
+            print(exc)
+            return 1
         print(f"\n{m.get('snapshots', 0)} fotografie · bankroll {m.get('initial', 0):.2f} → {m.get('bankroll', 0):.2f} € · "
               f"{m.get('bets', 0)} chiuse · ROI {m.get('roi', 0):+.2%} · kill switch: {m.get('kill_switch') or 'no'}")
         for sid, s in (m.get("by_strategy") or {}).items():
@@ -171,9 +195,13 @@ def main() -> int:
         return 0
 
     if a.comando == "simula":
-        from betbot.simulate import main as simulate
+        from betbot.simulate import DbInUse, main as simulate
         print(f"Simulo {a.ore:.0f} ore di ufficio sul feed simulato (seme {a.seed})…")
-        m = simulate(a.ore, a.seed)
+        try:
+            m = simulate(a.ore, a.seed)
+        except DbInUse as exc:
+            print(exc)
+            return 1
         print(f"\nBankroll {m['initial']:.2f} → {m['bankroll']:.2f} € · {m['bets']} chiuse · win {m['win_rate']:.0%} · "
               f"ROI {m['roi']:+.2%} · max DD {m['max_drawdown']:.1%} · kill switch: {m['kill_switch'] or 'no'}")
         for sid, s in m["by_strategy"].items():
@@ -220,10 +248,16 @@ def main() -> int:
         print(asyncio.run(office.run_cycle()))
     elif a.comando == "avvia":
         try:
-            serve(port, background=True)
-        except OSError:
-            print(f"La porta {port} è occupata: Bet_bot è probabilmente già acceso.")
-            return 0
+            # la dashboard legge lo STESSO database dell'ufficio (in live runtime/betbot_live.db)
+            serve(port, background=True, db_path=office.store.path, office=True)
+        except OSError as exc:
+            if is_addr_in_use(exc):
+                print(f"La porta {port} è occupata da un altro programma (forse la dashboard di simula.bat o di un "
+                      "replay): chiudi quella finestra. Bet_bot NON è partito.")
+            else:
+                print(f"Non riesco ad aprire la porta {port} ({exc}): cambia dashboard_port in "
+                      "runtime/impostazioni.yaml. Bet_bot NON è partito.")
+            return 1
         _write_pid()
         print(f"Ufficio sportivo avviato in modalità {office.settings['mode'].upper()} "
               f"(feed {office.settings['feed']['provider']}).")
@@ -233,6 +267,12 @@ def main() -> int:
         try:
             asyncio.run(office.run_forever())
         except KeyboardInterrupt:
+            # CTRL+C = spegnimento ordinato come `betbot.py ferma`: niente nuove puntate, trade aperti chiusi
+            print("\nChiudo i trade aperti prima di spegnere… (CTRL+C di nuovo per uscire subito)")
+            try:
+                asyncio.run(office.shutdown())
+            except KeyboardInterrupt:
+                print("Uscita immediata: eventuali trade aperti si riprendono al prossimo avvio.")
             office.auditor.daily_report()
             print("\nBet_bot fermato. Report del giorno in runtime/reports/.")
     elif a.comando == "report":

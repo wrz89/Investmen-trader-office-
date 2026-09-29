@@ -1,7 +1,7 @@
 """Server locale della dashboard sportiva (http://localhost:8766, solo sul tuo PC).
 
 Regole di sicurezza:
-  • ascolta solo su 127.0.0.1; con `dashboard_lan: true` in settings.yaml ascolta anche sulla rete di casa,
+  • ascolta solo su 127.0.0.1; con `dashboard_lan: true` in runtime/impostazioni.yaml ascolta anche sulla rete di casa,
     ma dal telefono si può solo guardare (pagina e /api/state, host = IP privato);
   • le modifiche (POST) e le impostazioni arrivano solo dal PC stesso (client 127.0.0.1, host localhost,
     header X-Office, JSON);
@@ -9,6 +9,7 @@ Regole di sicurezza:
 """
 from __future__ import annotations
 
+import errno
 import ipaddress
 import json
 import socket
@@ -17,7 +18,9 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import local_settings, notifier, system
-from .config import DASHBOARD_FILE, DB_PATH, ensure_dirs, load_settings
+from pathlib import Path
+
+from .config import DASHBOARD_FILE, DB_LIVE_PATH, DB_PATH, ensure_dirs, load_settings
 from .state import build_state
 from .store import Store
 
@@ -78,7 +81,8 @@ def handle_action(path: str, body: dict) -> dict:
                     raise ValueError(f"{key}: la chiave contiene caratteri non validi.")
                 s[key] = v
         local_settings.save(s)
-        return {"message": "Chiavi salvate sul tuo PC. Per usarle imposta il feed in runtime/impostazioni.yaml (o config/settings.yaml) e riavvia."}
+        return {"message": "Chiavi salvate sul tuo PC. Per usarle imposta il feed in runtime/impostazioni.yaml "
+                           "(non in config/settings.yaml, che gli aggiornamenti sovrascrivono) e riavvia."}
     if path == "/api/settings/betfair":
         if body.get("clear"):
             s["betfair"] = dict(local_settings.DEFAULTS["betfair"])
@@ -87,7 +91,13 @@ def handle_action(path: str, body: dict) -> dict:
         bf = s["betfair"]
         for k in ("app_key", "username", "password", "cert_file", "key_file"):
             if body.get(k):
-                bf[k] = str(body[k]).strip()
+                v = str(body[k]).strip()
+                if k in ("cert_file", "key_file"):
+                    v = v.strip('"').strip()           # "Copia come percorso" di Windows aggiunge le virgolette
+                    if not Path(v).expanduser().is_file():
+                        raise ValueError(f"File del certificato non trovato: {v}. Controlla il percorso "
+                                         "(es. C:\\certs\\client-2048.crt).")
+                bf[k] = v
         bf.update(verified=False, test_done=False, live_enabled=False)
         local_settings.save(s)
         return {"message": "Credenziali salvate sul tuo PC. Ora premi 'Verifica il conto'."}
@@ -154,7 +164,9 @@ def lan_address() -> str | None:
         return None
 
 
-def make_handler(store: Store, port: int, lan: bool = False):
+def make_handler(store: Store, port: int, lan: bool = False, office: bool = False):
+    """office=True solo nel processo di `betbot.py avvia`: /api/ping dice se sulla porta c'è l'ufficio vero
+    (e non solo la dashboard di una simulazione o di un replay)."""
     allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
     allowed_origins = {f"http://{h}" for h in allowed_hosts}
 
@@ -176,7 +188,11 @@ def make_handler(store: Store, port: int, lan: bool = False):
             host = self.headers.get("Host", "")
             if not (self._from_pc() or (lan and _lan_host(host, port))):
                 return self._json(403, {"error": "host non consentito"})
-            if self.path.startswith("/api/state"):
+            if self.path.startswith("/api/ping"):
+                if not self._from_pc():
+                    return self._json(403, {"error": "solo dal PC"})
+                self._json(200, {"office": office})
+            elif self.path.startswith("/api/state"):
                 self._json(200, build_state(store))
             elif self.path.startswith("/api/settings"):
                 if not self._from_pc():
@@ -186,9 +202,14 @@ def make_handler(store: Store, port: int, lan: bool = False):
                 self._send(200, DASHBOARD_FILE.read_bytes(), "text/html; charset=utf-8")
             elif self.path.startswith("/vendor/") and self.path.split("?")[0].endswith(".js"):
                 # librerie 3D salvate in locale: l'ufficio 3D funziona anche senza internet
+                # solo file che stanno DAVVERO in vendor/: niente "C:\…", "\\host\…", "C:x.js" o "..\" su Windows
                 name = self.path.split("?")[0].rsplit("/", 1)[-1]
-                f = DASHBOARD_FILE.parent / "vendor" / name
-                if f.is_file() and "/" not in name and ".." not in name:
+                vendor = (DASHBOARD_FILE.parent / "vendor").resolve()
+                try:
+                    f = (vendor / name).resolve()
+                except (OSError, ValueError):
+                    f = None
+                if f is not None and f.parent == vendor and f.is_file():
                     self._send(200, f.read_bytes(), "application/javascript; charset=utf-8")
                 else:
                     self.send_error(404)
@@ -223,17 +244,47 @@ class _Server(ThreadingHTTPServer):
     daemon_threads = True
 
 
-def office_running(port: int) -> bool:
+def port_in_use(port: int) -> bool:
+    """Qualcuno ascolta sulla porta (l'ufficio, una dashboard di simulazione/replay o un altro programma)."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.5)
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
-def serve(port: int, background: bool = False, db_path=None) -> ThreadingHTTPServer:
+def office_running(port: int) -> bool:
+    """True solo se sulla porta c'è l'ufficio vero (`betbot.py avvia`): la sola dashboard di `simula.bat` o di
+    `dashboard --replay` non conta, altrimenti `avvia` uscirebbe credendo il bot già acceso."""
+    if not port_in_use(port):
+        return False
+    import http.client
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+        conn.request("GET", "/api/ping", headers={"Host": f"localhost:{port}"})
+        r = conn.getresponse()
+        data = json.loads(r.read() or b"{}") if r.status == 200 else {}
+        conn.close()
+        return data.get("office") is True
+    except (OSError, ValueError, http.client.HTTPException):
+        return False
+
+
+def is_addr_in_use(exc: OSError) -> bool:
+    """Porta già occupata (Linux 98, macOS 48, Windows 10048), da distinguere da una porta vietata (WinError 10013)."""
+    return exc.errno in (errno.EADDRINUSE, 10048) or getattr(exc, "winerror", None) == 10048
+
+
+def default_db_path(settings: dict | None = None) -> Path:
+    """Il database che la dashboard deve mostrare: in live quello dei soldi veri, come fa SportOffice."""
+    s = settings if settings is not None else load_settings()
+    return DB_LIVE_PATH if s.get("mode") == "live" else DB_PATH
+
+
+def serve(port: int, background: bool = False, db_path=None, office: bool = False) -> ThreadingHTTPServer:
     ensure_dirs()
-    store = Store(db_path or DB_PATH)
-    lan = bool(load_settings().get("dashboard_lan"))
-    httpd = _Server(("0.0.0.0" if lan else "127.0.0.1", port), make_handler(store, port, lan))
+    settings = load_settings()
+    store = Store(db_path or default_db_path(settings))
+    lan = bool(settings.get("dashboard_lan"))
+    httpd = _Server(("0.0.0.0" if lan else "127.0.0.1", port), make_handler(store, port, lan, office))
     if lan:
         ip = lan_address()
         print(f"Dal telefono (stessa rete Wi-Fi, solo lettura): http://{ip or '<IP del PC>'}:{port}")

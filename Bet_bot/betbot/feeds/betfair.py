@@ -89,7 +89,9 @@ class BetfairClient:
         self.app_key = creds.get("app_key") or ""
         self.username = creds.get("username") or ""
         self.password = creds.get("password") or ""
-        self.cert = (creds.get("cert_file"), creds.get("key_file")) if creds.get("cert_file") else None
+        # percorsi incollati da Esplora risorse ("Copia come percorso") arrivano tra virgolette: si tolgono
+        cert, key = ((creds.get(k) or "").strip().strip('"').strip() for k in ("cert_file", "key_file"))
+        self.cert = (cert, key) if cert else None
         self.token: str | None = None
         self.token_ts = 0.0
         self.calls = 0
@@ -118,6 +120,10 @@ class BetfairClient:
                 ok, token, err = body.get("status") == "SUCCESS", body.get("token"), body.get("error")
         except (requests.RequestException, ValueError) as exc:
             raise BetfairError(f"Login Betfair non riuscito: {exc}") from exc
+        except OSError as exc:              # es. "Could not find the TLS certificate file": percorso del certificato
+            raise BetfairError(f"Login Betfair non riuscito: certificato non leggibile ({exc}). Controlla i percorsi "
+                               f"del certificato nelle impostazioni Betfair della dashboard: "
+                               f"{self.cert[0] if self.cert else '—'}, {self.cert[1] if self.cert else '—'}.") from exc
         if not ok:
             raise BetfairError(f"Login Betfair rifiutato: {self.LOGIN_ERRORS.get(err, err)}")
         self.token, self.token_ts = token, time.time()

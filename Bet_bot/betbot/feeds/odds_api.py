@@ -97,7 +97,8 @@ class OddsApiFeed(Feed):
             return r.json()
         except requests.RequestException as exc:
             self.errors += 1
-            raise FeedError(f"The Odds API non raggiungibile: {exc}") from exc
+            from ..notifier import hide_secret      # l'URL dell'errore contiene ?apiKey=<chiave>: mai negli eventi
+            raise FeedError(f"The Odds API non raggiungibile: {hide_secret(exc, self.key)}") from None
 
     def _fetch_sync(self) -> dict:
         now = time.time()
@@ -169,7 +170,9 @@ class OddsApiFeed(Feed):
                             if sel == "draw" and o["name"].lower() not in ("draw", "tie", "pareggio"):
                                 continue
                             prices[sel] = float(o["price"])
-                        if len(prices) >= 2:
+                        # solo se OGNI esito è stato riconosciuto: un 1X2 senza il pareggio (nome non capito)
+                        # sembrerebbe un mercato a due esiti e gonfierebbe le probabilità di casa e trasferta
+                        if len(prices) >= 2 and len(prices) == len(mk["outcomes"]):
                             books[bk["title"]] = prices
                 mid = ev["id"]
                 if not live:

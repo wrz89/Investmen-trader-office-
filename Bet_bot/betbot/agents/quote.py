@@ -32,7 +32,7 @@ def board(snap: dict, limit: int = 40) -> dict:
                        "fair_prob": v["fair_prob"], "best_odds": exb or v["best_odds"], "best_book": "Betfair" if exb else v["best_book"],
                        "edge": (v["fair_prob"] * (exb - 1) * (1 - comm) - (1 - v["fair_prob"])) if exb else v["edge"],
                        "n_books": v["n_books"]}
-        matches.append({k: m.get(k) for k in ("match_id", "league", "home", "away", "kickoff", "status", "minute",
+        matches.append({k: m.get(k) for k in ("match_id", "sport", "league", "home", "away", "kickoff", "status", "minute",
                                               "home_score", "away_score", "result", "stats")} | {"fav": fav})
     order = {"LIVE": 0, "SCHEDULED": 1, "FINISHED": 2}
     matches.sort(key=lambda x: (order.get(x["status"], 3), x["kickoff"] if x["status"] != "FINISHED" else "~" + x["kickoff"]))

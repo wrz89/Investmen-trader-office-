@@ -15,16 +15,29 @@ from .feeds.mock import MockFeed
 from .config import load_settings
 
 
+class DbInUse(RuntimeError):
+    """Il database della simulazione/del replay è ancora aperto da un'altra finestra (Windows non lo cancella)."""
+
+
+def _fresh_db(db, what: str) -> None:
+    """Cancella il database della volta precedente. Su Windows un file aperto (la dashboard della simulazione
+    precedente ancora accesa) non si può cancellare: messaggio chiaro invece di un traceback."""
+    for suffix in ("", "-wal", "-shm"):
+        p = db.with_name(db.name + suffix)
+        try:
+            p.unlink(missing_ok=True)
+        except PermissionError as exc:
+            raise DbInUse(f"Il file {p.name} è ancora aperto: chiudi la finestra della dashboard ({what}) aperta prima "
+                          "e riprova.") from exc
+
+
 async def run(hours: float = 72, step_minutes: float = 2, seed: int | None = 7) -> dict:
     settings = load_settings()
     settings["feed"]["mock"]["seed"] = seed
     feed = MockFeed(settings)
     feed.speed = 1.0                       # il tempo avanza solo con advance()
     db = RUNTIME_DIR / "simulazione.db"
-    for suffix in ("", "-wal", "-shm"):
-        p = db.with_name(db.name + suffix)
-        if p.exists():
-            p.unlink()
+    _fresh_db(db, "simulazione")
     from . import clock
     clock.set_source(feed.now)
     office = SportOffice(db_path=db, feed=feed)
@@ -55,10 +68,7 @@ async def replay(files, all_active: bool = True) -> dict:
     settings["mode"] = "paper"
     feed = ReplayFeed(files)
     db = RUNTIME_DIR / "replay.db"
-    for suffix in ("", "-wal", "-shm"):
-        p = db.with_name(db.name + suffix)
-        if p.exists():
-            p.unlink()
+    _fresh_db(db, "replay")
     from . import clock
     if not feed.advance_one():
         return {"error": "nessuna registrazione trovata in runtime/recordings/"}

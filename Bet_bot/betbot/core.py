@@ -113,6 +113,7 @@ class SportOffice:
             self._end_cycle()
             return {"ok": False, "error": str(exc)}
         fetched = time.monotonic()
+        snap["fetched_mono"] = fetched        # il Risk Manager misura l'età delle quote fino al momento della valutazione
 
         try:                                  # in un thread: le letture RSS non bloccano il loop (stream, ciclo veloce)
             await asyncio.to_thread(self.sentiment.run, snap)     # il sentiment non deve mai fermare il ciclo
@@ -135,6 +136,7 @@ class SportOffice:
         if time.monotonic() - fetched > max_age:
             try:
                 snap = await self.quote.scan()
+                snap["fetched_mono"] = time.monotonic()
                 self.quote.log(f"Ciclo lento (oltre {max_age:.0f} s): prezzi riletti prima delle nuove puntate.",
                                "INFO", "scan")
             except FeedError as exc:
@@ -356,9 +358,10 @@ class SportOffice:
             return
         real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
         total = self.bankroll.total
+        pending = self._unsettled_green()
         self.store.set("live_balance", {"available": funds.get("availableToBetBalance"), "exposure": funds.get("exposure"),
-                                        "total": real, "bankroll": total, "ts": time.time()})
-        if total > real + 1.0:
+                                        "total": real, "bankroll": total, "unsettled_green": pending, "ts": time.time()})
+        if total > real + pending + 1.0:
             if not self.store.get("kill_switch"):
                 self.store.set("kill_switch", f"bankroll interno {total:.2f} € superiore al saldo vero Betfair {real:.2f} €")
                 self.risk.say(f"KILL SWITCH: il bot crede di avere {total:.2f} € ma su Betfair ce ne sono {real:.2f} "
@@ -373,6 +376,26 @@ class SportOffice:
                                    f"contro {total:.2f} €): altri soldi tuoi o vincite non ancora regolate. Solo "
                                    "un'informazione: il bot punta sul suo bankroll.", "INFO", "live_sync")
 
+    def _unsettled_green(self) -> float:
+        """Profitti già "chiusi" con un lay (green-up) ma non ancora accreditati da Betfair: finché il mercato non è
+        regolato il saldo vero non li contiene (disponibile + esposizione = saldo di prima), mentre il bankroll
+        interno sì. Senza contarli, qualche green-up in attesa di regolamento farebbe scattare un kill switch falso.
+        Si contano solo le chiusure delle ultime 24 ore su partite iniziate da meno di 6 ore (o senza orario)."""
+        from datetime import datetime, timezone
+        now = clock.now()
+        since = datetime.fromtimestamp(now - 86400, timezone.utc).isoformat(timespec="seconds")
+        rows = self.store.query("SELECT b.pnl, m.kickoff FROM bets b LEFT JOIN matches m ON m.match_id = b.match_id "
+                                "WHERE b.mode='live' AND b.status='HEDGED' AND b.pnl > 0 AND b.settled_ts >= ?", (since,))
+        total = 0.0
+        for r in rows:
+            try:
+                ko = datetime.fromisoformat(str(r["kickoff"]).replace("Z", "+00:00")).timestamp() if r["kickoff"] else None
+            except ValueError:
+                ko = None
+            if ko is None or now - ko < 6 * 3600:
+                total += float(r["pnl"])
+        return round(total, 2)
+
     def realign_live_bankroll(self) -> float | None:
         """Decisione umana (dal PC, dopo aver controllato il conto): se il bankroll interno è più alto del saldo vero,
         la liquidità interna scende fino a pareggiarlo. Non lo alza mai: i soldi in più sul conto restano fuori.
@@ -383,7 +406,9 @@ class SportOffice:
             funds = self.executor.client.account_funds()
         except Exception:
             return None
-        real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
+        # più i green-up in attesa di regolamento: sono soldi già vinti che Betfair accredita a mercato chiuso
+        real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0)) \
+            + self._unsettled_green()
         if self.bankroll.total <= real:
             return None
         before = self.bankroll.total

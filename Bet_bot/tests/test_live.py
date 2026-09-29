@@ -521,3 +521,24 @@ def test_interrupted_shutdown_leaves_no_kill_switch(tmp_path, monkeypatch):
     o2.store.set("kill_switch", "fermato da Telegram")        # un kill switch vero resta
     o2.startup_checks()
     assert o2.store.get("kill_switch") == "fermato da Telegram"
+
+
+# ── extra: The Odds API, un book vale solo se ogni esito è stato riconosciuto ───
+def test_odds_api_skips_book_with_unrecognised_outcome(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from betbot.feeds import odds_api
+    monkeypatch.setattr(odds_api, "api_key", lambda: "k")
+    ko = (datetime.now(timezone.utc) + timedelta(hours=5)).isoformat().replace("+00:00", "Z")
+    draw = {"Pinnacle": "Draw", "Bet365": "X", "Unibet": "Draw"}          # "X": nome del pareggio non capito
+
+    def fake_get(self, path, **params):
+        if path.endswith("/odds"):
+            return [{"id": "e1", "home_team": "Inter", "away_team": "Lecce", "commence_time": ko, "sport_title": "Serie A",
+                     "bookmakers": [{"title": b, "markets": [{"key": "h2h", "outcomes": [
+                         {"name": "Inter", "price": 1.25}, {"name": "Lecce", "price": 12.0}, {"name": d, "price": 6.5}]}]}
+                                    for b, d in draw.items()]}]
+        return []
+    monkeypatch.setattr(odds_api.OddsApiFeed, "_get", fake_get)
+    f = odds_api.OddsApiFeed({"feed": {"sports": ["soccer_italy_serie_a"], "odds_api": {}}})
+    books = asyncio.run(f.fetch())["matches"]["e1"]["books"]
+    assert set(books) == {"Pinnacle", "Unibet"}                # niente 1X2 scambiato per un mercato a due esiti

@@ -64,11 +64,21 @@ class TelegramCommands:
                 continue
             for u in updates:
                 self.offset = max(self.offset, u["update_id"] + 1)
-                self.store.set("telegram_offset", self.offset)
+                try:
+                    self.store.set("telegram_offset", self.offset)
+                except Exception:
+                    pass                                  # es. database occupato: l'offset resta in memoria
                 msg = u.get("message") or {}
                 if str((msg.get("chat") or {}).get("id")) != str(ch["chat_id"]):
                     continue                              # solo la chat del proprietario
-                reply = self.handle(msg.get("text") or "")
+                try:
+                    reply = self.handle(msg.get("text") or "")
+                except Exception as exc:          # un comando andato storto non deve spegnere /stop e /chiudi
+                    reply = f"Errore nel comando: {exc}"
+                    try:
+                        self.store.event("direttore", f"Comando Telegram non eseguito: {exc}", "WARN", "error")
+                    except Exception:
+                        pass
                 if reply:
                     try:
                         notifier.call(ch["token"], "sendMessage", {"chat_id": ch["chat_id"], "text": reply})
@@ -118,7 +128,7 @@ class TelegramCommands:
             self.store.set("close_all_requested", True)
             return f"Chiudo {len(trades)} trade aperti al prossimo passaggio (entro pochi secondi)."
         if cmd == "/pausa":
-            minutes = int(arg) if arg.isdigit() else 60
+            minutes = int(arg) if arg.isascii() and arg.isdigit() else 60     # "²".isdigit() è True, int("²") no
             minutes = max(1, min(minutes, 24 * 60))
             until = clock.now() + minutes * 60
             self.store.set("telegram_pause_until", until)

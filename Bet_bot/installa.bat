@@ -17,11 +17,12 @@ if not exist ".venv\Scripts\python.exe" (
   echo Creo lambiente .venv ...
   %PY% -m venv .venv
 )
-if not exist ".venv\Scripts\python.exe" (
-  echo ERRORE: non riesco a creare lambiente .venv in %cd%
-  pause
-  exit /b 1
-)
+REM la cartella corrente non va stampata dentro un blocco tra parentesi: una parentesi nel percorso lo chiuderebbe
+if exist ".venv\Scripts\python.exe" goto venv_ok
+echo ERRORE: non riesco a creare lambiente .venv in %cd%
+pause
+exit /b 1
+:venv_ok
 echo Installo le librerie (1-3 minuti)...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt

@@ -27,12 +27,24 @@ def _escape(text: str) -> str:
     return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def hide_secret(text: str, secret: str) -> str:
+    """Toglie un segreto dal testo di un errore: requests ci mette l'URL intero, e per Telegram l'URL contiene
+    il token (/bot<TOKEN>/...). Il testo finisce negli eventi (non cancellabili), nella dashboard e su Telegram."""
+    text = str(text)
+    if secret:
+        from urllib.parse import quote
+        for s in {secret, quote(secret, safe=""), quote(secret)}:
+            text = text.replace(s, "***")
+    return text
+
+
 def call(token: str, method: str, payload: dict | None = None, timeout: int = 10) -> dict:
     try:
         r = requests.post(API.format(token=token, method=method), json=payload or {}, timeout=timeout)
         data = r.json()
     except (requests.RequestException, ValueError) as exc:
-        raise TelegramError(f"Telegram non raggiungibile: {exc}") from exc
+        # `from None`: l'eccezione originale (con il token nell'URL) non resta attaccata a quella nuova
+        raise TelegramError(f"Telegram non raggiungibile: {hide_secret(exc, token)}") from None
     if not data.get("ok"):
         desc = data.get("description") or "risposta non valida da Telegram"
         if "Unauthorized" in desc or "Not Found" in desc:

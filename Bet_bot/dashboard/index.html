@@ -189,15 +189,6 @@ td.r, th.r { text-align: right; }
 .status-live { display: inline-block; font: 700 10px/1 var(--f-data); padding: 3px 5px; border-radius: 3px; background: var(--bad); color: var(--board-ink); letter-spacing: .08em; }
 .board .dim { color: var(--board-dim); }
 .edge-pos { color: var(--ok); } .edge-neg { color: var(--board-dim); }
-.races { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
-.race { border: 1px solid rgba(255, 255, 255, .1); border-radius: 4px; padding: 10px; min-width: 0; }
-.race h3 { color: var(--board-ink); display: flex; justify-content: space-between; gap: 8px; }
-.runner { display: grid; grid-template-columns: minmax(0, 1fr) 48px 48px 56px; gap: 6px; align-items: center; font: 12px var(--f-data); padding: 3px 0; }
-.runner .back { background: rgba(120, 180, 255, .18); text-align: center; border-radius: 2px; padding: 2px 0; }
-.runner .lay { background: rgba(255, 140, 170, .18); text-align: center; border-radius: 2px; padding: 2px 0; }
-.wom { height: 5px; background: rgba(255, 255, 255, .1); border-radius: 3px; overflow: hidden; }
-.wom i { display: block; height: 100%; background: var(--led); }
-.races .note { grid-column: 1 / -1; margin: 0; font: 12px/1.4 var(--f-data); color: var(--board-dim); }
 
 /* ── tabelle di lavoro ─────────────────────────── */
 .pill { display: inline-block; padding: 2px 7px; border-radius: 999px; font: 600 11px/1.4 var(--f-data); background: var(--idle-soft); color: var(--ink); white-space: nowrap; }
@@ -375,7 +366,6 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     <section class="board" aria-label="Tabellone">
       <header><h2>Tabellone</h2><p id="board-note"></p></header>
       <div class="scroll"><table id="matches"></table></div>
-      <div class="races" id="races"></div>
     </section>
     <section class="panel" aria-label="Puntate in gioco">
       <header><h2>In gioco</h2><p id="open-note"></p></header>
@@ -491,7 +481,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       if (!el) return;
       const st = d?.state || "idle";
       el.className = `room st-${st}`;
-      el.querySelector(".msg").textContent = d?.message || "In attesa del primo ciclo.";
+      el.querySelector(".msg").textContent = msgOf(a.key, d?.message) || "In attesa del primo ciclo.";
       el.querySelector(".when").textContent = d?.updated ? hhmm(d.updated) : "";
       // Davide, Matteo e Pietro: gli stessi numeri (vinte e ROI, piazzate) che hanno sopra la testa nella sala 3D
       const html = ["analista", "cavalli", "banco", "risk", "auditor"].includes(a.key) ? tagStat(a.key) : esc(statLine(a.key, d?.stats));
@@ -536,7 +526,18 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     running = false;
   }
   // chi "possiede" una puntata: Davide il calcio, Matteo (chiave "cavalli") tennis e basket
-  const COURT_TXT = /tennis|basket|\b(ATP|WTA|ITF|NBA|WNBA)\b|Eurolega|Euroleague/i;
+  const TENNIS_TXT = /tennis|\b(ATP|WTA|ITF|Challenger)\b|Wimbledon|Roland Garros|US Open|Australian Open|Coppa Davis|Davis Cup|Billie Jean/i;
+  const BASKET_TXT = /basket|\b(NBA|WNBA|NCAA|ACB|NBL|FIBA)\b|Eurolega|Euroleague|EuroCup|Lega Basket/i;
+  const COURT_TXT = new RegExp(`${TENNIS_TXT.source}|${BASKET_TXT.source}`, "i");
+  // sport di una partita del tabellone: il campo sport se il feed lo manda, altrimenti dal nome del campionato
+  function courtSport(m) {
+    const sp = String(m?.sport || "").toLowerCase();
+    if (sp) return sp.startsWith("tennis") ? "tennis" : sp.startsWith("basket") ? "basket" : null;
+    const t = `${m?.league || ""}`;
+    return TENNIS_TXT.test(t) ? "tennis" : BASKET_TXT.test(t) ? "basket" : null;
+  }
+  // il messaggio di stato di Sara conta anche le corse dei cavalli: su Betfair.it non ci sono, quindi non si mostrano
+  const msgOf = (k, m) => k === "quote" ? String(m || "").replace(/,?\s*\d+ corse aperte/, "") : m;
   function ownerOf(e) {
     const a = e?.payload?.agent;
     if (a === "analista" || a === "cavalli") return a;       // il bot lo scrive nel payload di 'bet' e 'settle'
@@ -644,30 +645,33 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const profit = (bank ?? 0) - (init ?? 0);
     const be = m.breakeven_win_rate || 0;
     const ddLim = L.max_drawdown || 0.12;
+    // sotto small_bankroll il kill switch non è una percentuale ma una soglia in euro (sale col picco)
+    const small = !!rs.small_bankroll && rs.kill_floor != null, peak = rs.peak ?? bank;
+    const ddUse = small ? (peak > rs.kill_floor ? Math.max(0, (peak - (bank ?? peak)) / (peak - rs.kill_floor)) : 1) : (rs.drawdown || 0) / ddLim;
     const tiles = [
       { lab: "Bankroll", val: eur(bank), sub: `capitale ${eur(init, 0)} · profitti <span class="${profit >= 0 ? "pos" : "neg"}">${profit >= 0 ? "+" : ""}${eur(profit)}</span>`, cls: "" },
       { lab: "ROI sul puntato", val: pct(m.roi, 1, true), sub: `${m.bets ?? 0} chiuse · ${eur(m.staked, 0)} puntati`, cls: (m.roi ?? 0) > 0 ? "good" : (m.roi ?? 0) < 0 ? "bad" : "" },
-      { lab: "Vinte a quota fissa", val: m.single_win_rate == null ? "—" : pct(m.single_win_rate, 0),
+      { lab: "Vinte a fine partita", val: m.single_win_rate == null ? "—" : pct(m.single_win_rate, 0),
         sub: be ? `pareggio ${pct(be, 0)} a quota media ${odds(m.avg_odds)} · ${m.single_bets} puntate` : `tutte le chiuse: ${pct(m.win_rate, 0)}`,
         meter: be ? `<div class="meter split"><i style="width:${Math.min(100, (m.single_win_rate || 0) * 100)}%"></i><i class="be" style="width:${Math.min(100, be * 100)}%"></i></div>` : "",
         cls: be && m.single_win_rate < be ? "warn" : "" },
       { lab: "CLV medio", val: m.clv_avg == null ? "—" : pct(m.clv_avg, 1, true), sub: "quota presa vs chiusura", cls: m.clv_avg > 0 ? "good" : m.clv_avg < 0 ? "bad" : "" },
-      { lab: "Drawdown", val: pct(rs.drawdown ?? m.drawdown_now, 1), sub: `massimo ${pct(m.max_drawdown, 1)} · kill al ${pct(ddLim, 0)}`,
-        meter: `<div class="meter"><i style="width:${Math.min(100, ((rs.drawdown || 0) / ddLim) * 100)}%;background:${(rs.drawdown || 0) > ddLim * .6 ? "var(--bad)" : "var(--accent)"}"></i></div>`,
-        cls: (rs.drawdown || 0) > ddLim * .6 ? "bad" : "" },
+      { lab: "Drawdown", val: pct(rs.drawdown ?? m.drawdown_now, 1), sub: `massimo ${pct(m.max_drawdown, 1)} · ${small ? `kill sotto ${eur(rs.kill_floor)}` : `kill al ${pct(ddLim, 0)}`}`,
+        meter: `<div class="meter"><i style="width:${Math.min(100, ddUse * 100)}%;background:${ddUse > .6 ? "var(--bad)" : "var(--accent)"}"></i></div>`,
+        cls: ddUse > .6 ? "bad" : "" },
       { lab: "Prossima puntata max", val: eur(m.next_max_stake), sub: `base ${eur(m.stake_base)} · reinvesto ${pct(m.reinvest_fraction ?? 1, 0)} dei profitti`, cls: "" },
     ];
     $("kpis").innerHTML = tiles.map(t => `<div class="kpi ${t.cls}"><div class="lab">${t.lab}</div><div class="val">${t.val}</div>${t.meter || ""}<div class="sub">${t.sub}</div></div>`).join("");
     $("kpi-note").textContent = `Kelly ${pct(L.kelly_fraction, 0)} con tetto ${pct(L.max_stake_pct, 0)} del bankroll · esposizione max ${pct(L.max_open_exposure_pct, 0)}`;
-    renderChart(init, L);
+    renderChart(init, L, small ? rs.kill_floor : null);
   }
-  function renderChart(init, L) {
+  function renderChart(init, L, floor) {
     const pts = (S.bankroll_curve || []).map(r => r.bankroll);
     const svg = $("chart");
     if (pts.length < 2) { svg.innerHTML = `<text x="12" y="90">Il grafico appare dopo i primi cicli.</text>`; return; }
     const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || 800)), H = 170, padL = 46, padR = 8, padT = 10, padB = 18;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    const peak0 = Math.max(...pts, init), killLine = peak0 * (1 - (L.max_drawdown || .12));
+    const peak0 = Math.max(...pts, init), killLine = floor ?? peak0 * (1 - (L.max_drawdown || .12));
     let lo = Math.min(...pts, killLine), hi = peak0;
     const span = hi - lo || 1; lo -= span * .08; hi += span * .08;
     const x = i => padL + (i / (pts.length - 1)) * (W - padL - padR);
@@ -682,23 +686,23 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       <line x1="${padL}" x2="${W - padR}" y1="${y(init)}" y2="${y(init)}" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1"/>
       <text x="${padL + 6}" y="${y(init) + 12}">capitale iniziale ${init.toFixed(0)} €</text>
       <line x1="${padL}" x2="${W - padR}" y1="${y(kill)}" y2="${y(kill)}" stroke="var(--bad)" stroke-dasharray="2 5" stroke-width="1"/>
-      <text x="${padL + 6}" y="${y(kill) + 12}" style="fill:var(--bad)">kill switch sotto ${kill.toFixed(1)} €</text>
+      <text x="${padL + 6}" y="${y(kill) + 12}" style="fill:var(--bad)">kill switch sotto ${eur(kill)}</text>
       <path d="${area}" fill="var(--accent-soft)" stroke="none"/>
       <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>
       <circle cx="${x(pts.length - 1)}" cy="${y(last)}" r="3.5" fill="var(--accent)"/>`;
   }
 
-  // ── tabellone e corse ───────────────────────────
+  // ── tabellone (calcio, tennis e basket; le corse del mondo simulato non si mostrano: su Betfair.it l'ippica non c'è) ──
   function renderBoard() {
     const b = S.board;
-    if (!b) { $("matches").innerHTML = `<tr><td class="dim">Nessun dato dal feed per ora.</td></tr>`; $("races").innerHTML = ""; return; }
+    if (!b) { $("matches").innerHTML = `<tr><td class="dim">Nessun dato dal feed per ora.</td></tr>`; return; }
     $("board-note").textContent = b.source || "";
     const rows = (b.matches || []).filter(m => m.status !== "FINISHED").slice(0, 14)
       .concat((b.matches || []).filter(m => m.status === "FINISHED").slice(0, 4));
     $("matches").innerHTML = `<thead><tr><th>Ora</th><th>Partita</th><th class="r">Ris.</th><th>Favorito</th><th class="r">Prob.</th><th class="r">Quota</th><th class="r">EV</th></tr></thead><tbody>` +
       rows.map(m => {
         const f = m.fav;
-        const when = m.status === "LIVE" ? `<span class="status-live">LIVE</span> <span class="minute">${m.minute ?? ""}'</span>` :
+        const when = m.status === "LIVE" ? `<span class="status-live">LIVE</span>${m.minute != null && courtSport(m) !== "tennis" ? ` <span class="minute">${m.minute}'</span>` : ""}` :
           m.status === "FINISHED" ? `<span class="dim">finale</span>` : `<span class="dim">${esc(dayhm(m.kickoff))}</span>`;
         const score = m.home_score != null && m.status !== "SCHEDULED" ? `<span class="led">${m.home_score}-${m.away_score}</span>` : `<span class="dim">—</span>`;
         const red = m.stats && ((m.stats.home?.red_cards || 0) + (m.stats.away?.red_cards || 0)) ? ` <span title="cartellini rossi" style="color:var(--bad)">■</span>` : "";
@@ -707,16 +711,6 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
           <td class="r mono">${f ? pct(f.fair_prob, 0) : "—"}</td><td class="r led" style="font-size:13px">${f ? odds(f.best_odds) : "—"}</td>
           <td class="r mono ${f && f.edge > 0 ? "edge-pos" : "edge-neg"}">${f ? pct(f.edge, 1, true) : "—"}</td></tr>`;
       }).join("") + `</tbody>`;
-    const races = (b.races || []).slice(0, 4);
-    $("races").innerHTML = (races.length ? `<p class="note">Corse dei cavalli: solo nel mondo simulato, su Betfair.it l'ippica non c'è e il bot non ci punta.</p>` : "") + races.map(r => {
-      const tto = r.seconds_to_off != null ? Math.round(r.seconds_to_off) : null;
-      const label = r.status === "OPEN" ? (tto > 90 ? `via tra ${Math.floor(tto / 60)} min` : `via tra ${tto} s`) : r.status === "INPLAY" ? "in corsa" : "chiusa";
-      return `<div class="race"><h3><span>${esc(r.venue)}</span><span class="minute">${esc(label)}</span></h3>
-        <div class="dim" style="font:11px var(--f-data);margin:2px 0 6px">${esc(r.race)} · back / lay / peso del denaro</div>
-        ${(r.runners || []).map(x => `<div class="runner"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.winner === x.id ? "🏆 " : ""}${esc(x.name)}</span>
-          <span class="back">${odds(x.back)}</span><span class="lay">${odds(x.lay)}</span>
-          <span class="wom" title="weight of money ${pct(x.wom, 0)}"><i style="width:${Math.round((x.wom || 0) * 100)}%"></i></span></div>`).join("")}</div>`;
-    }).join("");
   }
 
   // ── puntate ───────────────────────────
@@ -830,7 +824,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     $("dr-title").textContent = a.name;
     $("dr-role").textContent = a.role;
     const evs = (S.events || []).filter(e => e.agent === k).slice(0, 60);
-    bd.innerHTML = `<p>${esc(d?.message || "")}</p>` +
+    bd.innerHTML = `<p>${esc(msgOf(k, d?.message) || "")}</p>` +
       (evs.length ? `<ul class="feed" style="max-height:none">${feedRows(evs)}</ul>` : `<p class="empty">Nessun evento registrato.</p>`);
     const f = bd.querySelector(".feed"); if (f) f.scrollTop = ft;
     bd.scrollTop = top;
@@ -958,12 +952,13 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   const nowMs = () => performance.now();
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   let T = null, renderer, scene3, camera, controls, hemi, sun, spot, spotTarget, beacons = [], lamps = [], wallCanvas, wallTex, wallSig = "";
-  let raceCanvas, raceTex, raceSig = "", clockCanvas, clockTex, clockMin = -1, trophies = [], horses = [], labelMeshes = [];
+  let courtCanvas, courtTex, courtSig = "", clockCanvas, clockTex, clockMin = -1, trophies = [], labelMeshes = [];
   let compactTags = false, loopOn = false, lastT = 0, alarmUntil = 0, alarmOn = false, sceneBusy = false, ambT = null, tmpV = null;
   let camAnim = null, orbitUntil = 0, lastShadow = 0, noteLock = "", hintT = null, clickT = null;
   const VIEW0 = { target: [0.4, 0.8, -1.3], pos: [24, 22, 26], zoom: 1.1 };
   const CHAIRS = {};
-  const hippo = { running: false, t: 0, n: 6 };
+  // angolo tennis & basket: tennis/basket = c'è una partita LIVE di quello sport; pallina, pallone e due pedine
+  const court = { tennis: false, basket: false, live: null, shot: null, bt: 0, ball: null, bball: null, pawns: [] };
   const W = {}, MAT = {}, TINT = [], COLOR_MAT = {}, confetti = [], fx = [];
   const ORDER = AGENTS.map(a => a.key);
 
@@ -1035,7 +1030,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     ["risk", 9.4, -5.6], ["banco", 10.6, -5.6], ["tesoriere", 11.8, -5.6], ["auditor", 12.4, -6.6]]
     .map(([k, x, z]) => [k, { node: "ci", x, z, pose: "stand", face: faceTo(x, z, 10, -7.6) }]));
   const COFFEEPOS = [9.8, 10.9, 12].map(x => ({ node: "cof", x, z: 8.4, pose: "stand", face: S_FWD }));
-  const HIPPOPOS = [{ node: "sse", x: 3.3, z: 7.6, pose: "stand", face: W_FWD }, { node: "ssw", x: -3.3, z: 7.6, pose: "stand", face: E_FWD }];
+  const COURTPOS = { node: "sse", x: 3.3, z: 7.6, pose: "stand", face: W_FWD };
   const PITCHPOS = { node: "sw", x: -2.7, z: 2.3, pose: "stand", face: E_FWD };
   const visitPos = (k, fromX) => {
     const h = HOME[k], [nx, nz] = N[h.node], x = nx + (fromX < nx ? -0.8 : 0.8);
@@ -1118,10 +1113,31 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   const scrCurve = (g) => { g.strokeStyle = G; g.lineWidth = 4; g.beginPath(); [[8, 66], [30, 54], [48, 60], [68, 36], [88, 42], [110, 16]].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
   const scrPitch = (g, w, h) => { g.fillStyle = "#2f7d3f"; g.fillRect(8, 8, w - 16, h - 16); g.strokeStyle = "#fff"; g.lineWidth = 2; g.strokeRect(14, 14, w - 28, h - 28); g.beginPath(); g.moveTo(w / 2, 14); g.lineTo(w / 2, h - 14); g.stroke(); g.beginPath(); g.arc(w / 2, h / 2, 10, 0, 7); g.stroke(); };
   const scrOdds = (g) => { g.font = "600 13px monospace"; [["1.85", G], ["3.40", Y], ["4.20", R], ["1.22", G]].forEach(([t, c], i) => { g.fillStyle = c; g.fillText(t, 14 + (i % 2) * 56, 30 + Math.floor(i / 2) * 30); }); };
-  const scrHorse = (g, w, h) => { g.strokeStyle = Y; g.lineWidth = 3; g.beginPath(); g.ellipse(w / 2, h / 2, 44, 22, 0, 0, 7); g.stroke(); [R, "#86a8ff", G].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(w / 2 - 30 + i * 22, h / 2 + 20 - i * 3, 4, 0, 7); g.fill(); }); };
+  const scrCourt = (g, w, h) => { g.fillStyle = "#3f7fc0"; g.fillRect(14, 14, w - 28, h - 28); g.strokeStyle = "#fff"; g.lineWidth = 2; g.strokeRect(20, 20, w - 40, h - 40); g.beginPath(); g.moveTo(w / 2, 16); g.lineTo(w / 2, h - 16); g.moveTo(40, h / 2); g.lineTo(w - 40, h / 2); g.stroke(); g.fillStyle = "#d7f24a"; g.beginPath(); g.arc(w / 2 + 22, h / 2 - 12, 4, 0, 7); g.fill(); };
   const scrShield = (g, w) => { g.fillStyle = "#c9463d"; g.beginPath(); g.moveTo(w / 2, 10); g.lineTo(w / 2 + 26, 20); g.lineTo(w / 2 + 24, 48); g.lineTo(w / 2, 68); g.lineTo(w / 2 - 24, 48); g.lineTo(w / 2 - 26, 20); g.closePath(); g.fill(); };
   const scrPie = (g) => { g.fillStyle = "#86a8ff"; g.beginPath(); g.arc(64, 40, 26, 0, 7); g.fill(); g.fillStyle = G; g.beginPath(); g.moveTo(64, 40); g.arc(64, 40, 26, -1.6, 0.2); g.fill(); };
 
+  // mini campo da tennis in cemento blu (3,8 × 1,9 m con il fuori campo) e mezzo campo da basket in parquet
+  function drawTennis(g, w, h) {
+    g.fillStyle = "#2c5d8f"; g.fillRect(0, 0, w, h);
+    const mx = w * 0.3 / 3.8, my = h * 0.2 / 1.9, cw = w - 2 * mx, ch = h - 2 * my, sy = ch * 0.125;
+    g.fillStyle = "#3f7fc0"; g.fillRect(mx, my, cw, ch);
+    g.strokeStyle = "#f4f4ef"; g.lineWidth = 4;
+    g.strokeRect(mx, my, cw, ch);
+    g.beginPath(); g.moveTo(mx, my + sy); g.lineTo(mx + cw, my + sy); g.moveTo(mx, my + ch - sy); g.lineTo(mx + cw, my + ch - sy);
+    const sx = cw * 0.269;
+    g.moveTo(w / 2 - sx, my + sy); g.lineTo(w / 2 - sx, my + ch - sy); g.moveTo(w / 2 + sx, my + sy); g.lineTo(w / 2 + sx, my + ch - sy);
+    g.moveTo(w / 2 - sx, h / 2); g.lineTo(w / 2 + sx, h / 2);
+    g.moveTo(mx, h / 2); g.lineTo(mx + 8, h / 2); g.moveTo(mx + cw, h / 2); g.lineTo(mx + cw - 8, h / 2);
+    g.stroke();
+  }
+  function drawHoopCourt(g, w, h) {
+    for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? "#c98d4e" : "#d39a5a"; g.fillRect(0, i * h / 8, w, h / 8 + 1); }
+    g.strokeStyle = "#f4f4ef"; g.lineWidth = 4; g.strokeRect(3, 3, w - 6, h - 6);
+    g.fillStyle = "rgba(199,121,44,.55)"; g.fillRect(w - 80, h / 2 - 44, 77, 88); g.strokeRect(w - 80, h / 2 - 44, 77, 88);
+    g.beginPath(); g.arc(w - 80, h / 2, 34, Math.PI / 2, Math.PI * 1.5); g.stroke();
+    g.beginPath(); g.moveTo(w - 3, 24); g.lineTo(w - 50, 24); g.arc(w - 50, h / 2, h / 2 - 24, -Math.PI / 2, -Math.PI * 1.5, true); g.lineTo(w - 3, h - 24); g.stroke();
+  }
   function desk(x, z, screenDraw) {
     box(1.9, 0.08, 0.95, mat("desk"), x, 0.74, z + 0.6);
     [[-0.85, 0.2], [0.85, 0.2], [-0.85, 1.0], [0.85, 1.0]].forEach(([dx, dz]) => box(0.06, 0.72, 0.06, mat("leg"), x + dx, 0.36, z + dz));
@@ -1163,23 +1179,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     g.visible = false;
     return g;
   }
-  function makeHorse(coat, silk) {
-    const g = new T.Group(), c = cmat(coat), s = cmat(silk), dark = cmat("#231b16");
-    box(0.08, 0.08, 0.26, c, 0, 0.17, 0, g);
-    const neck = box(0.05, 0.12, 0.06, c, 0, 0.24, 0.12, g); neck.rotation.x = 0.55;
-    box(0.05, 0.05, 0.1, c, 0, 0.29, 0.18, g);
-    const tail = box(0.02, 0.09, 0.02, dark, 0, 0.17, -0.15, g); tail.rotation.x = -0.6;
-    const legs = [[-0.028, 0.09], [0.028, 0.09], [-0.028, -0.09], [0.028, -0.09]].map(([lx, lz]) => {
-      const L = new T.Group(); L.position.set(lx, 0.14, lz); g.add(L); box(0.024, 0.14, 0.024, c, 0, -0.07, 0, L); return L;
-    });
-    box(0.07, 0.07, 0.06, s, 0, 0.25, -0.01, g);
-    sph(0.028, cmat("#f1c7a3"), 0, 0.31, 0.0, g);
-    g.scale.setScalar(2.1);
-    g.traverse(o => { if (o.isMesh) o.castShadow = false; });
-    return { g, legs, a: 0, b: 0, th: 0, v: 1 };
-  }
 
-  const HX = 0, HZ = 7.6;
+  const HX = 0, HZ = 7.6, CX = HX - 0.75, KX = HX + 1.9, CTOP = 0.863;
+  const RIM = { x: KX + 0.38, y: 1.47 };
   function buildOffice() {
     // pavimento a parquet e basamento
     box(26.6, 0.3, 20.6, mat("edge"), 0, -0.16, 0).castShadow = false;
@@ -1228,32 +1230,41 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       const n = box(0.36, 0.58, 1.3, net, s * 4.21, 0.29, 1.5); n.castShadow = false;
     });
     sph(0.13, white, 0.9, 0.15, 2.0);
-    // plastico dell'ippodromo: quando una corsa è in corso i cavallini girano
+    // angolo tennis & basket (sul tavolo che era il plastico dell'ippodromo): campo da tennis con la rete e un canestro.
+    // Con una partita di tennis LIVE nel feed la pallina rimbalza da una parte all'altra, con una di basket il pallone va a canestro
     box(5.4, 0.1, 2.8, mat("wood"), HX, 0.78, HZ);
     [[-2.5, -1.2], [2.5, -1.2], [-2.5, 1.2], [2.5, 1.2]].forEach(([dx, dz]) => box(0.1, 0.74, 0.1, mat("leg"), HX + dx, 0.37, HZ + dz));
     box(5.2, 0.03, 2.6, mat("grass"), HX, 0.845, HZ).castShadow = false;
-    const sh = new T.Shape(); sh.absellipse(0, 0, 2.3, 1.15, 0, Math.PI * 2, false, 0);
-    const hole = new T.Path(); hole.absellipse(0, 0, 1.55, 0.55, 0, Math.PI * 2, true, 0); sh.holes.push(hole);
-    const tr = new T.Mesh(new T.ShapeGeometry(sh, 48), mat("track")); tr.rotation.x = -Math.PI / 2; tr.position.set(HX, 0.863, HZ); tr.receiveShadow = true; scene3.add(tr);
-    [[2.33, 1.18], [1.52, 0.52]].forEach(([a, b]) => {
-      const pts = []; for (let i = 0; i <= 64; i++) { const t = i / 64 * Math.PI * 2; pts.push(new T.Vector3(HX + a * Math.cos(t), 0.9, HZ + b * Math.sin(t))); }
-      scene3.add(new T.Line(new T.BufferGeometry().setFromPoints(pts), new T.LineBasicMaterial({ color: "#ffffff" })));
+    const tc = canvasTex(512, 256, drawTennis);
+    plane(3.8, 1.9, tmat(tc.tex), CX, 0.863, HZ, 0, -Math.PI / 2).receiveShadow = true;
+    const kc = canvasTex(208, 304, drawHoopCourt);
+    plane(1.3, 1.9, tmat(kc.tex), KX, 0.863, HZ, 0, -Math.PI / 2).receiveShadow = true;
+    const netM = new T.MeshLambertMaterial({ color: "#f4f4ef", transparent: true, opacity: 0.55 });
+    box(0.015, 0.1, 1.72, netM, CX, 0.915, HZ).castShadow = false;
+    box(0.025, 0.014, 1.72, white, CX, 0.97, HZ);
+    [-0.88, 0.88].forEach(dz => cyl(0.015, 0.015, 0.12, mat("metal"), CX, 0.925, HZ + dz, null, 6));
+    // canestro: palo, tabellone e ferro arancione con la retina
+    cyl(0.03, 0.035, 0.78, mat("metal"), KX + 0.62, 1.25, HZ, null, 8);
+    box(0.14, 0.03, 0.03, mat("metal"), KX + 0.55, 1.58, HZ);
+    box(0.02, 0.24, 0.36, white, KX + 0.48, 1.56, HZ);
+    box(0.021, 0.09, 0.12, cmat("#c9463d"), KX + 0.47, 1.52, HZ).castShadow = false;
+    const rim = mesh(new T.TorusGeometry(0.075, 0.009, 6, 20), cmat("#e0752d"), RIM.x, RIM.y, HZ); rim.rotation.x = Math.PI / 2;
+    const rnet = cyl(0.075, 0.05, 0.1, new T.MeshLambertMaterial({ color: "#ffffff", transparent: true, opacity: 0.45, side: T.DoubleSide }), RIM.x, RIM.y - 0.055, HZ, null, 12);
+    rnet.geometry = new T.CylinderGeometry(0.075, 0.05, 0.1, 12, 1, true); rnet.castShadow = false;
+    // due pedine-giocatori sulle linee di fondo, la pallina e il pallone
+    ["#c7792c", "#2f5bd3"].forEach((c, i) => {
+      const p = new T.Group(); p.position.set(CX + (i ? 1 : -1) * 1.82, 0.863, HZ + (i ? -0.3 : 0.3)); scene3.add(p);
+      cyl(0.035, 0.05, 0.16, cmat(c), 0, 0.08, 0, p, 10); sph(0.04, cmat("#f1c7a3"), 0, 0.2, 0, p);
+      court.pawns.push(p);
     });
-    cyl(0.015, 0.015, 0.3, white, HX, 1.0, HZ + 1.22, null, 6);
-    sph(0.18, mat("plant"), HX - 0.6, 1.0, HZ); sph(0.14, mat("plant"), HX + 0.5, 0.98, HZ - 0.1);
-    const coats = ["#6b4226", "#3b2a20", "#8a5a2b", "#1d1a17", "#a0703f", "#5a3a24"], silks = ["#d33c32", "#2f5bd3", "#f2c14e", "#2f9a6a", "#8b4fa8", "#f4f4ee"];
-    for (let i = 0; i < 6; i++) {
-      // corsie separate e velocità diverse: dopo il primo giro il gruppo si allunga e la corsa si legge
-      const h = makeHorse(coats[i], silks[i]); h.i = i; h.a = 1.66 + i * 0.11; h.b = 0.64 + i * 0.095; h.v = 0.92 + i * 0.06 + Math.random() * 0.04;
-      h.g.position.y = 0.865; scene3.add(h.g); horses.push(h);
-    }
-    resetGate();
-    // tabellone della corsa su due pali, dietro il bordo nord del plastico: non copre più la pista
-    const rc = canvasTex(512, 112, () => {}); raceCanvas = rc.canvas; raceTex = rc.tex;
+    court.ball = sph(0.035, cmat("#d7f24a"), 0, 0, 0); court.bball = sph(0.06, cmat("#e0752d"), 0, 0, 0);
+    restCourt();
+    // cartello con la partita di tennis o basket live (o la prossima) su due pali, dietro il bordo nord del tavolo
+    const rc = canvasTex(512, 112, () => {}); courtCanvas = rc.canvas; courtTex = rc.tex;
     const tote = new T.Group(); tote.position.set(HX, 0, HZ - 1.65); tote.rotation.y = Math.atan2(VIEW0.pos[0] - VIEW0.target[0], VIEW0.pos[2] - VIEW0.target[2]); scene3.add(tote);
     [-1.15, 1.15].forEach(dx => cyl(0.035, 0.035, 1.3, mat("metal"), dx, 0.65, -0.03, tote, 8));
     box(2.62, 0.62, 0.05, cmat("#1b2026"), 0, 1.3, -0.03, tote);
-    const sign = new T.Mesh(new T.PlaneGeometry(2.5, 0.55), new T.MeshBasicMaterial({ map: raceTex, transparent: true })); sign.position.set(0, 1.3, 0.001); tote.add(sign);
+    const sign = new T.Mesh(new T.PlaneGeometry(2.5, 0.55), new T.MeshBasicMaterial({ map: courtTex, transparent: true })); sign.position.set(0, 1.3, 0.001); tote.add(sign);
     // ufficio vetrato di Carlo (nord-est)
     const glass = mat("glass", { transparent: true, opacity: 0.26 });
     wall(6, -4.2, 13, -4.2, 2.4, glass, [[7.6, 9.0]]); wall(6, -10, 6, -4.2, 2.4, glass);
@@ -1267,7 +1278,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     [0.45, 0.95, 1.4].forEach((y, r) => [0, 1, 2, 3, 4, 5].forEach(i => box(0.12, 0.34, 0.26, cmat(["#2f5bd3", "#c9463d", "#2f9a6a", "#d9962f", "#6c5fc7", "#e6b53a"][(i + r) % 6]), 6.78 + i * 0.2, y, -9.6)));
     plant(12.4, -9.4);
     // postazioni dei colleghi
-    desk(-11, -2, scrOdds); desk(-7, -2, scrPitch); desk(-11, 4, scrLines([Y, "#fff", R, "#fff"])); desk(-7, 4, scrHorse);
+    desk(-11, -2, scrOdds); desk(-7, -2, scrPitch); desk(-11, 4, scrLines([Y, "#fff", R, "#fff"])); desk(-7, 4, scrCourt);
     desk(6.6, -2, scrShield); desk(10, -2, scrBars([G, Y, G, G, R])); desk(6.6, 4, scrCurve); desk(10.4, 4, scrLines(["#fff", "#fff", "#fff", "#fff"]));
     box(0.5, 0.36, 0.05, mat("metal"), -10.25, 1.02, -1.05); box(0.06, 0.16, 0.06, mat("metal"), -10.25, 0.86, -1.05);
     sph(0.11, white, -6.4, 0.89, -1.5);
@@ -1305,16 +1316,41 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     // lampade accese la sera
     [[-9, 2.8, 1], [8.5, 2.8, 1], [10, 2.3, -7], [0, 2.8, 5]].forEach(([x, y, z]) => { const l = new T.PointLight(0xffc877, 0, 13, 1.6); l.position.set(x, y, z); scene3.add(l); lamps.push(l); });
     // scritte sul pavimento
-    floorLabel("DIREZIONE", 9.5, -4.8, 3.2); floorLabel("BANCO", 10.4, 0.1, 2); floorLabel("IPPODROMO", HX, 9.55, 3.2);
+    floorLabel("DIREZIONE", 9.5, -4.8, 3.2); floorLabel("BANCO", 10.4, 0.1, 2); floorLabel("TENNIS & BASKET", HX, 9.55, 3.2);
     floorLabel("CAFFÈ", 12.2, 7.2, 1.8); floorLabel("SALA OPERATIVA", -9, 6.4, 4.4);
   }
-  function resetGate() { horses.forEach(h => { h.th = Math.PI / 2 + h.i * 0.18; placeHorse(h, 0); }); }
-  function placeHorse(h, gallop) {
-    const c = Math.cos(h.th), s = Math.sin(h.th);
-    h.g.position.x = HX + h.a * c; h.g.position.z = HZ + h.b * s;
-    h.g.rotation.y = Math.atan2(-h.a * s, h.b * c);
-    h.legs.forEach((L, i) => { L.rotation.x = gallop ? Math.sin(hippo.t * 18 + i * 1.7 + h.v * 4) * 0.7 : 0; });
-    h.g.position.y = 0.865 + (gallop ? Math.abs(Math.sin(hippo.t * 18 + h.v * 4)) * 0.025 : 0);
+  // pallina e pallone fermi: a bordo campo e sotto il canestro
+  function restCourt() {
+    court.shot = null; court.bt = 0;
+    court.ball.position.set(CX - 1.3, CTOP + 0.035, HZ + 0.62);
+    court.bball.position.set(RIM.x - 0.1, CTOP + 0.06, HZ + 0.45);
+    court.pawns.forEach((p, i) => { p.position.z = HZ + (i ? -0.3 : 0.3); });
+  }
+  const lerp = (a, b, u) => a + (b - a) * u;
+  // uno scambio: colpo dal fondo, rimbalzo nell'altra metà campo, colpo di ritorno dell'avversario
+  function newShot(dir) {
+    const zb = HZ + (Math.random() - 0.5) * 1.1, z1 = Math.max(HZ - 0.7, Math.min(HZ + 0.7, zb + (Math.random() - 0.5) * 0.4));
+    return { dir, t: 0, dur: 1.0 + Math.random() * 0.3, x0: CX - dir * 1.75, z0: court.ball.position.z, xb: CX + dir * (0.55 + Math.random() * 0.8), zb, x1: CX + dir * 1.75, z1 };
+  }
+  function stepCourt(dt) {
+    if (court.tennis) {
+      const b = court.ball.position, top = CTOP + 0.035, hit = top + 0.1, k = 0.62;
+      let s = court.shot || (court.shot = newShot(1));
+      s.t += dt / s.dur;
+      if (s.t >= 1) s = court.shot = newShot(-s.dir);
+      if (s.t < k) { const u = s.t / k; b.set(lerp(s.x0, s.xb, u), lerp(hit, top, u) + 0.32 * 4 * u * (1 - u), lerp(s.z0, s.zb, u)); }
+      else { const u = (s.t - k) / (1 - k); b.set(lerp(s.xb, s.x1, u), lerp(top, hit, u) + 0.12 * 4 * u * (1 - u), lerp(s.zb, s.z1, u)); }
+      // chi riceve va incontro alla pallina, chi ha colpito torna verso il centro
+      const rx = court.pawns[s.dir > 0 ? 1 : 0], hx = court.pawns[s.dir > 0 ? 0 : 1];
+      rx.position.z += (s.z1 - rx.position.z) * Math.min(1, dt * 4); hx.position.z += (HZ - hx.position.z) * Math.min(1, dt * 2);
+    }
+    if (court.basket) {
+      court.bt += dt;
+      const b = court.bball.position, p = (court.bt % 2.6) / 2.6, low = CTOP + 0.06, sx = KX - 0.4, sy = 1.05;
+      if (p < 0.35) { const u = p / 0.35; b.set(lerp(sx, RIM.x, u), lerp(sy, RIM.y + 0.03, u) + 0.4 * 4 * u * (1 - u), HZ + 0.25 * (1 - u)); }
+      else if (p < 0.5) { const u = (p - 0.35) / 0.15; b.set(RIM.x - 0.03 * u, lerp(RIM.y + 0.03, low, u * u), HZ); }
+      else { const u = (p - 0.5) / 0.5; b.set(lerp(RIM.x - 0.03, sx, u), low + Math.abs(Math.sin(u * Math.PI * 3)) * 0.14 * (1 - u) + (sy - low) * u * u * u, HZ + 0.25 * u); }
+    }
   }
 
   // ── gli omini ──
@@ -1623,7 +1659,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     }
   }
 
-  // ── schermi: parete grande, cartello della corsa, orologio ──
+  // ── schermi: parete grande, cartello tennis & basket, orologio ──
   function drawWall() {
     if (!wallCanvas || !S) return;
     const m = S.metrics || {}, rs = S.risk_state || {};
@@ -1654,7 +1690,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     rows.forEach((r, i) => {
       const y = 150 + i * 80;
       g.fillStyle = "#132019"; rrect(g, 494, y - 38, 506, 66, 10); g.fill();
-      if (r.status === "LIVE") { g.fillStyle = "#c0392f"; rrect(g, 508, y - 22, 64, 34, 6); g.fill(); g.fillStyle = "#fff"; g.font = "700 22px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText(`${r.minute ?? ""}'`, 540, y + 3); }
+      if (r.status === "LIVE") { g.fillStyle = "#c0392f"; rrect(g, 508, y - 22, 64, 34, 6); g.fill(); g.fillStyle = "#fff"; g.font = "700 22px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText(r.minute == null || courtSport(r) === "tennis" ? "LIVE" : `${r.minute}'`, 540, y + 3); }
       else { g.fillStyle = "#8fa396"; g.font = "600 20px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText(hhmm(r.kickoff), 540, y + 3); }
       g.textAlign = "left"; g.fillStyle = "#e9efe9"; g.font = "600 25px Archivo, Arial, sans-serif";
       let t = `${r.home} – ${r.away}`; while (g.measureText(t).width > 300 && t.length > 6) t = t.slice(0, -2);
@@ -1679,29 +1715,40 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     hand((d.getHours() % 12 + d.getMinutes() / 60) / 12 * Math.PI * 2, 30, 6); hand(d.getMinutes() / 60 * Math.PI * 2, 44, 4);
     clockTex.needsUpdate = true;
   }
-  function updateRace() {
-    const rs = S?.board?.races || [];
-    const r = rs.find(x => x.status === "INPLAY") || rs.filter(x => x.status === "OPEN").sort((a, b) => (a.seconds_to_off ?? 1e9) - (b.seconds_to_off ?? 1e9))[0] || rs[0] || null;
-    const running = !!r && r.status === "INPLAY";
-    hippo.n = r ? Math.max(2, Math.min(6, (r.runners || []).length || 6)) : 5;
-    horses.forEach((h, i) => { h.g.visible = i < hippo.n; });
-    if (running !== hippo.running) { hippo.running = running; if (!running) resetGate(); }
-    let txt = "Nessuna corsa in programma", sub = "", col = "#8fa396";
-    if (r) {
-      const tto = r.seconds_to_off != null ? Math.round(r.seconds_to_off) : null;
-      txt = r.venue || "Corsa";
-      if (running) { sub = "IN CORSA"; col = "#e5534b"; }
-      else if (r.status === "OPEN") { sub = tto == null ? "in apertura" : tto > 90 ? `via tra ${Math.floor(tto / 60)} min` : `via tra ${Math.max(0, tto)} s`; col = LED; }
-      else { const win = (r.runners || []).find(x => x.id === r.winner); sub = win ? `vince ${win.name}` : "chiusa"; col = G; }
+  // cartello dell'angolo tennis & basket: la partita LIVE (prima il tennis) o la prossima in programma
+  function updateCourt() {
+    const all = (S?.board?.matches || []).map(m => ({ m, sp: courtSport(m) })).filter(x => x.sp && x.m.status !== "FINISHED");
+    const lv = all.filter(x => x.m.status === "LIVE");
+    const tennis = lv.some(x => x.sp === "tennis"), basket = lv.some(x => x.sp === "basket");
+    const pick1 = lv.find(x => x.sp === "tennis") || lv[0]
+      || all.filter(x => x.m.status === "SCHEDULED").sort((a, b) => String(a.m.kickoff).localeCompare(String(b.m.kickoff)))[0] || null;
+    court.live = lv.length ? pick1 : null;
+    if (tennis !== court.tennis || basket !== court.basket) {
+      court.tennis = tennis; court.basket = basket;
+      if (!tennis) { court.shot = null; court.ball.position.set(CX - 1.3, CTOP + 0.035, HZ + 0.62); court.pawns.forEach((p, i) => { p.position.z = HZ + (i ? -0.3 : 0.3); }); }
+      if (!basket) { court.bt = 0; court.bball.position.set(RIM.x - 0.1, CTOP + 0.06, HZ + 0.45); }
+      wake();
+    }
+    let txt = "Tennis & basket", sub = "nessuna partita in cartellone", col = "#8fa396";
+    if (pick1) {
+      const m = pick1.m, SP = pick1.sp === "tennis" ? "TENNIS" : "BASKET";
+      txt = `${m.home} – ${m.away}`;
+      if (m.status === "LIVE") {
+        const sc = m.home_score != null ? ` · ${pick1.sp === "tennis" ? "set " : ""}${m.home_score}-${m.away_score}` : "";
+        sub = `${SP} LIVE${sc}`; col = "#e5534b";
+      } else { sub = `${SP} · ${dayhm(m.kickoff)}`; col = LED; }
     }
     const sig = `${txt}|${sub}`;
-    if (sig === raceSig) return;
-    raceSig = sig;
-    const g = raceCanvas.getContext("2d"), w = 512, h = 112;
+    if (sig === courtSig) return;
+    courtSig = sig;
+    const g = courtCanvas.getContext("2d"), w = 512, h = 112;
     g.clearRect(0, 0, w, h); g.fillStyle = "rgba(14,22,17,.9)"; rrect(g, 6, 6, w - 12, h - 12, 18); g.fill();
-    g.textAlign = "center"; g.fillStyle = "#f2f6f2"; g.font = "700 36px Archivo, Arial, sans-serif"; g.fillText(clip(txt, 22), w / 2, 50);
+    g.textAlign = "center"; g.fillStyle = "#f2f6f2"; g.font = "700 36px Archivo, Arial, sans-serif";
+    let t = txt; while (g.measureText(t).width > w - 40 && t.length > 6) t = t.slice(0, -1);
+    if (t !== txt) t = `${t.slice(0, -1).trimEnd()}…`;
+    g.fillText(t, w / 2, 50);
     g.fillStyle = col; g.font = "700 28px 'IBM Plex Mono', monospace"; g.fillText(sub, w / 2, 88);
-    raceTex.needsUpdate = true;
+    courtTex.needsUpdate = true;
   }
   function updateTrophies() {
     const prof = S?.risk_state?.profits ?? ((S?.metrics?.bankroll ?? 0) - (S?.metrics?.initial ?? 0));
@@ -1716,7 +1763,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       w.alert.visible = a.state === "alert";
     });
   }
-  const agentMsg = k => ((S?.agents || []).find(a => a.agent === k) || {}).message || "Tutto tranquillo.";
+  const agentMsg = k => msgOf(k, ((S?.agents || []).find(a => a.agent === k) || {}).message) || "Tutto tranquillo.";
   function setNote(html) { $("floor-note").innerHTML = noteLock || html || defaultNote(); }
   const TOUCH = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
   const defaultNote = () => (TOUCH || (compactTags && navigator.maxTouchPoints > 0) ? "Due dita per girare e zoomare la sala, doppio tocco su un collega per avvicinarti."
@@ -1765,7 +1812,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   const wake = (ms = 1500) => { orbitUntil = Math.max(orbitUntil, nowMs() + ms); };
   function busyScene() {
     const now = nowMs();
-    return orbitUntil > now || !!camAnim || confetti.length > 0 || alarmOn || hippo.running || fx.length > 0
+    return orbitUntil > now || !!camAnim || confetti.length > 0 || alarmOn || ((court.tennis || court.basket) && !REDUCED) || fx.length > 0
       || ORDER.some(k => { const w = W[k], f = w.fx; return w.path || !w.bub.hidden || f.jump > now || f.clap > now || f.shake > now || f.stamp > now; });
   }
   function loop(t) {
@@ -1785,7 +1832,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const tg = controls.target, cx = Math.max(-11, Math.min(11, tg.x)), cz = Math.max(-8, Math.min(8, tg.z));
     if (cx !== tg.x || cz !== tg.z || Math.abs(tg.y - 0.8) > 1e-3) { const dx = cx - tg.x, dy = 0.8 - tg.y, dz = cz - tg.z; tg.set(cx, 0.8, cz); camera.position.x += dx; camera.position.y += dy; camera.position.z += dz; }
     ORDER.forEach(k => W[k].step(dt));
-    if (hippo.running && !REDUCED) { hippo.t += dt; horses.forEach(h => { h.th += dt * (0.55 + 0.08 * Math.sin(hippo.t * 0.9 + h.v * 7)) * h.v; placeHorse(h, true); }); }
+    if ((court.tennis || court.basket) && !REDUCED) stepCourt(dt);
     stepConfetti(dt);
     const alarm = !!S?.kill_switch || alarmUntil > nowMs();
     if (alarm !== alarmOn) { alarmOn = alarm; $("hq3").classList.toggle("alarm", alarm); if (!alarm) { beacons.forEach(b => { b.dome.material.emissiveIntensity = 0; b.light.intensity = 0; }); spot.intensity = 0; } }
@@ -1847,7 +1894,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     renderer.domElement.setAttribute("role", "img");
-    renderer.domElement.setAttribute("aria-label", "Ufficio sportivo in 3D: parete schermo con bankroll e partite, campo da calcio, plastico dell'ippodromo, banco, ufficio vetrato del direttore e i nove colleghi con le loro statistiche");
+    renderer.domElement.setAttribute("aria-label", "Ufficio sportivo in 3D: parete schermo con bankroll e partite, campo da calcio, angolo tennis & basket, banco, ufficio vetrato del direttore e i nove colleghi con le loro statistiche");
     const host = $("hq3");
     host.prepend(renderer.domElement);
     scene3 = new T.Scene(); scene3.background = new T.Color(pal.bg);
@@ -1910,7 +1957,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const themeSync = () => applyPalette();
     if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", themeSync);
     new MutationObserver(themeSync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    if (document.fonts?.ready) document.fonts.ready.then(() => { wallSig = ""; raceSig = ""; if (S) render3D(); labelMeshes.forEach(paintLabel); });
+    if (document.fonts?.ready) document.fonts.ready.then(() => { wallSig = ""; courtSig = ""; if (S) render3D(); labelMeshes.forEach(paintLabel); });
     $("hq-loading").remove(); host.classList.add("ready");
     mode3d = "on"; setNote("");
     if (S) { render3D(); lastEventId = Math.max(0, ...(S.events || []).map(e => e.id || 0)); }
@@ -1919,7 +1966,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
   function render3D() {
     if (mode3d !== "on" || !S) return;
-    syncAgents(); updateTags(); drawWall(); drawClock(); updateRace(); updateTrophies();
+    syncAgents(); updateTags(); drawWall(); drawClock(); updateCourt(); updateTrophies();
   }
 
   // ── animazioni: coda con priorità, al massimo 4 nuove per poll ──
@@ -2045,7 +2092,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     }, MEETRING);
   }
 
-  // ── vita d'ufficio: caffè, visite ai colleghi, occhiata alla corsa ──
+  // ── vita d'ufficio: caffè, visite ai colleghi, Matteo a bordo campo quando c'è tennis o basket live ──
   function scheduleAmbient() {
     clearTimeout(ambT);
     ambT = setTimeout(async () => {
@@ -2071,8 +2118,11 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const free = ORDER.filter(k => { const w = W[k]; return w.atHome() && !w.path && w.bub.hidden; });
     if (!free.length) return;
     let k, dest, line, prop = null, stay = 2600;
-    if (hippo.running && free.includes("cavalli") && Math.random() < 0.7) {
-      k = "cavalli"; dest = HIPPOPOS[0]; line = `Dai, numero ${1 + Math.floor(Math.random() * hippo.n)}!`; stay = 5000;
+    if (court.live && free.includes("cavalli") && Math.random() < 0.7) {
+      const m = court.live.m, fav = m.fav?.name && m.fav.name !== "X" ? m.fav.name : m.home;
+      k = "cavalli"; dest = COURTPOS; stay = 5000;
+      line = court.live.sp === "tennis" ? pick([`Dai ${fav}!`, "Che scambio!", "Servizio vincente!", `${m.home} – ${m.away}: si gioca!`])
+        : pick([`Forza ${fav}!`, "Tripla!", "Difesa, difesa!", `${m.home} – ${m.away}: che partita!`]);
     } else {
       k = pick(free.filter(x => x !== "direttore" || Math.random() < 0.3));
       const r = Math.random();

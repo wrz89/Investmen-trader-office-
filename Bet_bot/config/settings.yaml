@@ -1,6 +1,12 @@
 # ─────────────────────────────────────────────────────────────
 #  BET_BOT — impostazioni generali
 #  Bot autonomo su Betfair Exchange Italia. Gira in locale sul tuo PC.
+#
+#  NON modificare questo file: aggiorna.bat lo sostituisce con la versione di GitHub.
+#  Le TUE scelte (mode, feed, strategie, dashboard_lan…) vanno in runtime/impostazioni.yaml:
+#  hanno la precedenza su questo file e gli aggiornamenti non le toccano. Esempio:
+#      mode: paper
+#      feed: {provider: betfair, reference: odds_api, record: true}
 # ─────────────────────────────────────────────────────────────
 
 # paper = exchange simulato con le stesse regole di Betfair (fill-or-kill, liquidità, commissione),

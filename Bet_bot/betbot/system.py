@@ -50,7 +50,9 @@ def set_autostart(enabled: bool) -> dict:
     target = Path(status["path"])
     if enabled:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(startup_script(), encoding="utf-8")
+        # UTF-16 con BOM: Windows Script Host legge i .vbs come ANSI o UTF-16, NON come UTF-8
+        # (con una cartella tipo C:\Users\Nicolò\… l'avvio automatico fallirebbe)
+        target.write_text(startup_script(), encoding="utf-16", newline="")
     elif target.exists():
         target.unlink()
     return autostart_status()

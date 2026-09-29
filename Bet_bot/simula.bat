@@ -8,5 +8,6 @@ if not exist ".venv\Scripts\python.exe" (
 )
 REM 3 giorni di Bet_bot simulati in circa un minuto, poi la dashboard sulla simulazione.
 ".venv\Scripts\python.exe" betbot.py simula --ore 72
+if errorlevel 1 (pause & exit /b 1)
 ".venv\Scripts\python.exe" betbot.py dashboard --simulazione
 pause

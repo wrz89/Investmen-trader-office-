@@ -12,11 +12,12 @@ set "ARGS=%*"
 :loop
 ".venv\Scripts\python.exe" betbot.py avvia %ARGS%
 set "CODE=%errorlevel%"
-if exist "runtime\ferma.richiesta" goto fine
+if exist "runtime\ferma.richiesta" (del "runtime\ferma.richiesta" & goto fine)
 if "%CODE%"=="0" goto fine
 echo.
 echo Bet_bot si e' chiuso in modo inatteso (codice %CODE%). Riparto tra 30 secondi (CTRL+C per annullare)...
-timeout /t 30 >nul
+REM attesa e controllo sulla stessa riga: `betbot.py ferma` o aggiorna.bat durante l'attesa fermano il riavvio
+timeout /t 30 >nul & if exist "runtime\ferma.richiesta" (del "runtime\ferma.richiesta" & goto fine)
 set "ARGS=--no-browser"
 goto loop
 :fine

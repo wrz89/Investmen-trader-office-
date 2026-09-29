@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .. import clock
 from datetime import datetime
+import time
 
 from ..bankroll import today
 from ..config import CONFIG_DIR, file_sha256, load_yaml
@@ -245,6 +246,10 @@ class RiskManager(Agent):
         check(p["strategy_status"] == "ATTIVA", "Strategia attiva (non in osservazione)")
         scale = snapshot.get("time_scale") or 1.0
         age = ((snapshot.get("sim_time") or snapshot["ts"]) - (p.get("odds_ts") or 0)) / scale
+        # più i secondi VERI passati dalla lettura alla valutazione: con il feed Betfair snapshot e quote hanno lo
+        # stesso istante, e senza questo un ciclo lento (sentiment, chiusure, saldo) le farebbe sembrare sempre fresche
+        if snapshot.get("fetched_mono") is not None:
+            age += max(0.0, time.monotonic() - snapshot["fetched_mono"])
         check(age <= L["max_odds_age_seconds"], f"Quote fresche ({age:.0f} s ≤ {L['max_odds_age_seconds']} s)")
         if not p.get("exchange") and not p.get("legs"):
             if p.get("ref_ts"):
