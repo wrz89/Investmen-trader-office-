@@ -683,7 +683,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     $("#backlog").innerHTML = (res?.stats?.backlog || []).map((b) => `<li>${esc(b.idea)}</li>`).join("") || `<li>Nessuna idea in coda.</li>`;
   }
 
-  const ST_TAG = { paper: "ok", "da validare": "warn", "da costruire": "warn", "in osservazione": "", live: "ok" };
+  const ST_TAG = { paper: "ok", "da validare": "warn", "da costruire": "warn", "in osservazione": "", rinviato: "", live: "ok" };
   function renderPlan() {
     const P = S.plan;
     const sec = $("#plan-sec");

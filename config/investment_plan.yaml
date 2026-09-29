@@ -22,9 +22,9 @@ sleeves:
     max_share: 0.30
     note: compra BTC solo sopra la media a 200 giorni, altrimenti USDC
   - name: Tesoriere · USDC in Earn flessibile
-    status: da costruire          # prima in paper; verificare che Bybit EU offra Earn su USDC
-    max_share: 1.00
-    note: la liquidità ferma rende qualcosa invece di stare immobile
+    status: rinviato              # verificato il 29/09/2026 sull'app Bybit EU
+    max_share: 0.0
+    note: "Earn USDC flessibile all'1,02%: su 200 € sono circa 2 €/anno, e in Earn gli USDC passano di proprietà a Bybit EU (fuori dalle tutele MiCAR). Si riconsidera oltre ~2.000 € investiti o con rendimento flessibile ≥ 3%"
   - name: Rotazione settimanale (STRATEGY_04_v1)
     status: in osservazione       # solo in ombra, nessun capitale
     max_share: 0.0
@@ -39,7 +39,7 @@ you_do:
 office_does:
   - Converte gli euro in USDC e li distribuisce tra le strategie
   - Compra, vende e protegge con gli stop secondo le regole validate
-  - Parcheggia la liquidità nel Tesoriere
+  - Tiene la liquidità in USDC nel conto spot, che resta di tua proprietà
   - Si ferma da solo in caso di drawdown, dati anomali o allarmi di Nora
 
 # Tempi (onesti): il capitale reale arriva solo dopo i criteri di promozione
@@ -47,7 +47,7 @@ phases:
   - when: ottobre 2026 → promozione
     what: Paper trading. I 50 €/mese restano sul tuo conto corrente, da parte.
   - when: ottobre–dicembre 2026
-    what: Validazione BTC trend 200 giorni e Tesoriere in paper
+    what: Validazione BTC trend 200 giorni (regole fissate prima del test)
   - when: "stima: primavera 2027"
     what: "Promozione se superati TUTTI i criteri (≥ 12 settimane e ≥ 20 trade chiusi: con ~37 trade/anno servono circa 6-7 mesi). Decisione finale tua."
   - when: dopo la promozione
