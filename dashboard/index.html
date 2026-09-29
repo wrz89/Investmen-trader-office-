@@ -328,6 +328,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div class="floor-head">
       <h2>L'ufficio dal vivo</h2>
       <div class="actions">
+        <button class="btn" id="btn-daynight" type="button">Notte</button>
         <button class="btn" id="btn-meeting" type="button">Riunione</button>
         <button class="btn" id="btn-coffee" type="button">Pausa caffè</button>
         <button class="btn" id="btn-replay" type="button">Rivedi l'ultimo ciclo</button>
@@ -830,7 +831,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
              wall: "#2a3848", edge: "#1a2430", desk: "#6e5038", leg: "#3d4550", chair: "#10161d", metal: "#4a5664", screen: "#070b10",
              glass: "#3a6f95", pot: "#8c4d36", plant: "#3b7a52", rug: "#26303c", label: "#dfe6ee", win: "#14305a", hemi: 0.42, dir: 0.4 },
   };
-  const isDark = () => { const t = document.documentElement.dataset.theme; return t === "dark" || (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); };
+  // l'ufficio è di giorno per default; la notte si sceglie con il pulsante (ricordato su questo browser)
+  let memMode = "day";
+  const officeMode = () => { try { return localStorage.getItem("cto-office-mode") || memMode; } catch (e) { return memMode; } };
+  const isDark = () => officeMode() === "night";
+  let themeSyncRef = null;
   let pal = isDark() ? PAL.dark : PAL.light;
 
   // ── geometria dell'ufficio (pianta 24 × 24; x verso est, z verso sud) ──
@@ -1187,7 +1192,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       const hit = ray.intersectObjects(ORDER.map((k) => walkers[k].g), true)[0];
       if (hit && hit.object.userData.k) openDrawer(hit.object.userData.k);
     });
-    const themeSync = () => { const next = isDark() ? PAL.dark : PAL.light; if (next === pal) return; pal = next; Object.entries(MAT).forEach(([k, list]) => list.forEach((m) => { m.color.set(pal[k]); if (k === "win") m.emissive.set(pal.win); })); scene3.background.set(pal.bg); hemi.intensity = pal.hemi; sun.intensity = pal.dir; redrawLabels(); };
+    const themeSync = themeSyncRef = () => { const next = isDark() ? PAL.dark : PAL.light; if (next === pal) return; pal = next; Object.entries(MAT).forEach(([k, list]) => list.forEach((m) => { m.color.set(pal[k]); if (k === "win") m.emissive.set(pal.win); })); scene3.background.set(pal.bg); hemi.intensity = pal.hemi; sun.intensity = pal.dir; redrawLabels(); };
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", themeSync);
     new MutationObserver(themeSync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     let last = performance.now();
@@ -1375,6 +1380,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove("speaking"), 3000);
   }
+  const dnLabel = () => { $("#btn-daynight").textContent = isDark() ? "Giorno" : "Notte"; };
+  dnLabel();
+  $("#btn-daynight").addEventListener("click", () => {
+    memMode = isDark() ? "day" : "night";
+    try { localStorage.setItem("cto-office-mode", memMode); } catch (e) { /* vale solo per questa visita */ }
+    dnLabel();
+    if (themeSyncRef) themeSyncRef();
+  });
   $("#btn-meeting").addEventListener("click", () => meetingScene());
   $("#btn-coffee").addEventListener("click", () => coffeeScene());
   $("#btn-replay").addEventListener("click", () => replayScene());
