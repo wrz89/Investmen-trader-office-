@@ -338,3 +338,59 @@ def test_telegram_commands_can_only_inform_or_brake(office):
     assert office.store.get("kill_switch")
     d = office.risk.evaluate(_proposal(), _snap(), office.risk.portfolio_state())
     assert not d["approved"]
+
+
+def test_reference_odds_are_merged_onto_betfair_matches():
+    from betbot.feeds import merge_reference
+    bf = {"1.9": {"match_id": "1.9", "home": "Inter", "away": "Lecce", "kickoff": "2030-01-01T18:00:00+00:00",
+                  "books": {}, "live_books": {}, "exchange": {"home": {"back": 1.3}}, "odds_ts": 100.0}}
+    ref = {"e1": {"home": "FC Internazionale", "away": "US Lecce", "kickoff": "2030-01-01T18:30:00+00:00",
+                  "books": {"Pinnacle": {"home": 1.28, "draw": 5.8, "away": 11.0},
+                            "Betfair": {"home": 1.31, "draw": 6.0, "away": 12.0}},
+                  "live_books": {}, "closing": None, "odds_ts": 90.0}}
+    assert merge_reference(bf, ref) == 1
+    assert set(bf["1.9"]["books"]) == {"Pinnacle"}                  # gli exchange non sono un riferimento esterno
+
+
+def test_s05_needs_value_net_of_commission_and_high_probability():
+    from betbot.strategies.s05_favoriti_exchange_v1 import propose
+    m = {"match_id": "M1", "sport": "tennis_atp", "league": "ATP", "home": "Sinner", "away": "X", "status": "SCHEDULED",
+         "kickoff": "2030-01-01T18:00:00+00:00",
+         "books": {"Pinnacle": {"home": 1.20, "away": 4.8}, "Bet365": {"home": 1.18, "away": 4.5}}, "odds_ts": 1.0,
+         "exchange": {"home": {"back": 1.30, "lay": 1.31, "back_size": 500, "lay_size": 500}}}
+    snap = {"ts": 0, "sim_time": 1893520800 - 3600 * 5, "matches": {"M1": m}}
+    props = propose(snap, {}, {})
+    assert len(props) == 1 and props[0]["selection"] == "home" and props[0]["edge"] > 0.01 and props[0]["fair_prob"] >= 0.75
+    m["exchange"]["home"]["back"] = 1.22                             # sotto il giusto dopo la commissione: niente
+    assert propose(snap, {}, {}) == []
+
+
+def test_recorder_and_replay_roundtrip(tmp_path):
+    from betbot.feeds.mock import MockFeed
+    from betbot.feeds.recorder import Recorder, ReplayFeed
+    from betbot.config import load_settings
+    s = load_settings()
+    s["feed"]["mock"]["seed"] = 2
+    f = MockFeed(s)
+    f.speed = 1.0
+    rec = Recorder(tmp_path)
+    for _ in range(5):
+        rec.write(f.snapshot())
+        f.advance(120)
+    rp = ReplayFeed(sorted(tmp_path.glob("*.jsonl.gz")))
+    n = 0
+    while rp.advance_one():
+        snap = asyncio.run(rp.fetch())
+        assert snap["matches"] and "replay" in snap["health"]["source"]
+        n += 1
+    assert n == 5
+
+
+def test_trade_strategy_exits_before_kickoff():
+    from betbot.strategies.s07_scalping_prepartita_v1 import manage
+    bet = {"id": 1, "match_id": "M1", "selection": "home", "odds": 2.0}
+    m = {"status": "SCHEDULED", "kickoff": "2030-01-01T18:00:00+00:00",
+         "exchange": {"home": {"back": 2.0, "lay": 2.02, "back_size": 100, "lay_size": 100}}}
+    snap = {"ts": 0, "sim_time": 1893520800 - 120, "matches": {"M1": m}}           # 2 minuti all'inizio
+    acts = manage([bet], snap, {}, {})
+    assert acts and acts[0]["action"] == "hedge" and "inizio" in acts[0]["reason"]

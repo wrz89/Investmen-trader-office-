@@ -94,8 +94,11 @@ def load(paths: list[Path]) -> list[dict]:
     rows = []
     for path in paths:
         try:
-            df = pd.read_csv(path, encoding="latin-1", on_bad_lines="skip")
-        except (pd.errors.EmptyDataError, UnicodeDecodeError):
+            if str(path).endswith((".xlsx", ".xls")):
+                df = pd.read_excel(path)
+            else:
+                df = pd.read_csv(path, encoding="latin-1", on_bad_lines="skip")
+        except Exception:
             continue
         df.columns = [str(c).strip().lstrip("﻿").lstrip("ï»¿") for c in df.columns]
         if "FTR" in df.columns:
@@ -127,12 +130,22 @@ def _load_football_data(df: pd.DataFrame) -> list[dict]:
 def load_tennis_df(df: pd.DataFrame) -> list[dict]:
     """tennis-data.co.uk: una riga per partita con Winner/Loser e quote W/L di più bookmaker.
     Per non sapere in anticipo chi vince, "home" è il giocatore col ranking migliore (colonne WRank/LRank)."""
+    # "Avg" = media di mercato di tennis-data: dal 2025 Pinnacle manca, la media è il riferimento più stabile
     books_map = {"B365": "Bet365", "PS": "Pinnacle", "EX": "Expekt", "LB": "Ladbrokes", "SJ": "Stan James", "UB": "Unibet",
-                 "Avg": "Media"}
+                 "Avg": "Media di mercato"}
     out = []
     for _, r in df.iterrows():
-        if str(r.get("Comment", "Completed")).strip() not in ("Completed", "nan"):
-            continue                                   # ritiri e walkover: su Betfair le regole cambiano, fuori dal test
+        comment = str(r.get("Comment", "Completed")).strip()
+        if comment not in ("Completed", "nan", "Retired"):
+            continue                                   # walkover e squalifiche: scommesse annullate
+        if comment == "Retired":
+            # regola Betfair: ritiro prima della fine del 1° set = annullata; dopo, vince chi passa il turno
+            try:
+                first_set_done = max(float(r.get("W1")), float(r.get("L1"))) >= 6
+            except (TypeError, ValueError):
+                first_set_done = False
+            if not first_set_done:
+                continue
         w, l = r.get("Winner"), r.get("Loser")
         try:
             wr, lr = float(r.get("WRank")), float(r.get("LRank"))
@@ -142,7 +155,7 @@ def load_tennis_df(df: pd.DataFrame) -> list[dict]:
         books = {}
         for pre, name in books_map.items():
             ow, ol = _num(r.get(f"{pre}W")), _num(r.get(f"{pre}L"))
-            if ow and ol and name != "Media":
+            if ow and ol:
                 books[name] = {"home": ow, "away": ol} if home_is_w else {"home": ol, "away": ow}
         ex = None
         bw, bl = _num(r.get("BFEW")), _num(r.get("BFEL"))

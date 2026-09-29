@@ -13,7 +13,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import local_settings, notifier
+from . import local_settings, notifier, system
 from .config import DASHBOARD_FILE, DB_PATH, ensure_dirs, load_settings
 from .state import build_state
 from .store import Store
@@ -25,8 +25,10 @@ def settings_view() -> dict:
     s = load_settings()
     return {"version": API_VERSION, **local_settings.public(local_settings.load()),
             "mode": s.get("mode"), "feed": s["feed"]["provider"], "live_stats": s["feed"].get("live_stats"),
-            "exchange": s["feed"].get("exchange"), "execution": (s.get("execution") or {}).get("provider"),
-            "live_strategies": s.get("live_strategies") or []}
+            "execution": (s.get("execution") or {}).get("provider"),
+            "reference": s["feed"].get("reference"), "record": bool(s["feed"].get("record")),
+            "live_strategies": s.get("live_strategies") or [],
+            "autostart": system.autostart_status(), "windows": system.is_windows()}
 
 
 def handle_action(path: str, body: dict) -> dict:
@@ -57,8 +59,14 @@ def handle_action(path: str, body: dict) -> dict:
         for key in local_settings.DEFAULTS["notify"]:
             if key in body:
                 s["notify"][key] = bool(body[key])
+        if "keep_awake" in body:
+            s["keep_awake"] = bool(body["keep_awake"])
         local_settings.save(s)
-        return {"message": "Preferenze delle notifiche salvate."}
+        return {"message": "Preferenze salvate."}
+    if path == "/api/settings/autostart":
+        st = system.set_autostart(bool(body.get("enabled")))
+        return {"message": "Avvio automatico attivato: Bet_bot partirà da solo, ridotto a icona, quando accedi a Windows."
+                if st["enabled"] else "Avvio automatico disattivato."}
     if path == "/api/settings/keys":
         for key in ("odds_api_key", "api_football_key"):
             if body.get(key) is not None:

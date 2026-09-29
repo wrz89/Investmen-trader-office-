@@ -87,12 +87,12 @@ def main() -> int:
     if a.comando == "rischio":
         from betbot.backtest import montecarlo
         r = montecarlo(a.vinte, a.quota, a.puntata)
-        print(f"Quota {a.quota:.2f}, vinte {a.vinte:.0%}, puntata {a.puntata:.1%} del bankroll, 1000 puntate × 2000 scenari\n")
+        print(f"Quota {a.quota:.2f}, vinte {a.vinte:.0%}, puntata {a.puntata:.1%} del bankroll, commissione 4,5%, 1000 puntate × 2000 scenari\n")
         print(f"  pareggio (win rate minimo)   {r['breakeven']:.1%}")
         print(f"  valore atteso per puntata    {r['ev_per_bet']:+.2%}")
         print(f"  bankroll finale mediano      ×{r['median_final']:.2f}   (5% peggiori ×{r['p5_final']:.2f}, 5% migliori ×{r['p95_final']:.2f})")
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
-        print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 12%)")
+        print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
         return 0
 
