@@ -94,6 +94,17 @@ def handle_action(path: str, body: dict, store: Store | None = None) -> dict:
     raise LookupError(path)
 
 
+def _refresh_balance(live, store: Store | None) -> None:
+    """Aggiorna subito i saldi reali mostrati in cima alla dashboard."""
+    if store is None:
+        return
+    try:
+        prices = (store.get("accumulation_quote") or {}).get("prices") or {}
+        store.set("live_balance", live.balances(prices))
+    except Exception:
+        pass
+
+
 def _bybit_action(path: str, body: dict, s: dict, store: Store | None) -> dict:
     from .accumulation import allocation_of, record_buy
     from .config import load_settings
@@ -132,6 +143,7 @@ def _bybit_action(path: str, body: dict, s: dict, store: Store | None) -> dict:
         if not v["ok"]:
             raise ValueError("Chiave NON accettata: " + "; ".join(v["problems"]) + ".")
         b["transfer"] = v["transfer"]
+        _refresh_balance(live, store)
         local_settings.save(s)
         move = ("Posso spostare da solo gli euro dal conto Fondi al conto di trading." if v["transfer"] else
                 "Gli euro nel conto Fondi vanno spostati a mano nel conto di trading (o aggiungi alla chiave il "
@@ -165,6 +177,7 @@ def _bybit_action(path: str, body: dict, s: dict, store: Store | None) -> dict:
                                      f"{f['eur']:.2f} € (commissione {f['fee_eur']:.4f} €). Collegamento funzionante.",
                         "INFO", "fill")
         b["test_done"] = True
+        _refresh_balance(live, store)
         local_settings.save(s)
         return {"message": f"Ordine di prova riuscito: {f['qty']:.8f} {sym.split('/')[0]} per {f['eur']:.2f} €. "
                            "Ora puoi accendere gli acquisti reali."}

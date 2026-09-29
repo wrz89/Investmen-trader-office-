@@ -170,6 +170,11 @@ class Accumulation:
                                    (now_iso(), r["routes"]["diretta"], r["routes"]["via USDC"], r["gap_bps"], r["best"], sym))
         self.store.set("accumulation_quote", {"prices": prices, "updated": time.time(),
                                               "routes": {s: q["route"] for s, q in quotes.items()}})
+        if self.mode() == "live":                        # saldi REALI di Bybit per la dashboard
+            try:
+                self.store.set("live_balance", self.live_exchange().balances(prices))
+            except Exception as exc:
+                self.office.pm.log(f"Saldi reali di Bybit non leggibili ora ({exc}).", "WARN", "accum_alert")
 
         month = due_month(datetime.now(), cfg, self._completed_months())
         if not month:

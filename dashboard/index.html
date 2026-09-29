@@ -340,7 +340,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </div>
   </header>
 
-  <section class="kpis" id="kpis" aria-label="Conto"></section>
+  <section class="panel" id="real-sec" aria-label="Conto reale Bybit" hidden>
+    <header><h2>Conto reale Bybit</h2><p id="real-note"></p></header>
+    <div class="kpis" id="kpis-real"></div>
+  </section>
+  <section class="panel" id="paper-sec" aria-label="Conto di prova">
+    <header><h2 id="kpis-title">Conto</h2><p id="kpis-note"></p></header>
+    <div class="kpis" id="kpis"></div>
+  </section>
 
   <section class="panel" aria-label="L'ufficio dal vivo">
     <div class="floor-head">
@@ -598,7 +605,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   function renderHeader() {
     const m = S.meta || {};
     $("#chips").innerHTML = [
-      `<span class="chip mode">${esc((m.mode || "paper").toUpperCase())}</span>`,
+      (S.accumulation || {}).mode === "live" ? `<span class="chip mode">ACCUMULO · SOLDI VERI</span>` : `<span class="chip mode">${esc((m.mode || "paper").toUpperCase())}</span>`,
       `<span class="chip">${esc(m.exchange || "")}</span>`,
       `<span class="chip">${esc((m.universe || []).join(" · "))}</span>`,
       `<span class="chip">candele ${esc(m.timeframe || "")}</span>`,
@@ -618,6 +625,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
     const trades = S.trades || [];
     const net = trades.reduce((s, t) => s + (t.pnl_net || 0), 0);
     const fees = trades.reduce((s, t) => s + (t.fees || 0), 0);
+    const RB = S.live_balance, A = S.accumulation || {};
+    const realOn = A.mode === "live" && RB;
+    $("#real-sec").hidden = !realOn;
+    $("#paper-sec").hidden = !!realOn;               // con i soldi veri i numeri di prova confondono: nascosti
+    $("#kpis-title").textContent = "Conto di prova (soldi finti)";
+    if (realOn) {
+      const coins = Object.entries(RB.coins || {}).filter(([, c]) => c.qty > 0);
+      const age = Math.round((Date.now() / 1000 - RB.updated) / 60);
+      $("#real-note").textContent = `Letto da Bybit ${age <= 0 ? "adesso" : `${age} min fa`} · si aggiorna a ogni ciclo`;
+      $("#kpis-real").innerHTML = [
+        ["Valore totale", `${fmt(RB.total)} €`, "euro + monete, ai prezzi attuali"],
+        ["Euro nel conto di trading", `${fmt(RB.eur_trading)} €`, "usati per gli acquisti"],
+        ["Euro nel conto Fondi", `${fmt(RB.eur_funding)} €`, "qui arrivano i bonifici"],
+        ["Monete", `${fmt(RB.coins_value)} €`, coins.length ? coins.map(([b, c]) => `${b} ${fmt(c.qty, c.qty < 1 ? 6 : 3)}`).join(" · ") : "nessuna ancora"],
+        ["Versati nell'accumulo", `${fmt(A.eur_in || 0)} €`, `${A.buys || 0} ${A.buys === 1 ? "acquisto reale" : "acquisti reali"}`],
+        ["Prossimo acquisto", `${fmt(A.next_amount, 0)} €`, `dal giorno ${A.day_of_month} del mese`],
+      ].map(([l, v, s]) => `<div class="kpi"><span class="eyebrow">${l}</span><b>${v}</b><small>${esc(s)}</small></div>`).join("");
+    }
     $("#kpis").innerHTML = [
       ["Capitale iniziale", `${fmt(init)} ${m.currency || ""}`, "soldi finti, prezzi veri"],
       ["Equity attuale", fmt(eq), `<span class="${eq >= init ? "pos" : "neg"}">${spct(init ? eq / init - 1 : 0)}</span> dall'inizio`],

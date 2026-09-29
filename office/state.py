@@ -106,6 +106,7 @@ def build_state(store: Store) -> dict:
         "fear_greed": store.get("fear_greed"),
         "plan": load_yaml("investment_plan.yaml"),
         "accumulation": _accumulation(store),
+        "live_balance": store.get("live_balance"),
         "funding": _funding(store),
         "meta": store.get("office_meta", {}),
         "cycle": store.get("cycle", {}),

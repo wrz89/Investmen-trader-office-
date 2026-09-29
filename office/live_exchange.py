@@ -96,6 +96,25 @@ class LiveExchange:
         except Exception:
             return 0.0
 
+    def balances(self, prices_eur: dict[str, float]) -> dict:
+        """Saldi REALI (conto di trading + conto Fondi) delle monete del piano e degli euro, valorizzati in euro."""
+        import time as _t
+        trading = self.ex.fetch_balance().get("total") or {}
+        try:
+            funding = self.ex.fetch_balance({"type": "funding"}).get("total") or {}
+        except Exception:
+            funding = {}
+        coins, value = {}, 0.0
+        for sym in sorted(self.allowed):
+            base = sym.split("/")[0]
+            qty = float(trading.get(base) or 0) + float(funding.get(base) or 0)
+            px = prices_eur.get(sym)
+            coins[base] = {"qty": qty, "value": qty * px if px else None}
+            value += qty * px if px else 0.0
+        eur_t, eur_f = float(trading.get("EUR") or 0), float(funding.get("EUR") or 0)
+        return {"eur_trading": eur_t, "eur_funding": eur_f, "coins": coins, "coins_value": value,
+                "total": value + eur_t + eur_f, "updated": _t.time()}
+
     def ensure_eur(self, eur: float) -> float:
         """Euro disponibili per comprare. Se nel conto di trading non bastano e la chiave ha il permesso
         'trasferimento tra conti', sposta SOLO la differenza dal conto Fondi (sempre dentro il tuo Bybit)."""
