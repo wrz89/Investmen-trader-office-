@@ -203,8 +203,9 @@ class MarketScanner(Agent):
                 df, sig = sigs[symbol]
                 if not bool(sig["entry"].iloc[-1]):
                     continue
-                if any(p["symbol"] == symbol and p["strategy_id"] == module.STRATEGY_ID
-                       for p in self.office.account.open_positions()):
+                if (any(p["symbol"] == symbol and p["strategy_id"] == module.STRATEGY_ID
+                        for p in self.office.account.open_positions())
+                        or self.office.shadow.has_open(module.STRATEGY_ID, symbol)):
                     continue            # già investita: il segnale "sopra la media" resta vero ogni giorno
                 key = f"{module.STRATEGY_ID}|{symbol}|{int(df['ts'].iloc[-1])}"
                 if key in seen:

@@ -648,8 +648,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <div class="metric"><small>Risultato (size reale)</small><b class="${sh.total_sized >= 0 ? "pos" : "neg"}">${spct(sh.total_sized)}</b></div>
       </div>
       <div class="gauge"><div class="row"><span>Mesi di osservazione</span><span class="num">${fmt(months, 1)} / ${rv.min_months}</span></div>${bar(months, rv.min_months)}</div>
-      <div class="gauge"><div class="row"><span>Trade in ombra</span><span class="num">${sh.trades} / ${rv.min_shadow_trades}</span></div>${bar(sh.trades, rv.min_shadow_trades)}</div>
-      <p>Revisione quando entrambi sono completi: servirà un profit factor in ombra di almeno ${fmt(rv.min_profit_factor, 1)}.
+      ${rv.min_shadow_trades ? `<div class="gauge"><div class="row"><span>Trade in ombra</span><span class="num">${sh.trades} / ${rv.min_shadow_trades}</span></div>${bar(sh.trades, rv.min_shadow_trades)}</div>` : ""}
+      <p>${rv.note ? esc(rv.note) + "." : `Revisione quando entrambi sono completi: servirà un profit factor in ombra di almeno ${fmt(rv.min_profit_factor, 1)}.`}
       ${(sh.open || []).length ? `Posizioni virtuali aperte: ${sh.open.map((o) => `${esc(o.symbol)} da ${fmt(o.entry_price, 4)}`).join(", ")}.` : "Nessuna posizione virtuale aperta."}</p>
     </div>`;
   }
@@ -714,12 +714,37 @@ button { font: inherit; color: inherit; cursor: pointer; }
     const fv = (r) => { let v = P.start_capital; for (let i = 0; i < months; i++) v = v * Math.pow(1 + r, 1 / 12) + P.monthly; return v; };
     const rows = pr.scenarios.map((s) => ({ ...s, v: fv(s.rate) }));
     const hi = Math.max(paid, ...rows.map((r) => r.v));
+    const A = S.accumulation;
+    const nextBuy = () => {
+      if (!A) return "";
+      const d = new Date(), start = A.start_month.split("-").map(Number);
+      let y = d.getFullYear(), mo = d.getMonth() + 1;
+      const done = (A.last || []).some((b) => b.month === `${y}-${String(mo).padStart(2, "0")}`);
+      if (done || d.getDate() > 28) { mo += 1; if (mo > 12) { mo = 1; y += 1; } }
+      if (y * 12 + mo < start[0] * 12 + start[1]) { y = start[0]; mo = start[1]; }
+      return A.due_now ? "oggi (appena i controlli di Franco sono ok)" : `dal ${A.day_of_month} ${new Date(y, mo - 1, 1).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}`;
+    };
+    const G = A?.gaps || {};
+    const accCard = A ? `<div class="card"><div class="card-head"><h3>Accumulo automatico BTC</h3><span class="tag ${A.buys ? "ok" : "warn"}">${esc((S.meta.mode || "paper"))} · ${fmt(A.amount_eur, 0)} €/mese</span></div>
+        <div class="metrics">
+          <div class="metric"><small>Versati</small><b>${fmt(A.eur_in, 0)} €</b></div>
+          <div class="metric"><small>BTC accumulati</small><b>${fmt(A.qty, 6)}</b></div>
+          <div class="metric"><small>Valore oggi</small><b class="${!A.qty ? "" : A.value >= A.eur_in ? "pos" : "neg"}">${!A.qty || A.value == null ? "—" : fmt(A.value, 2) + " €"}</b></div>
+          <div class="metric"><small>Prezzo medio</small><b>${A.avg_price ? fmt(A.avg_price, 0) + " €" : "—"}</b></div>
+        </div>
+        <div class="row"><span>Prossimo acquisto</span><span class="num">${esc(nextBuy())}</span></div>
+        ${(A.last || []).map((b) => `<div class="row"><span>${esc(b.month)} · ${esc(b.route)}</span><span class="num">${fmt(b.qty, 8)} BTC @ ${fmt(b.price_eur, 0)} €</span></div>`).join("")}
+        <div class="eyebrow">Scambio tra crypto: conviene?</div>
+        <p>A ogni ciclo Paolo confronta la strada diretta (euro → BTC) con quella via USDC (euro → USDC → BTC), commissioni comprese, e all'acquisto usa la più economica.
+        ${G.n ? `Su ${G.n} confronti la via USDC è stata più conveniente ${G.via_usdc_better} volte; differenza tipica ${fmt(G.median_gap_bps, 0)} bp a favore della diretta (migliore ${fmt(G.best_gap_bps, 0)} bp).` : "Primi confronti al prossimo ciclo dell'ufficio sul tuo PC."}</p>
+        <p>Non vende mai e non compra di più dopo un calo. Soldi veri solo dopo ${A.go_live?.min_paper_buys ?? 2} acquisti paper riusciti e una tua decisione.</p></div>` : "";
     $("#plan").innerHTML = `
       <div>
+        ${accCard}
         <div class="card"><div class="card-head"><h3>Come lavorano i soldi</h3><span class="id">quote = massimo investito</span></div>
           ${(P.sleeves || []).map((x) => `<div class="sleeve"><div class="row"><b>${esc(x.name)}</b><span class="tag ${ST_TAG[x.status] ?? ""}">${esc(x.status)}</span></div>
             <div class="row"><small>${esc(x.note)}</small><span class="num">${x.max_share ? `fino al ${pct(x.max_share, 0)}` : "0%"}</span></div></div>`).join("")}
-          <p>Quando le strategie non vedono segnali, il capitale resta in USDC: in media oggi è investito meno del 10%.</p></div>
+          <p>L'accumulo compra ogni mese. Le strategie di trading usano soldi solo se superano la verifica: oggi nessuna è approvata.</p></div>
         <div class="card"><div class="card-head"><h3>Tempi</h3><span class="id">il reale solo dopo la promozione</span></div>
           <ul class="steps">${(P.phases || []).map((f) => `<li><b>${esc(f.when)}</b><span>${esc(f.what)}</span></li>`).join("")}</ul></div>
       </div>

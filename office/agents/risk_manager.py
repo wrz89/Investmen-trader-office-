@@ -170,6 +170,31 @@ class RiskManager(Agent):
                      payload={"opportunity": opp["id"], "checks": checks})
         return decision
 
+    def check_accumulation(self, q: dict, snapshot: dict) -> tuple[bool, list[str]]:
+        """Controlli sull'acquisto mensile del piano di accumulo. Può solo rimandarlo, mai ingrandirlo."""
+        L, reasons = self.limits, []
+        if file_sha256(LIMITS_FILE) != self.seal:
+            reasons.append("limiti di rischio modificati durante l'esecuzione")
+        if self.settings["mode"] != "paper":
+            reasons.append("modalità live non abilitata in questa versione")
+        if not q.get("direct") and not (q.get("btc_usdc") and q.get("usdc_eur")):
+            reasons.append("prezzi non disponibili")
+        if q.get("spread_bps") is not None and q["spread_bps"] > L["max_spread_bps"]:
+            reasons.append(f"spread {q['spread_bps']:.1f} bp oltre il limite")
+        if q.get("age_s") is not None and q["age_s"] > L["max_data_age_seconds"]:
+            reasons.append(f"prezzo vecchio di {q['age_s']:.0f} s")
+        err = snapshot["health"].get("error_rate", 0)
+        if err > L["max_api_error_rate"]:
+            reasons.append(f"API instabile (errori {err:.0%})")
+        btc = snapshot["symbols"].get("BTC/USDC") or {}
+        if btc.get("anomalies"):
+            reasons.append("anomalia sui dati BTC: " + "; ".join(btc["anomalies"]))
+        news = {k: v for k, v in (self.store.get("news_blocks") or {}).items()
+                if k in ("BTC", "ALL") and v.get("until", 0) > time.time()}
+        if news:
+            reasons.append(f"allarme notizie di Nora: «{next(iter(news.values()))['reason']}»")
+        return not reasons, reasons
+
     @staticmethod
     def _corr(snapshot: dict, s1: str, s2: str) -> float:
         c = snapshot["correlations"]

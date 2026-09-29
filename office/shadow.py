@@ -66,10 +66,12 @@ class ShadowBook:
         self.store.execute("UPDATE shadow_positions SET is_open=0 WHERE id=?", (pos["id"],))
         return {"exit": exit_px, "gross": gross, "net": net}
 
-    def summary(self, strategy_id: str, risk_per_trade: float, cap: float, since: str | None) -> dict:
+    def summary(self, strategy_id: str, risk_per_trade: float, cap: float, since: str | None,
+                sizing: str = "risk") -> dict:
         trades = self.store.query("SELECT * FROM shadow_trades WHERE strategy_id=? ORDER BY id", (strategy_id,))
         net = np.array([t["net"] for t in trades])
-        sized = np.array([min(risk_per_trade / max(t["stop_dist"], 1e-6), cap) * t["net"] for t in trades])
+        size = (lambda t: cap) if sizing == "allocation" else (lambda t: min(risk_per_trade / max(t["stop_dist"], 1e-6), cap))
+        sized = np.array([size(t) * t["net"] for t in trades])
         months = None
         if since:
             months = (datetime.now().date() - datetime.fromisoformat(since).date()).days / 30.44

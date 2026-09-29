@@ -69,6 +69,9 @@ Il token del bot resta in `runtime/local_settings.json`, solo sul tuo PC. Può e
 - **Registro immutabile**: il database rifiuta modifiche e cancellazioni dei trade.
 - **Dati dubbi = nessuna operazione**: candele vecchie, buchi, prezzi incoerenti, API instabile o movimenti anomali bloccano l'operatività.
 - **Le notizie possono solo frenare**: gli allarmi di Nora aggiungono un controllo al Risk Manager, non generano mai ordini. Solo fonti pubbliche.
+- **Piano di accumulo** (`config/accumulation.yaml`, `office/accumulation.py`): 50 € al mese in BTC dal giorno 5, strada più economica tra EUR→BTC ed EUR→USDC→BTC, libro separato e immutabile. Franco può solo rimandare l'acquisto, mai ingrandirlo; niente vendite automatiche. Soldi veri solo dopo 2 acquisti paper riusciti e una decisione dell'utente.
+- **Strategie lente** (`SIZING = "allocation"`, es. STRATEGY_06): size fissa al tetto per asset, validate sui rendimenti giornalieri contro compra e tieni (criteri `slow` in `config/quant_gates.yaml`).
+- **Costi reali**: se le commissioni in `settings.yaml` superano quelle della validazione, `ricerca` riverifica le strategie approvate (file separato `*.costaudit-*.json`); l'esito può solo bocciare.
 - **Il piano d'investimento** (`config/investment_plan.yaml`) è mostrato nella dashboard: profilo, quote massime, tempi, proiezioni e rischi.
 - **Live non disponibile**: il codice rifiuta la modalità live. Verrà aggiunta solo dopo un paper trading superato.
 

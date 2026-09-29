@@ -9,6 +9,7 @@ import time
 import traceback
 import uuid
 
+from .accumulation import Accumulation
 from .account import PaperAccount, today
 from .agents.auditor import Auditor
 from .agents.execution import Execution
@@ -55,6 +56,7 @@ class Office:
         self.execution = Execution(self)
         self.auditor = Auditor(self)
         self.news = NewsAnalyst(self)
+        self.accumulation = Accumulation(self)
         self.agents = [self.pm, self.scanner, self.researcher, self.quant,
                        self.risk, self.execution, self.auditor, self.news]
         self.store.set("office_meta", {
@@ -97,6 +99,11 @@ class Office:
         except Exception as exc:
             self.news.say(f"Errore nella lettura delle notizie: {exc}. Nessun effetto sul trading.", "alert",
                           "news_source", level="WARN")
+        try:
+            self.accumulation.run(snapshot)    # piano di accumulo: libro separato dal conto delle strategie
+        except Exception as exc:
+            self.pm.say(f"Piano di accumulo: errore ({exc}). Nessun acquisto in questo ciclo, riprovo al prossimo.",
+                        "alert", "accumulation", level="ERROR")
 
         # 1) gestione posizioni aperte (uscite prima degli ingressi)
         by_id = {s["module"].STRATEGY_ID: s for s in strategies_state}

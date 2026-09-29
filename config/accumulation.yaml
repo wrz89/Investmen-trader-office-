@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────────────────────
+#  PIANO DI ACCUMULO AUTOMATICO (scelta C dell'utente, 29/09/2026)
+#  Non è una strategia di trading e non promette un vantaggio: è una
+#  scelta d'investimento dell'utente su BTC nel lungo periodo.
+#  L'ufficio la esegue con disciplina: stesso importo, stesso giorno,
+#  senza mai comprare di più dopo un calo e senza mai vendere da solo.
+# ─────────────────────────────────────────────────────────────
+enabled: true
+symbol: BTC/EUR          # acquisto diretto in euro: una sola commissione (niente passaggio da USDC)
+amount_eur: 50           # importo FISSO: non aumenta mai dopo un calo (regole 3 e 4)
+day_of_month: 5          # dal 5 del mese (dopo lo stipendio e il bonifico periodico)
+start_month: "2026-10"
+
+# Si RIMANDA (mai si salta) al ciclo successivo se Franco vede: dati vecchi o
+# anomali, spread oltre il limite, API instabile, allarme notizie di Nora su BTC
+# o su tutto (es. Bybit). L'acquisto del mese resta dovuto.
+
+# Vendite: mai automatiche. Solo per tua decisione o, in futuro, se la
+# STRATEGY_06 (BTC sopra la media di lungo periodo) supererà la revisione
+# dopo l'osservazione in ombra: allora potrà decidere quando stare fuori.
+sells: never
+
+# Passaggio ai soldi veri, fissato prima del primo acquisto in paper:
+go_live:
+  min_paper_buys: 2      # due acquisti mensili in paper riusciti (ottobre e novembre 2026)
+  max_errors: 0          # nessun errore o acquisto saltato per guasto
+  requires:              # e in più, fatti da te:
+    - "conto Bybit EU verificato e bonifico periodico di 50 € impostato"
+    - "chiavi API solo trading, senza prelievi, legate all'IP del tuo PC"
+    - "tua decisione esplicita"

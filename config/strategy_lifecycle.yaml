@@ -15,6 +15,16 @@ observe:
   STRATEGY_04_v1:
     since: "2026-09-28"
     reason: "Promettente ma non provata (67 trade fuori campione, Sharpe 0,83): la si segue in ombra sui dati nuovi"
+  STRATEGY_06_v1:
+    since: "2026-09-29"
+    reason: "10 criteri su 11: perdita massima 31% contro 77% di compra e tieni, ma prove statistiche insufficienti (Deflated Sharpe 77% < 90%). La si segue in ombra (size 20%) sui dati nuovi"
+    # Revisione propria, fissata il 29/09/2026 prima del primo segnale in ombra:
+    # una strategia lenta fa pochi trade, quindi non si contano i trade in ombra.
+    review:
+      min_months: 12
+      min_shadow_trades: 0
+      min_profit_factor: 0.0
+      note: "Dopo 12 mesi: nuova versione a codice IDENTICO, riverificata con gli stessi criteri slow sullo storico allungato di 12 mesi (tentativi cumulati). L'hold-out attuale non è stato consumato"
 
 # Revisione dell'osservazione, fissata il 28/09/2026 prima del primo segnale in ombra.
 # Solo se TUTTI soddisfatti la strategia potrà essere rivalutata per il paper trading

@@ -13,12 +13,16 @@ monthly: 50
 # Come lavorano i soldi dentro Bybit. Le quote sono il MASSIMO investito:
 # quando le strategie non hanno segnali, il capitale resta in USDC.
 sleeves:
+  - name: Accumulo automatico BTC
+    status: paper                 # scelta C del 29/09/2026 · primo acquisto paper dal 5 ottobre 2026
+    max_share: 1.00
+    note: "50 € al mese in BTC dal giorno 5, strada più economica (diretta o via USDC). Nessuna promessa di vantaggio: è una scelta di lungo periodo su BTC. Mai vendite automatiche"
   - name: Motore trend (STRATEGY_01_v5)
     status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
     max_share: 0.0
     note: "Con le commissioni reali resta in utile (PF 2,27) ma lo Sharpe scende a 0,96, sotto la soglia 1,0 fissata prima dei test. Le soglie non si abbassano dopo aver visto i risultati"
   - name: BTC sopra la media di lungo periodo (STRATEGY_06_v1)
-    status: bocciata              # 29/09/2026: 10 criteri su 11, prove statistiche insufficienti
+    status: in osservazione       # 29/09/2026: 10 criteri su 11, ora seguita in ombra per 12 mesi
     max_share: 0.0
     note: "Fuori campione 2021-2025: +26%/anno contro +19% di compra e tieni, perdita massima 31% contro 77%. Ma su 3,6 anni la probabilità che non sia fortuna è 77%, sotto il 90% richiesto (Deflated Sharpe). Hold-out non consumato"
   - name: Tesoriere · USDC in Earn flessibile
@@ -37,22 +41,25 @@ you_do:
   - Impostare in banca un bonifico periodico di 50 € verso Bybit (una volta sola)
   - Dichiarazione dei redditi (l'Auditor ti prepara il riepilogo annuale)
 office_does:
-  - Converte gli euro in USDC e li distribuisce tra le strategie
-  - Compra, vende e protegge con gli stop secondo le regole validate
-  - Tiene la liquidità in USDC nel conto spot, che resta di tua proprietà
-  - Si ferma da solo in caso di drawdown, dati anomali o allarmi di Nora
+  - Ogni mese compra BTC con 50 €, scegliendo la strada più economica (diretta o via USDC)
+  - Rimanda l'acquisto (mai lo salta) con dati anomali, spread alto o allarmi di Nora
+  - Segue in ombra, senza soldi, le strategie promettenti per raccogliere prove
+  - Usa strategie di trading solo se superano la verifica con i costi reali
 
 # Tempi (onesti): il capitale reale arriva solo dopo i criteri di promozione
 phases:
-  - when: ottobre 2026 → promozione
-    what: "Nessuna strategia attiva con i costi reali: l'ufficio osserva e non opera. I 50 €/mese restano sul tuo conto corrente, da parte."
   - when: 29/09/2026
     what: "Verificate con i costi reali: v5 e BTC di lungo periodo non superano tutti i criteri. Nessuna strategia approvata"
-  - when: prossimo passo
-    what: "Decisione tua sulla direzione (osservazione, accumulo automatico o altro). Nessun soldo reale finché una strategia non passa"
+  - when: 5 ottobre e 5 novembre 2026
+    what: "Primi due acquisti di accumulo in paper (deposito simulato, prezzi veri). I 50 € restano sul tuo conto"
+  - when: dicembre 2026
+    what: "Se i due acquisti sono andati bene: attivazione dei soldi veri per l'accumulo (chiavi API solo trading, bonifico periodico). Decisione tua"
+  - when: ottobre 2027
+    what: "Revisione della strategia BTC di lungo periodo dopo 12 mesi in ombra: se supera, potrà decidere quando stare fuori da BTC"
 
 risks:
-  - "Tutto su crypto: in un crollo generale (-50/-70%) le strategie escono, ma non a costo zero"
+  - "Accumulo in BTC: nei crolli (in passato fino a -77%) il valore scende e il piano continua a comprare; non esce da solo"
+  - "Tutto su crypto: nessuna diversificazione fuori da questo mondo"
   - "Rischio piattaforma: se Bybit ha problemi, i soldi sono lì (il kill switch non protegge da questo)"
   - "USDC è una stablecoin: rischio basso ma non zero di perdere la parità col dollaro"
   - "Cambio EUR/USD: il conto è in dollari digitali"
