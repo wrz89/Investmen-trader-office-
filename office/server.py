@@ -81,7 +81,16 @@ def handle_action(path: str, body: dict, store: Store | None = None) -> dict:
         except (ValueError, LookupError):
             raise
         except Exception as exc:                       # errori di rete o di Bybit: messaggio leggibile
-            raise ValueError(f"Bybit ha risposto con un errore: {exc}") from exc
+            text = str(exc)
+            if "10002" in text:
+                raise ValueError("L'orologio del PC non coincide con quello di Bybit. Sincronizzalo: Impostazioni di "
+                                 "Windows → Ora e lingua → Data e ora → 'Sincronizza ora', poi riprova.") from exc
+            if "10010" in text or "IP" in text and "whitelist" in text.lower():
+                raise ValueError("Bybit rifiuta l'IP di questo PC: controlla che nella chiave ci sia l'IP mostrato "
+                                 "da 'Mostra il mio IP'.") from exc
+            if "10003" in text or "10004" in text:
+                raise ValueError("Bybit non riconosce chiave o secret: ricopiali (attenzione a non invertirli).") from exc
+            raise ValueError(f"Bybit ha risposto con un errore: {text}") from exc
     raise LookupError(path)
 
 

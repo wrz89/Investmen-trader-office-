@@ -67,7 +67,14 @@ class LiveExchange:
                 import ccxt
                 self._ex = ccxt.bybit({"apiKey": self.key, "secret": self.secret, "enableRateLimit": True,
                                        "timeout": 15000, "requests_trust_env": True, "hostname": self.hostname,
-                                       "options": {"defaultType": "spot"}})
+                                       "options": {"defaultType": "spot", "adjustForTimeDifference": True,
+                                                   "recvWindow": 10000}})
+                # Bybit rifiuta le richieste con l'orario del PC anche solo 1 secondo avanti (errore 10002):
+                # si misura la differenza con l'orologio di Bybit e la si compensa.
+                try:
+                    self._ex.load_time_difference()
+                except Exception:
+                    pass
         return self._ex
 
     # ── controlli ───────────────────────────────────────────
