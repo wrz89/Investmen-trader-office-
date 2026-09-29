@@ -14,6 +14,7 @@ import json
 from ..feeds.mock import tick_up
 from ..store import now_iso
 from .base import Agent
+from ..state import bet_agent, strategy_agent
 
 CASHOUT_MARGIN = 0.05
 TRADE_MARKETS = ("exchange_win", "exchange_trade")      # trade back→lay: si chiudono con un lay, non col risultato       # il bookmaker trattiene ~5% sul cash-out
@@ -39,7 +40,7 @@ class Banco(Agent):
         br = self.office.bankroll
         stake, odds, mode = res["stake"], res["odds"], res["mode"]
         br.cash = br.cash - stake
-        extra = {k: p[k] for k in ("legs", "exchange", "commission") if p.get(k)}
+        extra = {k: p[k] for k in ("legs", "exchange", "commission", "sport") if p.get(k)}
         if res.get("ref"):
             extra["betfair"] = res["ref"]
         cur = self.store.execute(
@@ -56,7 +57,8 @@ class Banco(Agent):
         note = f" · sentiment: {sent['reason']}" if sent.get("level") == "caution" else ""
         self.say(f"[{MODE_LABEL[mode]}] Puntata #{cur.lastrowid}: {stake:.2f} € su {p['label']} a {odds:.2f} "
                  f"({p['bookmaker']}), prob. stimata {p['fair_prob']:.0%}, EV {p['edge']:+.1%}{legs}{note}.",
-                 "ok", "bet", payload={"bet_id": cur.lastrowid, "strategy": p["strategy_id"], "mode": mode})
+                 "ok", "bet", payload={"bet_id": cur.lastrowid, "strategy": p["strategy_id"], "mode": mode,
+                                            "agent": strategy_agent(p["strategy_id"], p.get("sport"))})
         return cur.lastrowid
 
     def shadow(self, p: dict, snapshot: dict | None = None) -> None:
@@ -73,7 +75,7 @@ class Banco(Agent):
             r = self.office.executor.paper.place("BACK", p["odds"], stake, book_for(p, snapshot))
             if not r["ok"]:
                 return
-            extra = {k: p[k] for k in ("exchange", "commission") if p.get(k)}
+            extra = {k: p[k] for k in ("exchange", "commission", "sport") if p.get(k)}
             self.store.execute(
                 "INSERT INTO bets(ts, cycle_id, mode, strategy_id, match_id, league, label, market, selection, bookmaker, "
                 "odds, fair_prob, edge, stake, kelly_full, live, reason, extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -104,6 +106,7 @@ class Banco(Agent):
         self.say(f"{icon} #{bet['id']} {bet['label']}: {status} {pnl:+.2f} € ({reason})"
                  + (f", CLV {clv:+.1%}" if clv is not None else "") + f". Bankroll {self.office.bankroll.total:.2f} €.",
                  "ok", "settle", payload={"bet_id": bet["id"], "pnl": pnl, "status": status, "strategy": bet["strategy_id"],
+                                  "agent": bet_agent(bet),
                                           "stake": bet["stake"], "odds": bet["odds"], "label": bet["label"]})
         return pnl
 

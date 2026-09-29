@@ -12,12 +12,21 @@ def _j(v):
     return json.loads(v) if v else None
 
 
-# chi "possiede" le puntate di ogni strategia (per le etichette sopra gli omini nell'ufficio 3D)
-STRATEGY_AGENT = {"S04": "cavalli"}
+# chi "possiede" le puntate (per le etichette sopra gli omini nell'ufficio 3D):
+# Davide = calcio; Matteo = tennis, basket (e cavalli, che su Betfair.it non ci sono)
+STRATEGY_AGENT = {"S04": "cavalli", "S08": "cavalli"}
+OTHER_SPORTS = ("tennis", "basketball")
 
 
-def strategy_agent(strategy_id: str) -> str:
+def strategy_agent(strategy_id: str, sport: str | None = None) -> str:
+    if (sport or "").startswith(OTHER_SPORTS):
+        return "cavalli"
     return next((a for pre, a in STRATEGY_AGENT.items() if (strategy_id or "").startswith(pre)), "analista")
+
+
+def bet_agent(bet: dict) -> str:
+    extra = _j(bet.get("extra")) if isinstance(bet.get("extra"), str) else (bet.get("extra") or {})
+    return strategy_agent(bet.get("strategy_id"), (extra or {}).get("sport"))
 
 
 def _perf(bets: list[dict]) -> dict:
@@ -34,10 +43,10 @@ def _perf(bets: list[dict]) -> dict:
 
 def agent_stats(store: Store) -> dict:
     """Numeri da mostrare sopra ogni omino: win rate e ROI per chi punta, contatori per gli altri."""
-    bets = store.query("SELECT id, strategy_id, status, stake, pnl, settled_ts, label FROM bets WHERE mode!='shadow'")
+    bets = store.query("SELECT id, strategy_id, status, stake, pnl, settled_ts, label, extra FROM bets WHERE mode!='shadow'")
     out = {"banco": _perf(bets)}
     for key in ("analista", "cavalli"):
-        out[key] = _perf([b for b in bets if strategy_agent(b["strategy_id"]) == key])
+        out[key] = _perf([b for b in bets if bet_agent(b) == key])
     rows = store.query("SELECT kind, COUNT(*) n FROM events WHERE kind IN ('approve', 'veto') GROUP BY kind")
     k = {r["kind"]: r["n"] for r in rows}
     out["risk"] = {"approvals": k.get("approve", 0), "vetoes": k.get("veto", 0)}

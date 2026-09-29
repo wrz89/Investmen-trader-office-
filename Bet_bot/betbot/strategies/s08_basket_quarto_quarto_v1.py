@@ -48,7 +48,7 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
             continue
         out.append({"strategy_id": STRATEGY_ID, "match_id": m["match_id"],
                     "market_id": (m.get("betfair") or {}).get("market_id") or m["match_id"],
-                    "league": m["league"], "home": m["home"], "away": m["away"],
+                    "league": m["league"], "sport": m.get("sport"), "home": m["home"], "away": m["away"],
                     "label": f"{m['home']} - {m['away']} · {m[sel]} (+{abs(lead)} nel 4° quarto)", "market": "h2h",
                     "selection": sel, "bookmaker": "Betfair", "odds": price, "fair_prob": p, "edge": edge,
                     "commission": comm, "n_books": 3, "dispersion": 0.0, "live": True, "odds_ts": m.get("odds_ts"),

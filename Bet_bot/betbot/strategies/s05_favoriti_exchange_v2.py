@@ -82,7 +82,7 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
             name = m["home"] if sel == "home" else m["away"] if sel == "away" else "Pareggio"
             out.append({"strategy_id": STRATEGY_ID, "match_id": m["match_id"],
                         "market_id": (m.get("betfair") or {}).get("market_id") or m["match_id"],
-                        "league": m["league"], "home": m["home"], "away": m["away"],
+                        "league": m["league"], "sport": m.get("sport"), "home": m["home"], "away": m["away"],
                         "label": f"{m['home']} - {m['away']} · {name}", "market": "h2h", "selection": sel,
                         "bookmaker": "Betfair", "odds": price, "fair_prob": v["fair_prob"], "edge": edge,
                         "commission": comm, "n_books": v["n_books"], "dispersion": v["dispersion"], "live": False,
