@@ -736,10 +736,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <div class="row"><span>Prossimo acquisto</span><span class="num">${fmt(A.next_amount, 0)} € · ${esc(nextBuy())}</span></div>
         ${A.initial_eur ? `<div class="row"><span>Capitale iniziale ${fmt(A.initial_eur, 0)} € a rate</span><span class="num">${Math.min(A.buys, A.initial_tranches)} / ${A.initial_tranches} rate da ${fmt(A.initial_eur / A.initial_tranches, 0)} €</span></div>` : ""}
         ${(A.last || []).map((b) => `<div class="row"><span>${esc(b.month)} · ${esc(b.asset.split("/")[0])} · ${esc(b.route)}</span><span class="num">${fmt(b.eur, 2)} € @ ${fmt(b.price_eur, 2)} €</span></div>`).join("")}
+        ${Object.entries(A.orders || {}).map(([sym, o]) => `<div class="row"><span>Ordine limite in attesa · ${esc(sym.split("/")[0])}</span><span class="num">${fmt(o.eur, 2)} € a ${fmt(o.limit, 2)} €</span></div>`).join("")}
+        <p>${A.order_type === "limit" ? "Paolo compra con ordini limite (commissione 0,10% invece di 0,25%); se non si eseguono entro 24 ore, compra a mercato." : "Acquisti a mercato."}</p>
         <div class="eyebrow">Scambio tra crypto: conviene?</div>
         <p>A ogni ciclo Paolo confronta, per ogni moneta, la strada diretta (euro → moneta) con quella via USDC (euro → USDC → moneta), commissioni comprese, e all'acquisto usa la più economica.
         ${G.n ? `Su ${G.n} confronti la via USDC è stata più conveniente ${G.via_usdc_better} volte; differenza tipica ${fmt(G.median_gap_bps, 0)} bp a favore della diretta (migliore ${fmt(G.best_gap_bps, 0)} bp).` : "Primi confronti al prossimo ciclo dell'ufficio sul tuo PC."}</p>
         <p>Ogni mese i soldi vanno prima alle monete sotto la loro quota: così si ribilancia senza mai vendere. Non compra di più dopo un calo. Soldi veri solo dopo ${A.go_live?.min_paper_buys ?? 2} mesi di prova riusciti e una tua decisione.</p></div>` : "";
+    const F = S.funding;
+    const fundCard = F ? `<div class="card"><div class="card-head"><h3>Osservatorio tassi di finanziamento</h3><span class="tag">solo dati · nessun ordine</span></div>
+        <p>Quanto renderebbe "compro la moneta + vendo lo stesso importo in contratto perpetuo": il prezzo si annulla, resta il pagamento periodico. Netto = sul capitale totale (serve due volte, niente leva), costi di entrata e uscita compresi.</p>
+        <div class="gauge"><div class="row"><span>Giorni di osservazione</span><span class="num">${fmt(F.days, 0)} / ${F.review.min_days}</span></div><div class="bar"><i style="width:${Math.min(100, F.days / F.review.min_days * 100).toFixed(0)}%"></i></div></div>
+        ${F.assets.map((a) => { const o = a.observed, h = a.history; return `<div class="row"><span><b>${esc(a.symbol.split("/")[0])}</b> · dal ${esc(F.start)}</span><span class="num">${o ? `${spct(o.net_annual_on_capital, 1)}/anno · a favore ${pct(o.positive_share, 0)}` : "in attesa di dati"}</span></div>
+          ${h ? `<div class="row"><small>prima dell'osservazione, ${fmt(h.days, 0)} giorni (solo contesto): lordo ${spct(h.gross_annual, 1)}, netto sul capitale ${spct(h.net_annual_on_capital, 1)}</small></div>` : ""}`; }).join("")}
+        <p>Revisione dopo ${F.review.min_days} giorni: serve almeno ${pct(F.review.min_net_annual_on_capital, 0)} l'anno netto e pagamenti a favore nel ${pct(F.review.min_positive_share, 0)} dei casi. ${esc(F.review.decision)}</p></div>` : "";
     $("#plan").innerHTML = `
       <div>
         ${accCard}
@@ -755,6 +764,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <div class="proj">${rows.map((r) => `<div><div class="row"><span>${esc(r.label)}</span><span class="num ${r.v >= paid ? "pos" : "neg"}">${fmt(r.v, 0)} €</span></div>
             <div class="bar"><i class="${r.v >= paid ? "" : "b"}" style="width:${(r.v / hi * 100).toFixed(1)}%"></i><s style="left:${(paid / hi * 100).toFixed(1)}%"></s></div></div>`).join("")}</div>
           <p>La tacca indica quanto hai versato. Sono scenari, non promesse: nessuno può garantire un rendimento.</p></div>
+        ${fundCard}
         <div class="card"><div class="card-head"><h3>Chi fa cosa</h3></div>
           <div class="eyebrow">Tu, una volta sola</div><ul class="plain">${(P.you_do || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
           <div class="eyebrow">L'ufficio, da solo</div><ul class="plain">${(P.office_does || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>

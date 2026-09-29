@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────
+#  OSSERVATORIO TASSI DI FINANZIAMENTO (funding) — SOLO DATI
+#  Approvato dall'utente il 29/09/2026. Sofia legge i pagamenti periodici dei
+#  contratti perpetui e calcola quanto avrebbe reso la strategia "compro la
+#  moneta + vendo lo stesso importo in contratto perpetuo" (incasso il funding,
+#  il prezzo non conta). NESSUN ordine, nessun conto derivati: regole invariate.
+# ─────────────────────────────────────────────────────────────
+exchange: bybit                  # su questo container si prova con OFFICE_FUNDING_EXCHANGE=okx
+symbols: [BTC/USDT:USDT, ETH/USDT:USDT, SOL/USDT:USDT]   # perpetui lineari più liquidi
+start: "2026-09-29"              # la PROVA sono solo i pagamenti da questa data in poi
+backfill_days: 365               # storico precedente: solo contesto, non conta per la revisione
+refresh_minutes: 60
+
+# Costi di un giro completo (entrata + uscita) sulle due gambe.
+costs:
+  spot_taker: 0.0025             # Bybit EU spot, non VIP
+  perp_taker: 0.00055            # Bybit globale non VIP: DA VERIFICARE, Bybit EU potrebbe non offrire i perpetui
+  slippage_bps: 3                # per ognuna delle 4 operazioni
+  holding_days: 90               # si ipotizza di tenere la posizione 90 giorni: i costi si spalmano su questo periodo
+  margin_share: 1.0              # margine del contratto = 100% del valore (niente leva): il capitale serve due volte
+
+# Revisione fissata il 29/09/2026, PRIMA di osservare qualsiasi dato.
+review:
+  min_days: 90
+  min_net_annual_on_capital: 0.05   # ≥ 5% l'anno sul capitale totale, costi compresi
+  min_positive_share: 0.70          # funding a nostro favore in almeno il 70% dei pagamenti
+  min_assets_passing: 1             # basta una moneta
+  decision: "Se superata, l'ufficio PROPONE un'eccezione alla regola 'niente short' solo per questo uso. Decide l'utente."

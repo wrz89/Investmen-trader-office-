@@ -2,6 +2,7 @@ import sqlite3
 import time
 from datetime import datetime
 
+import pandas as pd
 import pytest
 
 from office.accumulation import best_route, due_month, split_amount
@@ -50,9 +51,15 @@ def office_(tmp_path, monkeypatch):
               "ETH/EUR": {"ask": 2_300.0, "bid": 2_299.5, "timestamp": now},
               "SOL/EUR": {"ask": 100.0, "bid": 99.97, "timestamp": now},
               "USDC/EUR": {"ask": 0.8571, "bid": 0.857, "timestamp": now}}
-    o.market = type("M", (), {"ticker": lambda self, s: quotes[s]})()
+    o.lows = {}                                        # minimo del prezzo dopo l'ordine, per simbolo
+    o.market = type("M", (), {
+        "ticker": lambda self, s: quotes[s],
+        "candles": lambda self, s, tf, limit=0: pd.DataFrame(
+            {"ts": [time.time() * 1000 + 1], "low": [o.lows.get(s, quotes[s]["bid"])]}),
+    })()
     o.accumulation.cfg["start_month"] = datetime.now().strftime("%Y-%m")
     o.accumulation.cfg["day_of_month"] = 1
+    o.accumulation.cfg["execution"] = {"order_type": "market"}
     return o
 
 
@@ -79,3 +86,39 @@ def test_news_alarm_postpones_only_that_asset(office_):
     office_.accumulation.run(SNAP)
     s = office_.accumulation.summary()
     assert s["buys"] == 3 and s["due_now"] is False
+
+
+def test_limit_order_fills_only_below_limit(office_):
+    acc = office_.accumulation
+    acc.cfg["execution"] = {"order_type": "limit", "limit_timeout_hours": 24}
+    acc.run(SNAP)                                       # ordini limite piazzati al bid, nessun acquisto
+    assert acc.summary()["buys"] == 0 and len(acc.summary()["orders"]) == 3
+    acc.run(SNAP)                                       # il prezzo tocca il limite ma non scende sotto
+    assert acc.summary()["buys"] == 0
+    office_.lows = {"BTC/EUR": 59_900.0}                # BTC scende sotto il limite
+    acc.run(SNAP)
+    s = acc.summary()
+    assert s["buys"] == 1 and s["last"][0]["route"] == "limite (maker)"
+
+
+def test_limit_order_times_out_to_market(office_):
+    acc = office_.accumulation
+    acc.cfg["execution"] = {"order_type": "limit", "limit_timeout_hours": 24}
+    acc.run(SNAP)
+    orders = office_.store.get("accum_orders")
+    for o in orders.values():
+        o["placed"] -= 25 * 3600                        # 25 ore fa
+    office_.store.set("accum_orders", orders)
+    acc.run(SNAP)
+    s = acc.summary()
+    assert s["buys"] == 3 and s["due_now"] is False and all(b["route"] == "diretta" for b in s["last"])
+
+
+def test_carry_stats_halves_yield_on_capital_and_charges_costs():
+    from office.funding_watch import carry_stats
+    ts = [i * 8 * 3_600_000 for i in range(300)]                  # ogni 8 ore
+    costs = {"spot_taker": 0.0025, "perp_taker": 0.00055, "slippage_bps": 3, "holding_days": 90, "margin_share": 1.0}
+    s = carry_stats(ts, [0.0001] * 300, costs)                     # 0,01% ogni 8 ore ≈ 10,95% l'anno lordo
+    assert abs(s["gross_annual"] - 0.1095) < 1e-3
+    assert abs(s["net_annual_on_capital"] - (s["gross_annual"] - s["cost_annual"]) / 2) < 1e-9
+    assert s["positive_share"] == 1.0

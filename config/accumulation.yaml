@@ -17,6 +17,15 @@ allocation:
 # sotto la loro quota. Mai vendite (niente commissioni e niente tasse in più).
 min_leg_eur: 5           # sotto questa cifra la quota del mese passa all'asset più sotto peso
 amount_eur: 70           # importo FISSO: non aumenta mai dopo un calo (regole 3 e 4)
+
+# Esecuzione (approvata dall'utente il 29/09/2026): ordine LIMITE al miglior prezzo
+# di acquisto (commissione maker 0,10% invece di 0,25%). Se entro 24 ore non viene
+# eseguito, si annulla e si compra a mercato: l'acquisto del mese non salta mai.
+# In paper l'ordine limite conta come eseguito solo se il prezzo scende SOTTO il
+# limite (prudente: chi era prima in coda viene servito prima).
+execution:
+  order_type: limit
+  limit_timeout_hours: 24
 day_of_month: 5          # dal 5 del mese (dopo lo stipendio e il bonifico periodico)
 # Capitale iniziale (deciso dall'utente il 29/09/2026): 140 € entrati a rate, non in un
 # giorno solo. Calendario fissato prima di iniziare: 35 € in più nei primi 4 acquisti

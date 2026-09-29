@@ -10,6 +10,7 @@ import traceback
 import uuid
 
 from .accumulation import Accumulation
+from .funding_watch import FundingWatch
 from .account import PaperAccount, today
 from .agents.auditor import Auditor
 from .agents.execution import Execution
@@ -57,6 +58,7 @@ class Office:
         self.auditor = Auditor(self)
         self.news = NewsAnalyst(self)
         self.accumulation = Accumulation(self)
+        self.funding = FundingWatch(self)
         self.agents = [self.pm, self.scanner, self.researcher, self.quant,
                        self.risk, self.execution, self.auditor, self.news]
         self.store.set("office_meta", {
@@ -104,6 +106,10 @@ class Office:
         except Exception as exc:
             self.pm.say(f"Piano di accumulo: errore ({exc}). Nessun acquisto in questo ciclo, riprovo al prossimo.",
                         "alert", "accumulation", level="ERROR")
+        try:
+            self.funding.run()                 # osservatorio funding: solo lettura dati
+        except Exception as exc:
+            self.scanner.log(f"Osservatorio funding: errore ({exc}). Nessun effetto sul trading.", "WARN", "funding")
 
         # 1) gestione posizioni aperte (uscite prima degli ingressi)
         by_id = {s["module"].STRATEGY_ID: s for s in strategies_state}

@@ -24,6 +24,14 @@ def _accumulation(store: Store) -> dict | None:
         return None
 
 
+def _funding(store: Store) -> dict | None:
+    try:
+        from .funding_watch import FundingWatch
+        return FundingWatch(type("O", (), {"store": store})()).summary()
+    except Exception:
+        return None
+
+
 def build_state(store: Store) -> dict:
     agents = store.query("SELECT * FROM agent_status")
     for a in agents:
@@ -98,6 +106,7 @@ def build_state(store: Store) -> dict:
         "fear_greed": store.get("fear_greed"),
         "plan": load_yaml("investment_plan.yaml"),
         "accumulation": _accumulation(store),
+        "funding": _funding(store),
         "meta": store.get("office_meta", {}),
         "cycle": store.get("cycle", {}),
         "agents": agents,

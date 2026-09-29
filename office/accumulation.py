@@ -11,6 +11,8 @@ Elena registra in un libro separato e immutabile.
 - Strade confrontate per ogni asset (e misurate a ogni ciclo, per i dati):
     diretta   EUR → asset            (1 commissione)
     via USDC  EUR → USDC → asset     (2 commissioni)
+- Ordine limite al miglior prezzo di acquisto (commissione maker); se non viene
+  eseguito entro il tempo stabilito si annulla e si compra a mercato.
 """
 from __future__ import annotations
 
@@ -151,6 +153,8 @@ class Accumulation:
                    + " (prima gli asset sotto quota).", "working", "accumulation")
         done = self._legs_done(month)
         mode = self.office.settings["mode"]
+        ex_cfg = cfg.get("execution") or {}
+        orders = self.store.get("accum_orders") or {}
         for sym, eur in plan["legs"].items():
             if sym in done:
                 continue
@@ -159,12 +163,38 @@ class Accumulation:
             route = q["route"]
             if ok and route["best"] is None:
                 ok, reasons = False, ["nessun prezzo disponibile"]
+            pending = orders.get(sym) if (orders.get(sym) or {}).get("month") == month else None
             if not ok:
+                if pending:                                                 # prudenza: niente ordini in attesa
+                    orders.pop(sym, None)
+                    ex.say(f"Accumulo {month} · {sym}: annullo l'ordine limite in attesa ({reasons[0]}).",
+                           "blocked", "accumulation")
                 key = f"{month}|{sym}|{reasons[0]}"
                 if self.store.get(f"accum_postpone_{sym}") != key:          # un solo messaggio per motivo
                     risk.say(f"Accumulo {month} · {sym} RIMANDATO al prossimo ciclo: {'; '.join(reasons)}. "
                              "L'acquisto resta dovuto.", "blocked", "accumulation")
                     self.store.set(f"accum_postpone_{sym}", key)
+                continue
+            if pending:
+                if self._limit_filled(sym, pending):
+                    maker = costs.get("maker_fee", fee)
+                    cost = pending["limit"] * (1 + maker)
+                    self._record(month, mode, "limite (maker)", sym, eur, cost, eur / cost,
+                                 eur - (eur / cost) * pending["limit"],
+                                 f"ordine limite eseguito; a mercato sarebbe costato {route['routes'].get(route['best'], 0):,.2f} €")
+                    orders.pop(sym, None)
+                    continue
+                hours = (time.time() - pending["placed"]) / 3600
+                if hours < float(ex_cfg.get("limit_timeout_hours", 24)):
+                    continue                                                # resta in attesa
+                orders.pop(sym, None)
+                ex.say(f"Accumulo {month} · {sym}: ordine limite non eseguito in {hours:.0f} ore, "
+                       "lo annullo e compro a mercato.", "working", "accumulation")
+            elif ex_cfg.get("order_type") == "limit" and route["best"] == "diretta" and q.get("bid"):
+                orders[sym] = {"month": month, "eur": eur, "limit": q["bid"], "placed": time.time()}
+                ex.say(f"Accumulo {month} · {sym}: ordine limite di {eur:.2f} € a {q['bid']:,.2f} € "
+                       f"(commissione maker). Se non si esegue entro {ex_cfg.get('limit_timeout_hours', 24)} ore "
+                       "compro a mercato.", "working", "accumulation")
                 continue
             cost = route["routes"][route["best"]]
             qty = eur / cost
@@ -172,16 +202,30 @@ class Accumulation:
             fee_eur = eur - qty * ref
             other = [k for k in route["routes"] if k != route["best"]]
             note = (f"alternativa {other[0]} {route['routes'][other[0]]:,.2f} €" if other else "unica strada disponibile")
-            self.store.execute(
-                "INSERT INTO accumulation_buys(ts, month, mode, route, eur, price_eur, qty, fee_eur, note, asset) "
-                "VALUES(?,?,?,?,?,?,?,?,?,?)", (now_iso(), month, mode, route["best"], eur, cost, qty, fee_eur, note, sym))
-            ex.say(f"Accumulo {month} ({mode}): {qty:.8f} {sym.split('/')[0]} con {eur:.2f} € "
-                   f"(strada {route['best']}, {cost:,.2f} € commissioni comprese; {note}).",
-                   "ok", "fill", payload={"accumulation": True, "month": month, "asset": sym})
+            self._record(month, mode, route["best"], sym, eur, cost, qty, fee_eur, note)
+        self.store.set("accum_orders", orders)
         if set(plan["legs"]) <= set(self._legs_done(month)):
             s = self.summary()
             aud.say(f"Registro accumulo: mese {month} completo. Versati {s['eur_in']:.0f} € in totale, "
                     f"valore {s['value'] or 0:.2f} €.", "ok", "accumulation")
+
+    def _record(self, month, mode, route, sym, eur, cost, qty, fee_eur, note) -> None:
+        self.store.execute(
+            "INSERT INTO accumulation_buys(ts, month, mode, route, eur, price_eur, qty, fee_eur, note, asset) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?)", (now_iso(), month, mode, route, eur, cost, qty, fee_eur, note, sym))
+        self.office.execution.say(
+            f"Accumulo {month} ({mode}): {qty:.8f} {sym.split('/')[0]} con {eur:.2f} € "
+            f"(strada {route}, {cost:,.2f} € commissioni comprese; {note}).",
+            "ok", "fill", payload={"accumulation": True, "month": month, "asset": sym})
+
+    def _limit_filled(self, sym: str, order: dict) -> bool:
+        """Paper: l'ordine limite si considera eseguito solo se dopo l'inserimento il prezzo è sceso SOTTO il limite."""
+        try:
+            df = self.office.market.candles(sym, "5m", limit=320)
+        except Exception:
+            return False
+        after = df[df["ts"] >= order["placed"] * 1000]
+        return bool(len(after) and float(after["low"].min()) < order["limit"])
 
     # ── libro ───────────────────────────────────────────────
     def _rows(self) -> list[dict]:
@@ -239,6 +283,8 @@ class Accumulation:
             "months": len({r["month"] for r in rows}), "buys": len(rows), "eur_in": eur_in,
             "value": total_value if rows else None, "assets": assets,
             "last": rows[-8:][::-1],
+            "orders": self.store.get("accum_orders") or {},
+            "order_type": (cfg.get("execution") or {}).get("order_type", "market"),
             "gaps": {"n": len(gaps), "via_usdc_better": sum(g["best"] == "via USDC" for g in gaps),
                      "best_gap_bps": min((g["gap_bps"] for g in gaps), default=None),
                      "median_gap_bps": sorted(g["gap_bps"] for g in gaps)[len(gaps) // 2] if gaps else None},

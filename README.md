@@ -70,6 +70,8 @@ Il token del bot resta in `runtime/local_settings.json`, solo sul tuo PC. Può e
 - **Dati dubbi = nessuna operazione**: candele vecchie, buchi, prezzi incoerenti, API instabile o movimenti anomali bloccano l'operatività.
 - **Le notizie possono solo frenare**: gli allarmi di Nora aggiungono un controllo al Risk Manager, non generano mai ordini. Solo fonti pubbliche.
 - **Piano di accumulo** (`config/accumulation.yaml`, `office/accumulation.py`): 50 € al mese in BTC dal giorno 5, strada più economica tra EUR→BTC ed EUR→USDC→BTC, libro separato e immutabile. Franco può solo rimandare l'acquisto, mai ingrandirlo; niente vendite automatiche. Soldi veri solo dopo 2 acquisti paper riusciti e una decisione dell'utente.
+- **Ordini limite nell'accumulo**: offerta al miglior prezzo di acquisto (maker 0,10%); dopo 24 ore senza esecuzione si annulla e si compra a mercato. In paper conta come eseguito solo se il prezzo scende sotto il limite.
+- **Osservatorio funding** (`config/funding_watch.yaml`, `office/funding_watch.py`): solo lettura dei tassi di finanziamento dei perpetui, stima netta sul capitale del "compro + vendo il perpetuo". Nessun ordine; revisione fissata prima di osservare (90 giorni, ≥ 5% netto).
 - **Strategie lente** (`SIZING = "allocation"`, es. STRATEGY_06): size fissa al tetto per asset, validate sui rendimenti giornalieri contro compra e tieni (criteri `slow` in `config/quant_gates.yaml`).
 - **Costi reali**: se le commissioni in `settings.yaml` superano quelle della validazione, `ricerca` riverifica le strategie approvate (file separato `*.costaudit-*.json`); l'esito può solo bocciare.
 - **Il piano d'investimento** (`config/investment_plan.yaml`) è mostrato nella dashboard: profilo, quote massime, tempi, proiezioni e rischi.
