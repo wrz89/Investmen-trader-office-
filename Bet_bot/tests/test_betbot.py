@@ -62,24 +62,68 @@ def office(tmp_path, monkeypatch):
 
 
 def _proposal(**kw):
-    p = {"strategy_id": "S01_favoriti_v1", "strategy_status": "ATTIVA", "match_id": "M1", "league": "Serie A",
-         "label": "Inter - Lecce · Inter", "market": "h2h", "selection": "home", "bookmaker": "Pinnacle",
-         "odds": 1.25, "fair_prob": 0.85, "edge": 0.0625, "n_books": 5, "dispersion": 0.01, "live": False,
-         "odds_ts": 1000.0, "reason": "test"}
+    p = {"strategy_id": "S05_favoriti_exchange_v1", "strategy_status": "ATTIVA", "match_id": "M1", "market_id": "M1",
+         "league": "Serie A", "label": "Inter - Lecce · Inter", "market": "h2h", "selection": "home", "bookmaker": "Betfair",
+         "odds": 1.25, "fair_prob": 0.85, "edge": 0.0625, "commission": 0.05, "n_books": 5, "dispersion": 0.01,
+         "live": False, "odds_ts": 1000.0, "reason": "test"}
     p.update(kw)
     return p
 
 
-def _snap():
-    return {"ts": 1000.0, "sim_time": 1000.0, "time_scale": 1.0, "matches": {}, "races": {},
+def _snap(back=1.25, back_size=5000.0):
+    return {"ts": 1000.0, "sim_time": 1000.0, "time_scale": 1.0, "races": {},
+            "matches": {"M1": {"match_id": "M1", "status": "SCHEDULED", "home": "Inter", "away": "Lecce",
+                               "exchange": {"home": {"back": back, "lay": 1.26, "back_size": back_size, "lay_size": 3000.0}}}},
             "health": {"error_rate": 0, "source": "mock"}}
 
 
-def test_risk_approves_and_caps_stake(office):
+def test_min_stake_with_30_eur_only_when_edge_is_strong(office):
+    """Con 30 € la puntata minima di 2 € (6,7%) passa solo se resta ≤ metà del Kelly pieno."""
+    state = office.risk.portfolio_state()
+    strong = office.risk.evaluate(_proposal(fair_prob=0.85, edge=0.05), _snap(), state)
+    assert strong["approved"] and strong["stake"] == 2.0
+    weak = office.risk.evaluate(_proposal(fair_prob=0.815, edge=0.012), _snap(), state)
+    assert not weak["approved"] and any("vantaggio non basta" in r for r in weak["reasons"])
+    by = {s["id"]: s for s in office.direttore.strategies()}
+    assert by["S05_favoriti_exchange_v1"]["status"] == "ATTIVA"
+    assert by["S04_greenup_cavalli_v2"]["status"] == "OSSERVAZIONE"             # niente ippica su betfair.it
+
+
+def test_back_stakes_follow_italian_rules():
+    from betbot.execution import round_back_stake
+    assert round_back_stake(2.99) == 2.5 and round_back_stake(3.0) == 3.0 and round_back_stake(1.99) == 0.0
+
+
+def test_back_bet_approved_and_capped_when_bankroll_is_enough(office):
+    office.bankroll.cash = 300.0
     state = office.risk.portfolio_state()
     d = office.risk.evaluate(_proposal(), _snap(), state)
     assert d["approved"]
-    assert d["stake"] <= office.risk.limits["max_stake_pct"] * state["stake_base"] + 1e-9
+    assert 2.0 <= d["stake"] <= office.risk.limits["max_stake_pct"] * state["stake_base"] + 1e-9
+    assert (d["stake"] * 2) == int(d["stake"] * 2)                              # multipli di 0,50 €
+
+
+def test_trade_is_sized_on_worst_loss():
+    from betbot.agents.risk import stake_for, worst_loss
+    from betbot.strategies.s04_greenup_cavalli_v2 import DEFAULTS, trade_plan
+    plan = trade_plan(4.0, DEFAULTS)
+    limits = {"max_risk_per_trade_pct": 0.015, "max_trade_stake_pct": 0.25, "max_stake_pct": 0.02, "kelly_fraction": 0.25}
+    p = {"exchange": {"risk_per_unit": plan["risk_per_unit"]}}
+    stake, _ = stake_for(p, 30.0, limits, 2.0)
+    assert 2.0 <= stake <= 7.5
+    assert worst_loss(p, stake) <= 0.015 * 30 + 1e-9                 # perdita massima ≤ 0,45 €
+    assert 0.5 < plan["breakeven_hit_rate"] < 0.9 and plan["gain_per_unit"] > 0
+
+
+def test_paper_exchange_fill_or_kill_rules():
+    from betbot.execution import PaperExchange
+    ex = PaperExchange(1.5)
+    book = {"back": 2.0, "lay": 2.02, "back_size": 30.0, "lay_size": 5.0}
+    assert ex.place("BACK", 2.0, 10.0, book)["ok"]                    # prezzo ok, 30 € ≥ 15 €
+    assert not ex.place("BACK", 2.02, 10.0, book)["ok"]               # chiedo più di quanto offre il book
+    assert not ex.place("BACK", 2.0, 25.0, book)["ok"]                # liquidità insufficiente
+    assert not ex.place("LAY", 2.02, 10.0, book)["ok"]                # sul lay ci sono solo 5 €
+    assert not ex.place("BACK", 2.0, 1.0, None)["ok"]
 
 
 def test_risk_vetoes(office):
@@ -99,28 +143,20 @@ def test_kill_switch_triggers_on_drawdown(office):
     assert any("KILL SWITCH" in m for m in office.notifier.sent)                  # arriva anche su Telegram
 
 
-def test_manual_route_and_notification_for_bookmaker_without_api(office):
-    state = office.risk.portfolio_state()
-    p = _proposal(bookmaker="Bet365")
-    d = office.risk.evaluate(p, _snap(), state)
-    bet_id = office.banco.place(p, d, "c1", _snap())
-    bet = office.store.query("SELECT * FROM bets WHERE id=?", (bet_id,))[0]
-    assert bet["mode"] == "manual"
-    assert any("DA PIAZZARE A MANO" in m for m in office.notifier.sent)
-
-
-def test_settlement_updates_bankroll(office):
+def test_paper_bet_notifies_and_settles_with_commission(office):
+    office.bankroll.cash = 300.0
     state = office.risk.portfolio_state()
     p = _proposal()
     d = office.risk.evaluate(p, _snap(), state)
-    office.banco.place(p, d, "c1", _snap())
+    assert office.banco.place(p, d, "c1", _snap())
+    assert any("Puntata #1" in m and "PAPER" in m for m in office.notifier.sent)     # Telegram a ogni giocata
     before = office.bankroll.total
     snap = _snap()
     snap["matches"]["M1"] = {"match_id": "M1", "status": "FINISHED", "result": "home", "home_score": 2, "away_score": 0,
                              "closing": {"home": 1.20}}
     assert office.banco.settle(snap) == 1
     bet = office.store.query("SELECT * FROM bets")[0]
-    assert bet["status"] == "WON" and bet["pnl"] == pytest.approx(d["stake"] * 0.25)
+    assert bet["status"] == "WON" and bet["pnl"] == pytest.approx(d["stake"] * 0.25 * (1 - p["commission"]))
     assert bet["clv"] == pytest.approx(1.25 / 1.20 - 1)
     assert office.bankroll.total == pytest.approx(before + bet["pnl"])
 
@@ -136,7 +172,7 @@ def test_live_gates_closed_by_default(monkeypatch):
     from betbot.execution import Gates
     monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
     ok, why = Gates.live_allowed({"mode": "live", "execution": {"provider": "betfair"}, "live_strategies": ["X"]}, "X")
-    assert not ok and "verificata" in why
+    assert not ok and "verificato" in why
     assert not Gates.live_allowed({"mode": "paper"}, "X")[0]
 
 
@@ -186,23 +222,28 @@ def test_team_matching():
     assert not same_team("Man United", "Man City") and not same_team("Real Madrid", "Atletico Madrid")
 
 
-def test_backtest_uses_opening_odds_and_settles_by_result():
+def test_backtest_uses_exchange_prices_commission_and_italian_stakes():
     import pandas as pd
     from betbot.backtest import montecarlo, run
     rows = []
     for i in range(30):
-        rows.append({"date": pd.Timestamp("2024-01-01") + pd.Timedelta(days=i), "league": "X", "home": "A", "away": "B",
-                     "result": "home" if i % 5 else "away", "score": "",
-                     "books": {"Pinnacle": {"home": 1.22, "draw": 6.5, "away": 13.0},
-                               "Soft": {"home": 1.30, "draw": 5.5, "away": 9.0},
-                               "Other": {"home": 1.21, "draw": 6.0, "away": 12.0}},
-                     "closing": {"home": 1.20, "draw": 6.8, "away": 14.0}})
-    r = run(rows, "S01_favoriti_v1", initial=100.0)
+        rows.append({"date": pd.Timestamp("2025-01-01") + pd.Timedelta(days=i), "sport": "soccer", "league": "X",
+                     "home": "A", "away": "B", "result": "home" if i % 5 else "away", "score": "",
+                     "books": {"Pinnacle": {"home": 1.22, "draw": 7.0, "away": 14.0},
+                               "Bet365": {"home": 1.20, "draw": 6.5, "away": 13.0}},
+                     "exchange": {"home": 1.35, "draw": 7.4, "away": 15.0},
+                     "exchange_close": {"home": 1.30, "draw": 7.6, "away": 16.0}, "closing": None})
+    r = run(rows, "S05_favoriti_exchange_v1", initial=30.0, commission=0.045, min_stake=2.0)
     assert r.metrics["bets"] == 30 and r.metrics["win_rate"] == pytest.approx(0.8)
-    assert (r.bets["odds"] == 1.30).all()                  # quota migliore d'apertura, mai quella di chiusura
+    assert (r.bets["odds"] == 1.35).all()                              # prezzo Betfair pre-partita, mai la chiusura
+    assert ((r.bets["stake"] * 2) % 1 == 0).all() and (r.bets["stake"] >= 2).all()   # 2 € a multipli di 0,50
+    won = r.bets[r.bets["won"]].iloc[0]
+    assert won["pnl"] == pytest.approx(won["stake"] * 0.35 * 0.955)   # commissione sulla vincita
+    assert r.bets["clv"].iloc[0] == pytest.approx(1.35 / 1.30 - 1)
+    naive = run(rows, "NAIVE_80", initial=30.0, commission=0.045)
+    assert naive.metrics["bets"] == 0                                   # 1,35 fuori dalla fascia 1,15–1,25
     mc = montecarlo(0.80, 1.20, 0.02, n_bets=200, paths=200)
-    assert mc["breakeven"] == pytest.approx(1 / 1.2) and mc["ev_per_bet"] < 0
-
+    assert mc["ev_per_bet"] < 0 and mc["breakeven"] > 0.83
 
 def test_short_simulation_runs_and_books_balance(tmp_path, monkeypatch):
     monkeypatch.setenv("BETBOT_RUNTIME_DIR", str(tmp_path))
@@ -258,7 +299,8 @@ def test_betfair_soccer_runners_mapped_by_name():
         "1": {"back": 1.25, "lay": 1.26, "back_size": 1, "lay_size": 1}, "2": {"back": 13.0, "lay": 13.5, "back_size": 1, "lay_size": 1},
         "3": {"back": 6.6, "lay": 6.8, "back_size": 1, "lay_size": 1}}}}
     m = f._snapshot(prices)["matches"]["1.5"]
-    assert m["books"]["Betfair"] == {"home": 1.25, "away": 13.0, "draw": 6.6}
+    assert m["books"] == {}                                     # niente auto-riferimento: il "giusto" arriva da fuori
+    assert m["exchange"]["home"]["back"] == 1.25 and m["exchange"]["away"]["back"] == 13.0 and m["exchange"]["draw"]["back"] == 6.6
     assert m["betfair"]["selection_ids"] == {"home": 1, "away": 2, "draw": 3}
 
 
@@ -279,3 +321,20 @@ def test_telegram_sends_on_bet_and_breaker(monkeypatch):
     n.on_event("Bruno · Risk Manager", "WARN", "circuit", "Circuit breaker: 6 perdite di fila")
     n.on_event("Sara · Quote", "INFO", "scan", "routine")
     assert len(sent) == 2 and "Puntata #1" in sent[0] and "Circuit breaker" in sent[1]
+
+
+def test_telegram_commands_can_only_inform_or_brake(office):
+    from betbot.telegram_bot import TelegramCommands
+    tc = TelegramCommands(office)
+    office.store.set("risk_state", office.risk.portfolio_state())
+    assert "Bankroll" in tc.handle("/stato")
+    assert "Comandi" in tc.handle("/aiuto")
+    assert tc.handle("ciao") is None
+    tc.handle("/pausa 30")
+    assert office.risk.portfolio_state()["cooldown_until"]
+    tc.handle("/riprendi")
+    assert not office.risk.portfolio_state()["cooldown_until"]
+    tc.handle("/stop")
+    assert office.store.get("kill_switch")
+    d = office.risk.evaluate(_proposal(), _snap(), office.risk.portfolio_state())
+    assert not d["approved"]

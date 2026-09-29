@@ -79,6 +79,12 @@ class Quote(Agent):
             self.store.record_odds(rows)
         self._prune()
         self.office.cache = snap                               # cache in memoria (il ruolo di Redis)
+        if self.settings["feed"].get("record"):
+            try:
+                from ..feeds.recorder import Recorder
+                Recorder().write(snap)                         # registrazione per il replay (runtime/recordings)
+            except Exception as exc:
+                self.log(f"Registrazione non riuscita: {exc}. Nessun effetto sulle puntate.", "WARN", "record")
         self.store.set("board", board(snap))                   # tabellone per la dashboard
         live = sum(1 for m in snap["matches"].values() if m["status"] == "LIVE")
         races = sum(1 for r in snap.get("races", {}).values() if r["status"] == "OPEN")

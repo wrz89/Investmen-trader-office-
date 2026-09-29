@@ -3,10 +3,13 @@
     python betbot.py avvia                 avvia l'ufficio (ciclo asincrono) + dashboard su http://localhost:8766
     python betbot.py ciclo                 esegue un solo ciclo
     python betbot.py simula --ore 72       simulazione accelerata di tutto l'ufficio sul feed simulato
-    python betbot.py backtest              scarica lo storico reale (football-data.co.uk) e confronta le strategie
+    python betbot.py backtest             scarica lo storico con i prezzi VERI di Betfair Exchange e confronta le strategie
     python betbot.py rischio --quota 1.22 --vinte 0.80 --puntata 0.02
                                           Monte Carlo: cosa succede al bankroll con quella quota e quel win rate
-    python betbot.py dashboard [--simulazione]   apre solo la dashboard (anche sui dati della simulazione)
+    python betbot.py replay [--da AAAA-MM-GG] [--a AAAA-MM-GG]
+                                          fa girare TUTTE le strategie sui prezzi registrati (feed.record: true)
+    python betbot.py diagnosi             controlla installazione, configurazione, Telegram, chiavi e Betfair
+    python betbot.py dashboard [--simulazione | --replay]   apre solo la dashboard
     python betbot.py report                report del giorno
     python betbot.py stato                 riepilogo veloce
     python betbot.py prova-telegram        invia un messaggio di prova
@@ -52,11 +55,13 @@ def main() -> int:
         return 1
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
-                                       "prova-telegram", "betfair-verifica", "reset-kill-switch"])
+                                       "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi"])
+    p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
+    p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
+    p.add_argument("--replay", action="store_true", help="dashboard: mostra i dati dell'ultimo replay")
     p.add_argument("--ore", type=float, default=72, help="simula: ore simulate")
     p.add_argument("--seed", type=int, default=7, help="simula: seme del mondo simulato")
-    p.add_argument("--campionati", default="I1,I2,E0,E1,SP1,D1,F1,N1,P1", help="backtest: codici football-data")
-    p.add_argument("--stagioni", type=int, default=10, help="backtest: quante stagioni fino al 2024/25")
+    p.add_argument("--campionati", default="", help="backtest: codici football-data (predefiniti: 16 campionati con prezzi Betfair)")
     p.add_argument("--csv", nargs="*", help="backtest: uno o più CSV propri invece del download")
     p.add_argument("--senza-kill", action="store_true", help="backtest: ignora il kill switch per misurare il segnale")
     p.add_argument("--quota", type=float, default=1.22)
@@ -72,7 +77,7 @@ def main() -> int:
     port = load_settings()["dashboard_port"]
 
     if a.comando == "dashboard":
-        db = RUNTIME_DIR / "simulazione.db" if a.simulazione else None
+        db = RUNTIME_DIR / "simulazione.db" if a.simulazione else RUNTIME_DIR / "replay.db" if a.replay else None
         print(f"Dashboard su http://localhost:{port}  (CTRL+C per chiudere)")
         if not a.no_browser:
             webbrowser.open(f"http://localhost:{port}")
@@ -91,6 +96,29 @@ def main() -> int:
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
         return 0
 
+    if a.comando == "diagnosi":
+        from betbot.diagnostics import run_all
+        ok = run_all()
+        return 0 if ok else 1
+
+    if a.comando == "replay":
+        from betbot.feeds.recorder import recorded_files
+        from betbot.simulate import replay
+        files = recorded_files(a.da, a.fino)
+        if not files:
+            print("Nessuna registrazione in runtime/recordings/. Imposta feed.record: true in config/settings.yaml, "
+                  "lascia girare Bet_bot sui prezzi veri di betfair.it per qualche giorno, poi rilancia.")
+            return 1
+        print(f"Replay di {len(files)} giorni registrati con TUTTE le strategie attive (paper)…")
+        m = asyncio.run(replay(files))
+        print(f"\n{m.get('snapshots', 0)} fotografie · bankroll {m.get('initial', 0):.2f} → {m.get('bankroll', 0):.2f} € · "
+              f"{m.get('bets', 0)} chiuse · ROI {m.get('roi', 0):+.2%} · kill switch: {m.get('kill_switch') or 'no'}")
+        for sid, s in (m.get("by_strategy") or {}).items():
+            wr = "—" if s["win_rate"] is None else f"{s['win_rate']:.0%}"
+            print(f"  {sid:<28} {s['bets']:>4} chiuse · vinte {wr} · P&L {s['pnl']:+.2f} € · ROI {s['roi']:+.1%}")
+        print("\nGuarda il replay nella dashboard:  python betbot.py dashboard --replay")
+        return 0
+
     if a.comando == "simula":
         from betbot.simulate import main as simulate
         print(f"Simulo {a.ore:.0f} ore di ufficio sul feed simulato (seme {a.seed})…")
@@ -104,17 +132,25 @@ def main() -> int:
         return 0
 
     if a.comando == "backtest":
-        from betbot.backtest import default_seasons, download, load, run, save
+        from betbot.backtest import EXCHANGE_DIVS, download, exchange_seasons, load, run, save
+        from betbot.backtest_tennis import tennis_paths
         if a.csv:
             from pathlib import Path
             paths = [Path(x) for x in a.csv]
         else:
-            divs = [d.strip() for d in a.campionati.split(",") if d.strip()]
-            print(f"Scarico lo storico: {len(divs)} campionati × {a.stagioni} stagioni (solo la prima volta)…")
-            paths = download(divs, default_seasons(a.stagioni))
+            divs = [d.strip() for d in a.campionati.split(",") if d.strip()] if a.campionati else EXCHANGE_DIVS
+            seasons = exchange_seasons()
+            print(f"Scarico lo storico con i prezzi Betfair Exchange: {len(divs)} campionati, stagioni "
+                  f"{', '.join(seasons)} (solo la prima volta)…")
+            paths = download(divs, seasons)
+            try:
+                paths += tennis_paths()
+            except Exception as exc:
+                print(f"Tennis non disponibile ({exc}): continuo col calcio.")
         rows = load(paths)
-        print(f"{len(rows)} partite caricate. Simulo le strategie…")
-        results = [run(rows, s, kill_switch=not a.senza_kill) for s in ("NAIVE_80", "S01_favoriti_v1", "S03_surebet_v1")]
+        print(f"{len(rows)} partite con prezzo Betfair caricate. Simulo le strategie con {load_settings()['capital']['initial']} € "
+              "e le regole di betfair.it…")
+        results = [run(rows, s, kill_switch=not a.senza_kill) for s in ("NAIVE_80", "S05_favoriti_exchange_v1")]
         path = save(results, rows, "ultimo")
         print(path.read_text(encoding="utf-8"))
         print(f"Report e CSV delle puntate in {path.parent}")

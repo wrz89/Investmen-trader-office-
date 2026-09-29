@@ -1,9 +1,8 @@
 """AGENTE 6 — PIETRO · BANCO SCOMMESSE (esecuzione e notifica).
 
 Piazza solo puntate con APPROVE del Risk Manager, tramite l'Executor:
-  paper  → registrata al prezzo del feed;
-  live   → ordine fill-or-kill su Betfair Exchange (solo con tutti i cancelli aperti);
-  manual → bookmaker senza API: registrata in paper e segnalata su Telegram da piazzare a mano.
+  paper → exchange simulato con le stesse regole di Betfair (fill-or-kill, liquidità, commissione);
+  live  → ordine fill-or-kill su Betfair Exchange (solo con tutti i cancelli aperti).
 Esegue cash-out e green-up chiesti dalle strategie, chiude le puntate a partita
 finita e calcola il CLV (quota presa contro quota "giusta" alla chiusura).
 Ogni puntata e ogni chiusura partono anche su Telegram (Notifier).
@@ -16,8 +15,9 @@ from ..feeds.mock import tick_up
 from ..store import now_iso
 from .base import Agent
 
-CASHOUT_MARGIN = 0.05       # il bookmaker trattiene ~5% sul cash-out
-MODE_LABEL = {"paper": "PAPER", "live": "SOLDI VERI · Betfair", "manual": "DA PIAZZARE A MANO"}
+CASHOUT_MARGIN = 0.05
+TRADE_MARKETS = ("exchange_win", "exchange_trade")      # trade back→lay: si chiudono con un lay, non col risultato       # il bookmaker trattiene ~5% sul cash-out
+MODE_LABEL = {"paper": "PAPER · exchange simulato", "live": "SOLDI VERI · Betfair"}
 
 
 def exchange_green(stake: float, back: float, lay: float, commission: float) -> float:
@@ -39,7 +39,7 @@ class Banco(Agent):
         br = self.office.bankroll
         stake, odds, mode = res["stake"], res["odds"], res["mode"]
         br.cash = br.cash - stake
-        extra = {k: p[k] for k in ("legs", "exchange") if p.get(k)}
+        extra = {k: p[k] for k in ("legs", "exchange", "commission") if p.get(k)}
         if res.get("ref"):
             extra["betfair"] = res["ref"]
         cur = self.store.execute(
@@ -76,7 +76,8 @@ class Banco(Agent):
         icon = "✅" if pnl > 0 else "❌" if pnl < 0 else "➖"
         self.say(f"{icon} #{bet['id']} {bet['label']}: {status} {pnl:+.2f} € ({reason})"
                  + (f", CLV {clv:+.1%}" if clv is not None else "") + f". Bankroll {self.office.bankroll.total:.2f} €.",
-                 "ok", "settle", payload={"bet_id": bet["id"], "pnl": pnl, "status": status})
+                 "ok", "settle", payload={"bet_id": bet["id"], "pnl": pnl, "status": status, "strategy": bet["strategy_id"],
+                                          "stake": bet["stake"], "odds": bet["odds"], "label": bet["label"]})
         return pnl
 
     def apply(self, actions: list[dict]) -> int:
@@ -90,19 +91,16 @@ class Banco(Agent):
             urgent = any(w in a["reason"] for w in ("time-to-jump", "corsa partita", "stop"))
             if a["action"] == "hedge" or (a["action"] == "cashout" and bet["mode"] == "live"):
                 lay = a["price"] if a["action"] == "hedge" else tick_up(a["price"])
-                res = self.office.executor.hedge(bet, lay, urgent)
+                res = self.office.executor.hedge(bet, lay, urgent, self.office.cache)
                 if not res["ok"]:
                     self.say(f"#{bet['id']}: chiusura non riuscita ({res['error']}). Riprovo al prossimo ciclo.",
                              "alert", "exec_fail", level="WARN")
                     continue
-                comm = (extra.get("exchange") or {}).get("commission", 0.05)
+                comm = (extra.get("exchange") or {}).get("commission", self.office.executor.commission)
                 pnl = exchange_green(bet["stake"], bet["odds"], res["price"], comm)
                 self._close(bet, "HEDGED", bet["stake"] + pnl, a["reason"])
             elif a["action"] == "cashout":
                 value = bet["stake"] * bet["odds"] / a["price"] * (1 - CASHOUT_MARGIN)
-                if bet["mode"] == "manual":
-                    self.log(f"#{bet['id']} {bet['label']}: FAI CASH-OUT A MANO su {bet['bookmaker']} ({a['reason']}).",
-                             "WARN", "cashout")
                 self._close(bet, "CASHOUT", value, a["reason"])
             n += 1
         return n
@@ -110,7 +108,7 @@ class Banco(Agent):
     def settle(self, snapshot: dict) -> int:
         n = 0
         open_bets = self.office.bankroll.open_bets()
-        live = [b for b in open_bets if b["mode"] == "live" and b["market"] != "exchange_win"]
+        live = [b for b in open_bets if b["mode"] == "live" and b["market"] not in TRADE_MARKETS]
         if live:
             try:
                 cleared = self.office.executor.settled_live(live)
@@ -125,7 +123,7 @@ class Banco(Agent):
                                 f"regolata da Betfair ({c['outcome']})")
                     n += 1
         for bet in open_bets:
-            if bet["mode"] == "live" or bet["market"] == "exchange_win":
+            if bet["mode"] == "live" or bet["market"] in TRADE_MARKETS:
                 continue
             m = snapshot["matches"].get(bet["match_id"])
             if m is None:
@@ -135,15 +133,20 @@ class Banco(Agent):
                 continue
             closing = (m.get("closing") or {}).get(bet["selection"]) if isinstance(m.get("closing"), dict) else None
             won = m["result"] in bet["selection"].split("+")
-            self._close(bet, "WON" if won else "LOST", bet["stake"] * bet["odds"] if won else 0.0,
-                        f"risultato {m.get('home_score')}-{m.get('away_score')}", closing)
+            extra = json.loads(bet["extra"]) if bet.get("extra") else {}
+            comm = extra.get("commission", self.office.executor.commission) if bet["bookmaker"] in ("Betfair", "Exchange") else 0.0
+            payout = bet["stake"] + bet["stake"] * (bet["odds"] - 1) * (1 - comm) if won else 0.0
+            self._close(bet, "WON" if won else "LOST", payout,
+                        f"risultato {m.get('home_score')}-{m.get('away_score')}"
+                        + (f", commissione {comm:.0%} sulla vincita" if won and comm else ""), closing)
             n += 1
         for sb in self.store.query("SELECT * FROM shadow_bets WHERE status='OPEN'"):
             m = snapshot["matches"].get(sb["match_id"])
             if m and m["status"] == "FINISHED" and m.get("result"):
                 won = m["result"] in sb["selection"].split("+")
+                net = (sb["odds"] - 1) * (1 - self.office.executor.commission)       # ombra: 1 € su exchange
                 self.store.execute("UPDATE shadow_bets SET status=?, settled_ts=?, pnl=? WHERE id=?",
-                                   ("WON" if won else "LOST", now_iso(), sb["odds"] - 1 if won else -1.0, sb["id"]))
+                                   ("WON" if won else "LOST", now_iso(), net if won else -1.0, sb["id"]))
         if not n:
             self.status("idle", f"{len(self.office.bankroll.open_bets())} puntate in gioco, nessuna da chiudere.")
         return n

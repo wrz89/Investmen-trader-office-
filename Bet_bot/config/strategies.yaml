@@ -1,15 +1,69 @@
-# Parametri delle strategie. Ogni strategia è un file versionato in
-# betbot/strategies/: per cambiarla si crea una versione nuova, mai si sovrascrive.
+# Parametri delle strategie. Ogni strategia è un file versionato in betbot/strategies/:
+# per cambiarla si crea una versione nuova, mai si sovrascrive. Quelle non elencate in
+# settings.yaml (active_strategies / observe_strategies) sono ritirate e non girano.
+# commission e min_stake arrivano da settings.yaml → execution.
 
+S05_favoriti_exchange_v1:
+  description: Favoriti netti pre-partita (calcio, tennis, basket) su Betfair quando la quota, al netto della commissione, batte la probabilità
+    giusta dei bookmaker di riferimento.
+  odds_min: 1.1
+  odds_max: 1.4
+  min_fair_prob: 0.75
+  min_edge: 0.01
+  hours_before_kickoff: 36
+  min_hours_before_kickoff: 0.25
+  min_reference_books: 2
+S06_live_exchange_v1:
+  description: Favorito in vantaggio nel finale, su Betfair in-play; chiusura con un lay se il vantaggio sparisce.
+  min_minute: 70
+  min_lead: 1
+  odds_min: 1.05
+  odds_max: 1.3
+  min_edge: 0.01
+  skip_if_red_card: true
+  min_opp_shots_check: 5
+  max_opp_shot_ratio: 2.0
+  close_on_lead_lost: true
+S07_scalping_prepartita_v1:
+  description: Trade back→lay prima dell'inizio (calcio, tennis, basket) sul lato con più denaro in attesa; uscita al target, allo stop o 3 minuti
+    prima dell'inizio.
+  odds_min: 1.5
+  odds_max: 4.0
+  max_minutes_before: 120
+  min_minutes_before: 10
+  exit_minutes_before: 3
+  target_ticks: 2
+  stop_ticks: 3
+  slippage_ticks: 2
+  wom_min: 0.65
+  min_book_multiple: 5.0
+  min_net_target_return: 0.004
+  sports:
+  - soccer
+  - tennis
+  - basketball
+S04_greenup_cavalli_v2:
+  description: 'Cavalli pre-gara su Betfair: back→lay con target e stop in tick, uscita 60 s prima del via, puntata dimensionata sulla perdita
+    massima.'
+  odds_min: 2.0
+  odds_max: 6.0
+  min_seconds_to_off: 180
+  max_seconds_to_off: 900
+  exit_seconds_to_off: 60
+  target_ticks: 2
+  stop_ticks: 3
+  slippage_ticks: 2
+  wom_min: 0.62
+  min_book_multiple: 5.0
+  min_net_target_return: 0.004
 S01_favoriti_v1:
   description: Favoriti netti pre-partita con quota migliore superiore alla probabilità di consenso.
   odds_min: 1.15
-  odds_max: 1.30
-  min_fair_prob: 0.78          # probabilità "giusta" (senza margine) minima
+  odds_max: 1.3
+  min_fair_prob: 0.78
   min_edge: 0.015
-  hours_before_kickoff: 36     # finestra: partite entro 36 ore
+  hours_before_kickoff: 36
   min_hours_before_kickoff: 0.25
-
 S02_live_scalp_v1:
   description: Favorito in vantaggio nel finale; puntata micro con cash-out se il vantaggio sparisce.
   min_minute: 70
@@ -18,24 +72,22 @@ S02_live_scalp_v1:
   odds_max: 1.22
   min_edge: 0.01
   cashout_on_lead_lost: true
-  skip_if_red_card: true       # niente ingresso se la squadra in vantaggio ha un uomo in meno
-  min_opp_shots_check: 5       # controllo "assedio" solo se l'avversario ha già ≥ 5 tiri in porta
-  max_opp_shot_ratio: 2.0      # … e ne ha più del doppio della squadra in vantaggio
-
+  skip_if_red_card: true
+  min_opp_shots_check: 5
+  max_opp_shot_ratio: 2.0
 S03_surebet_v1:
   description: Arbitraggio tra bookmaker (somma delle probabilità implicite < 1).
-  min_margin: 0.004            # profitto garantito ≥ 0,4% dopo arrotondamenti
-  max_margin: 0.03             # oltre il 3% è quasi sempre una quota sbagliata: il bookmaker annulla la giocata
+  min_margin: 0.004
+  max_margin: 0.03
   max_odds: 6.0
-
 S04_greenup_cavalli_v1:
   description: Cavalli pre-gara su exchange, back-to-lay con green-up prima del via (dal bot Betfair di riferimento).
   odds_min: 2.0
   odds_max: 6.0
   min_seconds_to_off: 180
   max_seconds_to_off: 900
-  exit_seconds_to_off: 60      # time-to-jump: tutto chiuso 60 s prima della partenza
+  exit_seconds_to_off: 60
   target_ticks: 2
   stop_ticks: 3
-  wom_min: 0.62                # weight of money minimo sul back
-  commission: 0.05             # commissione exchange sul profitto netto di mercato
+  wom_min: 0.62
+  commission: 0.05

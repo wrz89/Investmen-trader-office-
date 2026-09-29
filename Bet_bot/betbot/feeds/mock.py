@@ -26,7 +26,32 @@ LEAGUES = {
                                          "Valencia", "Sociedad", "Girona", "Getafe", "Osasuna", "Alaves"]),
     "basketball_nba": ("NBA", ["Celtics", "Nuggets", "Bucks", "Suns", "Lakers", "Warriors", "Heat", "Knicks",
                                "Thunder", "Mavericks", "Pistons", "Hornets"]),
+    "tennis_atp": ("ATP", ["Sinner", "Alcaraz", "Djokovic", "Zverev", "Medvedev", "Fritz", "Musetti", "Rune",
+                           "Draper", "Cobolli", "Darderi", "Arnaldi", "Shelton", "Tsitsipas"]),
+    "tennis_wta": ("WTA", ["Sabalenka", "Swiatek", "Gauff", "Paolini", "Rybakina", "Pegula", "Andreeva", "Zheng",
+                           "Bronzetti", "Cocciaretto", "Keys", "Navarro"]),
 }
+
+
+def is_tennis(sport: str) -> bool:
+    return sport.startswith("tennis")
+
+
+def two_way(sport: str) -> bool:
+    return sport.startswith(("tennis", "basketball"))
+
+
+def bo3(q: float) -> float:
+    """Probabilità di vincere al meglio dei 3 set, dato q = probabilità di vincere un set."""
+    return q * q * (3 - 2 * q)
+
+
+def set_prob(p_match: float) -> float:
+    lo, hi = 0.0, 1.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if bo3(mid) < p_match else (lo, mid)
+    return (lo + hi) / 2
 BOOKMAKERS = ["Pinnacle", "Bet365", "Unibet", "Betway", "William Hill", "Sisal", "Snai", "Eurobet"]
 VENUES = ["Ascot", "Newmarket", "Cheltenham", "York", "Goodwood", "Kempton"]
 
@@ -77,6 +102,8 @@ class MockFeed(Feed):
         self.n_books = int(m.get("bookmakers", 6))
         self.margin = float(m.get("margin", 0.05))
         self.per_cycle = int(m.get("matches_per_cycle", 6))
+        self.exchange_update = float(m.get("exchange_update", 0.35))       # prob. che l'exchange si aggiorni a ogni tick
+        self.exchange_liquidity = float(m.get("exchange_liquidity", 400))  # € tipici sul miglior prezzo (pool italiano: pochi)
         self.real_start = time.time()
         self.sim_start = time.time()
         self.books = BOOKMAKERS[: self.n_books]
@@ -100,7 +127,7 @@ class MockFeed(Feed):
     # ── partite ─────────────────────────────────────────────────
     @staticmethod
     def _probs_from_strength(sport: str, strength: float) -> dict[str, float]:
-        if sport == "basketball_nba":
+        if two_way(sport):
             ph = 1 / (1 + math.exp(-strength))
             return {"home": ph, "away": 1 - ph}
         ph = 1 / (1 + math.exp(-(strength + 0.25)))         # con fattore campo
@@ -110,7 +137,8 @@ class MockFeed(Feed):
 
     def _true_probs(self, sport: str) -> tuple[dict[str, float], float]:
         # differenza di forza home−away (a volte squilibri netti)
-        strength = self.rng.gauss(0, 0.9) if sport == "basketball_nba" else self.rng.gauss(0, 1.3)
+        sd = 1.6 if is_tennis(sport) else 0.9 if two_way(sport) else 1.3     # nel tennis i favoriti netti sono frequenti
+        strength = self.rng.gauss(0, sd)
         return self._probs_from_strength(sport, strength), strength
 
     def _new_match(self) -> dict:
@@ -124,8 +152,8 @@ class MockFeed(Feed):
                 "strength": strength,
                 "kickoff_epoch": kickoff, "kickoff": _iso(kickoff), "status": "SCHEDULED", "minute": 0,
                 "home_score": 0, "away_score": 0, "result": None, "truth": truth, "closing": None,
-                "books": {}, "live_books": {}, "odds_ts": None,
-                "goal_rate": 2.7 / self.match_minutes if sport != "basketball_nba" else 0.0,
+                "books": {}, "live_books": {}, "exchange": {}, "odds_ts": None,
+                "goal_rate": 0.0 if two_way(sport) else 2.7 / self.match_minutes,
                 "seen_minute": 0}
 
     def _quote(self, probs: dict[str, float], book: str, live: bool = False) -> dict[str, float]:
@@ -151,6 +179,11 @@ class MockFeed(Feed):
         t = m["truth"]
         remaining = max(0.0, (self.match_minutes - m["minute"]) / self.match_minutes)
         lead = m["home_score"] - m["away_score"]
+        if is_tennis(m["sport"]):                            # tennis: set vinti e probabilità di vincere un set
+            q, h, a = set_prob(t["home"]), m["home_score"], m["away_score"]
+            ph = {(0, 0): bo3(q), (1, 0): 1 - (1 - q) ** 2, (0, 1): q * q, (1, 1): q}.get((h, a), 1.0 if h > a else 0.0)
+            ph = min(0.995, max(0.005, ph))
+            return {"home": ph, "away": 1 - ph}
         if "draw" not in t:                                  # basket: logit su vantaggio e tempo
             edge = (t["home"] - 0.5) * 4 * remaining + lead / (8 * max(remaining, 0.05) ** 0.5)
             ph = 1 / (1 + math.exp(-edge))
@@ -190,6 +223,9 @@ class MockFeed(Feed):
                 for b in self.books:
                     if not m["books"].get(b) or b == "Pinnacle" or self.rng.random() < 0.25:
                         m["books"][b] = self._quote(m["truth"], b)
+                # l'exchange (Betfair) segue la verità con un po' di ritardo, come i book soft
+                if not m.get("exchange") or self.rng.random() < self.exchange_update:
+                    m["exchange"] = self._exchange_book(m["truth"])
                 m["odds_ts"] = now
                 return
         minute = min(self.match_minutes, int((now - m["kickoff_epoch"]) / 60))
@@ -200,7 +236,15 @@ class MockFeed(Feed):
                     m["home_score"] += 1
                 else:
                     m["away_score"] += 1
-        if not m["goal_rate"]:                             # basket: punteggio dal ritmo
+        if is_tennis(m["sport"]):                         # tennis: un set ogni 40 minuti, al meglio dei 3
+            q = set_prob(m["truth"]["home"])
+            for mm in range(m["seen_minute"] + 1, minute + 1):
+                if mm % 40 == 0 and max(m["home_score"], m["away_score"]) < 2:
+                    if self.rng.random() < q:
+                        m["home_score"] += 1
+                    else:
+                        m["away_score"] += 1
+        elif not m["goal_rate"]:                           # basket: punteggio dal ritmo
             t = m["truth"]
             pts = int((minute - m["seen_minute"]) * 4.8)
             for _ in range(pts):
@@ -209,7 +253,7 @@ class MockFeed(Feed):
                 else:
                     m["away_score"] += 1
         st = m.setdefault("stats", {"home": {"shots_on_target": 0, "red_cards": 0}, "away": {"shots_on_target": 0, "red_cards": 0}})
-        for _ in range(minute - m["seen_minute"]):
+        for _ in range(0 if two_way(m["sport"]) else minute - m["seen_minute"]):
             for side in ("home", "away"):
                 share = m["truth"][side] + 0.5 * m["truth"].get("draw", 0)
                 if self.rng.random() < 9.0 / self.match_minutes * share:
@@ -217,9 +261,11 @@ class MockFeed(Feed):
                 if self.rng.random() < 0.12 / self.match_minutes:
                     st[side]["red_cards"] += 1
         m["seen_minute"] = m["minute"] = minute
-        if minute >= self.match_minutes:
+        tennis_done = is_tennis(m["sport"]) and max(m["home_score"], m["away_score"]) >= 2
+        if tennis_done or (minute >= self.match_minutes and not is_tennis(m["sport"])) or minute >= 150:
             m["status"] = "FINISHED"
             m["live_books"] = {}
+            m["exchange"] = {}
             if m["home_score"] > m["away_score"]:
                 m["result"] = "home"
             elif m["home_score"] < m["away_score"]:
@@ -229,7 +275,22 @@ class MockFeed(Feed):
             return
         probs = self._live_probs(m)
         m["live_books"] = {b: self._quote(probs, b, live=True) for b in self.books[:4]}
+        m["exchange"] = self._exchange_book(probs, live=True)
         m["odds_ts"] = now
+
+    def _exchange_book(self, probs: dict[str, float], live: bool = False) -> dict[str, dict]:
+        """Book di un exchange: per ogni esito miglior quota da puntare (back), da bancare (lay, 1-2 tick sopra)
+        e denaro disponibile. Niente margine del bookmaker: il costo è la commissione sulla vincita."""
+        out = {}
+        for sel, p in probs.items():
+            noisy = max(0.01, min(0.995, p * math.exp(self.rng.gauss(0, 0.012 if not live else 0.02))))
+            fair = 1 / noisy
+            back = tick_round(fair * self.rng.uniform(0.985, 1.0))
+            lay = tick_up(back, 1 if self.rng.random() < 0.7 else 2)
+            scale = self.exchange_liquidity * (0.3 if live else 1.0)
+            out[sel] = {"back": back, "lay": lay, "back_size": round(scale * self.rng.uniform(0.2, 1.5), 0),
+                        "lay_size": round(scale * self.rng.uniform(0.2, 1.5), 0)}
+        return out
 
     # ── corse (exchange) ───────────────────────────────────────
     def _new_race(self) -> dict:

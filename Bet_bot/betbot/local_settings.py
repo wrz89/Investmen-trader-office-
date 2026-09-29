@@ -21,6 +21,7 @@ DEFAULTS = {
         "errors": True,        # feed giù, errori di ciclo
         "daily_report": True,
     },
+    "keep_awake": True,        # il PC non va in sospensione mentre Bet_bot lavora
     "odds_api_key": "",        # https://the-odds-api.com
     "api_football_key": "",    # https://www.api-football.com (API-Sports)
     # Betfair Exchange Italia (betfair.it, concessione ADM). Senza "live_enabled" si resta in paper.

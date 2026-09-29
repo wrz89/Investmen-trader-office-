@@ -31,6 +31,7 @@ from .execution import Executor, Gates
 from .config import DB_PATH, ensure_dirs, load_settings
 from .feeds import make_feed
 from .feeds.base import FeedError
+from . import local_settings
 from .notifier import Notifier
 from .store import Store
 
@@ -94,7 +95,8 @@ class SportOffice:
         actions = self.analista.manage(snap, strategies, open_bets) + self.cavalli.manage(snap, strategies, open_bets)
         settled += self.banco.apply(actions)
 
-        # 3) stato e circuit breaker
+        # 3) stato e circuit breaker (in live anche il confronto col saldo vero di Betfair)
+        self._sync_live_balance()
         state = self.risk.portfolio_state()
 
         # 4) nuove proposte
@@ -123,6 +125,32 @@ class SportOffice:
         return {"ok": True, "proposals": len(proposals), "placed": placed, "settled": settled,
                 "bankroll": state["bankroll"]}
 
+    def _sync_live_balance(self) -> None:
+        """In live, ogni 10 cicli: saldo Betfair (disponibile + esposizione) contro il bankroll interno. Se il bot
+        crede di avere più soldi di quelli veri (oltre 1 €), blocca le nuove puntate: meglio fermarsi che puntare
+        su un conto diverso da come lo immagina."""
+        if self.settings.get("mode") != "live" or (self.settings.get("execution") or {}).get("provider") != "betfair":
+            return
+        n = (self.store.get("live_sync_counter") or 0) + 1
+        self.store.set("live_sync_counter", n)
+        if n % 10 != 1:
+            return
+        try:
+            funds = self.executor.client.account_funds()
+        except Exception as exc:
+            self.tesoriere.log(f"Saldo Betfair non leggibile ({exc}). Riprovo tra 10 cicli.", "WARN", "live_sync")
+            return
+        real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
+        self.store.set("live_balance", {"available": funds.get("availableToBetBalance"), "exposure": funds.get("exposure"),
+                                        "total": real, "ts": time.time()})
+        live_open = sum(b["stake"] for b in self.bankroll.open_bets() if b["mode"] == "live")
+        if live_open > real + 1.0:
+            if not self.store.get("kill_switch"):
+                self.store.set("kill_switch", f"saldo Betfair {real:.2f} € inferiore alle puntate reali aperte {live_open:.2f} €")
+                self.risk.say(f"KILL SWITCH: il saldo vero su Betfair ({real:.2f} €) non copre le puntate reali che il bot "
+                              f"crede aperte ({live_open:.2f} €). Controlla il conto dal sito.", "alert", "kill_switch",
+                              level="CRITICAL")
+
     def _live_gate_notice(self, strategies: list[dict]) -> None:
         """In modalità live, scrive (una volta) quali strategie useranno davvero soldi veri e perché le altre no."""
         if self.settings.get("mode") != "live":
@@ -148,7 +176,11 @@ class SportOffice:
 
     async def run_forever(self) -> None:
         """Il loop: un ciclo ogni cycle_seconds. Un errore non porta mai a puntare "alla cieca"."""
+        from . import system
+        from .telegram_bot import TelegramCommands
+        TelegramCommands(self).start()            # comandi dal telefono: /stato /stop /pausa …
         while True:
+            system.keep_awake(local_settings.load().get("keep_awake", True))
             started = time.monotonic()
             try:
                 await self.run_cycle()

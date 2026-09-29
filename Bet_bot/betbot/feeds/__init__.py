@@ -1,34 +1,71 @@
-"""Feed dati: quote (pre-partita e live), punteggi e statistiche, exchange cavalli.
+"""Feed dati di Bet_bot.
 
-Composizione configurabile in config/sport/settings.yaml → feed:
-  provider   mock | odds_api | betfair       fonte principale di partite e quote
-  live_stats none | api_football             minuto, punteggio e statistiche live (calcio)
-  exchange   none | betfair                  corse di cavalli dall'exchange (se provider ≠ betfair)
+Composizione (config/settings.yaml → feed):
+  provider   mock | betfair           partite e corse CON il book dell'exchange (dove si punta)
+  reference  none | odds_api          quote di riferimento (Pinnacle & co.) per stimare la probabilità giusta
+  live_stats none | api_football      minuto, punteggio e statistiche live (calcio)
+
+Il bot punta solo su Betfair. Le quote di riferimento servono a capire se il prezzo Betfair è
+"buono": vengono abbinate alle partite Betfair per nome delle squadre e orario d'inizio.
 """
 from __future__ import annotations
 
 import asyncio
+import time
+from datetime import datetime
 
 from .base import Feed, FeedError
 
+REFERENCE_EXCLUDE = ("betfair", "matchbook", "smarkets", "betdaq")     # exchange: non sono un "metro" esterno
+
+
+def merge_reference(matches: dict, ref_matches: dict, max_kickoff_gap_h: float = 3.0) -> int:
+    """Copia su ogni partita dell'exchange le quote dei bookmaker di riferimento della stessa partita."""
+    from .api_football import same_team
+    n = 0
+    for m in matches.values():
+        ko = datetime.fromisoformat(m["kickoff"]).timestamp()
+        for r in ref_matches.values():
+            if abs(datetime.fromisoformat(r["kickoff"]).timestamp() - ko) > max_kickoff_gap_h * 3600:
+                continue
+            if not (same_team(m["home"], r["home"]) and same_team(m["away"], r["away"])):
+                continue
+            keep = lambda books: {b: q for b, q in (books or {}).items() if not any(x in b.lower() for x in REFERENCE_EXCLUDE)}
+            m["books"], m["live_books"] = keep(r.get("books")), keep(r.get("live_books"))
+            m["closing"] = m.get("closing") or r.get("closing")
+            if m.get("home_score") is None and r.get("home_score") is not None:
+                m["home_score"], m["away_score"] = r["home_score"], r["away_score"]
+            if r.get("result") and not m.get("result"):
+                m["result"] = r["result"]
+            m["odds_ts"] = min(m.get("odds_ts") or time.time(), r.get("odds_ts") or time.time())
+            n += 1
+            break
+    return n
+
 
 class CompositeFeed(Feed):
-    """Unisce la fonte principale con statistiche live ed exchange. Un errore della
-    fonte principale ferma il ciclo (nessuna puntata); quello di una fonte accessoria
-    viene solo annotato nello stato di salute."""
+    """Unisce la fonte principale con riferimento e statistiche. Un errore della fonte principale ferma il
+    ciclo (nessuna puntata); quello di una fonte accessoria viene solo annotato."""
     name = "composite"
 
-    def __init__(self, settings: dict, primary: Feed, stats=None, exchange: Feed | None = None):
+    def __init__(self, settings: dict, primary: Feed, stats=None, reference: Feed | None = None):
         super().__init__(settings)
-        self.primary, self.stats, self.exchange = primary, stats, exchange
+        self.primary, self.stats, self.reference = primary, stats, reference
         self.speed = getattr(primary, "speed", 1.0)
 
     def now(self) -> float:
-        return self.primary.now() if hasattr(self.primary, "now") else __import__("time").time()
+        return self.primary.now() if hasattr(self.primary, "now") else time.time()
 
     async def fetch(self) -> dict:
         snap = await self.primary.fetch()
         notes = []
+        if self.reference is not None:
+            try:
+                ref = await self.reference.fetch()
+                n = merge_reference(snap["matches"], ref["matches"])
+                notes.append(f"riferimento su {n} partite")
+            except FeedError as exc:
+                notes.append(f"quote di riferimento non disponibili ({exc})")
         if self.stats is not None:
             try:
                 await asyncio.to_thread(self.stats.refresh)
@@ -36,13 +73,6 @@ class CompositeFeed(Feed):
                 notes.append(f"statistiche live su {n} partite")
             except FeedError as exc:
                 notes.append(f"statistiche live non disponibili ({exc})")
-        if self.exchange is not None:
-            try:
-                ex = await self.exchange.fetch()
-                snap.setdefault("races", {}).update(ex.get("races", {}))
-                notes.append(f"{len(ex.get('races', {}))} corse dall'exchange")
-            except FeedError as exc:
-                notes.append(f"exchange non disponibile ({exc})")
         if notes:
             snap["health"]["source"] += " · " + ", ".join(notes)
         return snap
@@ -53,23 +83,19 @@ def make_feed(settings: dict) -> Feed:
     provider = f["provider"]
     if provider == "mock":
         from .mock import MockFeed
-        primary = MockFeed(settings)
-    elif provider == "odds_api":
+        return MockFeed(settings)
+    if provider != "betfair":
+        raise ValueError(f"feed sconosciuto: {provider} (Bet_bot usa 'betfair' oppure 'mock')")
+    from .betfair import BetfairFeed
+    primary = BetfairFeed(settings)
+    reference = stats = None
+    if f.get("reference") == "odds_api":
         from .odds_api import OddsApiFeed
-        primary = OddsApiFeed(settings)
-    elif provider == "betfair":
-        from .betfair import BetfairFeed
-        primary = BetfairFeed(settings)
-    else:
-        raise ValueError(f"feed sconosciuto: {provider}")
-    stats = exchange = None
-    if f.get("live_stats") == "api_football" and provider != "mock":
+        reference = OddsApiFeed(settings)
+    if f.get("live_stats") == "api_football":
         from .. import local_settings
         from .api_football import ApiFootball
         stats = ApiFootball(local_settings.load().get("api_football_key") or "", f.get("api_football"))
-    if f.get("exchange") == "betfair" and provider != "betfair":
-        from .betfair import BetfairFeed
-        exchange = BetfairFeed({**settings, "feed": {**f, "betfair": {**(f.get("betfair") or {}), "soccer": False}}})
-    if stats is None and exchange is None:
+    if stats is None and reference is None:
         return primary
-    return CompositeFeed(settings, primary, stats, exchange)
+    return CompositeFeed(settings, primary, stats, reference)

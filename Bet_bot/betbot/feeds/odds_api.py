@@ -81,10 +81,27 @@ class OddsApiFeed(Feed):
                            "source": f"The Odds API (richieste rimaste: {self.remaining})"},
                 "matches": {k: dict(v) for k, v in self.matches.items()}, "races": {}}
 
+    def _sport_keys(self, now: float) -> list[str]:
+        """Chiavi fisse (feed.sports, solo quelle con quote reali) + quelle attive dei gruppi in feed.reference_groups.
+        L'elenco degli sport di The Odds API non consuma richieste del piano; si aggiorna ogni 6 ore."""
+        f = self.settings["feed"]
+        keys = [k for k in f.get("sports", []) if not k.startswith(("tennis_atp", "tennis_wta")) or k.count("_") > 1]
+        groups = set(f.get("reference_groups") or [])
+        if groups:
+            if now - getattr(self, "_groups_ts", 0) > 6 * 3600:
+                try:
+                    self._group_keys = [s["key"] for s in self._get("/sports") if s.get("group") in groups
+                                        and s.get("active") and not s.get("has_outrights")]
+                    self._groups_ts = now
+                except FeedError:
+                    self._group_keys = getattr(self, "_group_keys", [])
+            keys += [k for k in getattr(self, "_group_keys", []) if k not in keys]
+        return keys
+
     def _refresh_odds(self, now: float) -> None:
         f = self.settings["feed"]
         matches = self.matches
-        for sport in f["sports"]:
+        for sport in self._sport_keys(now):
             events = self._get(f"/sports/{sport}/odds", regions=f.get("regions", "eu"),
                                markets=f.get("markets", "h2h"), oddsFormat="decimal")
             for ev in events:
@@ -98,6 +115,8 @@ class OddsApiFeed(Feed):
                         prices = {}
                         for o in mk["outcomes"]:
                             sel = "home" if o["name"] == ev["home_team"] else "away" if o["name"] == ev["away_team"] else "draw"
+                            if sel == "draw" and o["name"].lower() not in ("draw", "tie", "pareggio"):
+                                continue
                             prices[sel] = float(o["price"])
                         if len(prices) >= 2:
                             books[bk["title"]] = prices
@@ -122,7 +141,7 @@ class OddsApiFeed(Feed):
 
     def _refresh_scores(self, now: float) -> None:
         matches = self.matches
-        for sport in self.settings["feed"]["sports"]:
+        for sport in self._sport_keys(now):
             # punteggi e risultati degli ultimi 3 giorni (2 richieste per sport)
             try:
                 scores = self._get(f"/sports/{sport}/scores", daysFrom=3)

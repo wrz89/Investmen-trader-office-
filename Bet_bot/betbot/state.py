@@ -12,6 +12,44 @@ def _j(v):
     return json.loads(v) if v else None
 
 
+# chi "possiede" le puntate di ogni strategia (per le etichette sopra gli omini nell'ufficio 3D)
+STRATEGY_AGENT = {"S04": "cavalli"}
+
+
+def strategy_agent(strategy_id: str) -> str:
+    return next((a for pre, a in STRATEGY_AGENT.items() if (strategy_id or "").startswith(pre)), "analista")
+
+
+def _perf(bets: list[dict]) -> dict:
+    settled = [b for b in bets if b["status"] != "OPEN"]
+    wins = sum(1 for b in settled if (b["pnl"] or 0) > 0)
+    losses = sum(1 for b in settled if (b["pnl"] or 0) < 0)
+    staked = sum(b["stake"] for b in settled)
+    pnl = sum(b["pnl"] or 0 for b in settled)
+    last = max(settled, key=lambda b: (b["settled_ts"] or "", b["id"]), default=None)
+    return {"bets": len(settled), "open": sum(1 for b in bets if b["status"] == "OPEN"),
+            "win_rate": wins / (wins + losses) if wins + losses else None, "roi": pnl / staked if staked else None,
+            "pnl": pnl, "last": None if not last else {"status": last["status"], "pnl": last["pnl"], "label": last["label"]}}
+
+
+def agent_stats(store: Store) -> dict:
+    """Numeri da mostrare sopra ogni omino: win rate e ROI per chi punta, contatori per gli altri."""
+    bets = store.query("SELECT id, strategy_id, status, stake, pnl, settled_ts, label FROM bets")
+    out = {"banco": _perf(bets)}
+    for key in ("analista", "cavalli"):
+        out[key] = _perf([b for b in bets if strategy_agent(b["strategy_id"]) == key])
+    rows = store.query("SELECT kind, COUNT(*) n FROM events WHERE kind IN ('approve', 'veto') GROUP BY kind")
+    k = {r["kind"]: r["n"] for r in rows}
+    out["risk"] = {"approvals": k.get("approve", 0), "vetoes": k.get("veto", 0)}
+    m = store.get("metrics") or {}
+    rs = store.get("risk_state") or {}
+    out["tesoriere"] = {"bankroll": rs.get("bankroll"), "profits": rs.get("profits"),
+                        "roi_on_capital": (rs.get("profits") or 0) / rs["initial"] if rs.get("initial") else None}
+    out["direttore"] = {"bankroll": rs.get("bankroll"), "drawdown": rs.get("drawdown"), "kill_switch": store.get("kill_switch")}
+    out["auditor"] = {"bets": m.get("bets"), "roi": m.get("roi"), "clv_avg": m.get("clv_avg")}
+    return out
+
+
 def build_state(store: Store) -> dict:
     agents = store.query("SELECT * FROM agent_status")
     for a in agents:
@@ -43,6 +81,7 @@ def build_state(store: Store) -> dict:
         "meta": store.get("office_meta", {}),
         "cycle": store.get("cycle", {}),
         "agents": agents,
+        "agent_stats": agent_stats(store),
         "events": events,
         "metrics": store.get("metrics"),
         "risk_state": store.get("risk_state"),

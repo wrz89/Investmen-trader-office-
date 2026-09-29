@@ -17,15 +17,55 @@ from .base import Agent
 LIMITS_FILE = CONFIG_DIR / "risk_limits.yaml"
 
 
-def stake_for(proposal: dict, base: float, limits: dict) -> tuple[float, float]:
-    """(puntata, kelly pieno). Kelly frazionario con tetto; flat per arbitraggio ed exchange."""
+def kelly_net(prob: float, price: float, commission: float = 0.0) -> float:
+    """Kelly pieno su exchange: la vincita netta per 1 € è (quota − 1) × (1 − commissione)."""
+    b = (price - 1.0) * (1.0 - commission)
+    if b <= 0 or prob <= 0:
+        return 0.0
+    return max(0.0, (prob * b - (1.0 - prob)) / b)
+
+
+def worst_loss(p: dict, stake: float) -> float:
+    """Perdita massima possibile: per un trade è la distanza dallo stop (con scivolamento), altrimenti la puntata."""
+    ex = p.get("exchange") or {}
+    return stake * ex["risk_per_unit"] if ex.get("risk_per_unit") else stake
+
+
+def stake_for(proposal: dict, base: float, limits: dict, min_stake: float = 0.0) -> tuple[float, float]:
+    """(puntata, kelly pieno).
+
+    • Trade su exchange (back→lay con stop): puntata tale che la PERDITA MASSIMA resti sotto
+      max_risk_per_trade_pct della base; tetto max_trade_stake_pct; se il minimo dell'exchange
+      rispetta comunque il limite di rischio, si usa il minimo.
+    • Puntata secca: Kelly frazionario sulla quota netta di commissione, tetto max_stake_pct."""
+    from ..execution import round_back_stake
+    ex = proposal.get("exchange") or {}
+    if ex.get("risk_per_unit"):
+        budget = limits["max_risk_per_trade_pct"] * base
+        stake = min(budget / ex["risk_per_unit"], limits["max_trade_stake_pct"] * base)
+        if stake < min_stake and min_stake * ex["risk_per_unit"] <= budget + 1e-9:
+            stake = min_stake
+        return round_back_stake(stake, min_stake), 0.0
+    k = kelly_net(proposal["fair_prob"], proposal["odds"], proposal.get("commission", 0.0))
     cap = limits["max_stake_pct"] * base
-    if proposal.get("legs") or proposal.get("exchange"):
-        return round(min(cap, limits["flat_stake_pct"] * base * 2), 2), 0.0
-    k = kelly(proposal["fair_prob"], proposal["odds"])
     if limits.get("sizing") == "flat":
-        return (round(min(cap, limits["flat_stake_pct"] * base), 2) if k > 0 else 0.0), k
-    return round(min(cap, k * limits["kelly_fraction"] * base), 2), k
+        return (round_back_stake(min(cap, limits["flat_stake_pct"] * base), min_stake) if k > 0 else 0.0), k
+    stake = min(cap, k * limits["kelly_fraction"] * base)
+    # Bankroll piccolo: la puntata minima (2 €) è ammessa solo se il vantaggio è così netto che resta
+    # comunque al massimo `min_stake_max_kelly_share` del Kelly pieno (cioè si punta ancora "meno" di Kelly).
+    share = limits.get("min_stake_max_kelly_share", 0.5)
+    if stake < min_stake and min_stake <= share * k * base + 1e-9 and min_stake <= cap + 1e-9:
+        stake = min_stake
+    return round_back_stake(stake, min_stake), k
+
+
+def unlock_bankroll(kind: str, limits: dict, min_stake: float) -> float:
+    """Bankroll da cui una strategia può puntare senza superare max_stake_pct con la puntata minima.
+    I trade con stop partono da subito; le puntate secche anche, ma sotto questa soglia passano solo
+    quando il vantaggio è netto (regola del Kelly in stake_for)."""
+    if kind in ("exchange", "trade"):
+        return 0.0
+    return round(min_stake / limits["max_stake_pct"], 2) if limits.get("max_stake_pct") else 0.0
 
 
 class RiskManager(Agent):
@@ -70,11 +110,21 @@ class RiskManager(Agent):
             self.store.set("cooldown_streak_seen", streak)
             self.say(f"Circuit breaker: {streak} perdite di fila. Pausa di {self.limits['cooldown_minutes']} minuti.",
                      "blocked", "circuit", level="WARN")
-        return {"bankroll": value, "cash": br.cash, "open_stakes": br.open_stakes(), "profits": br.profits,
+        return {"bankroll": value, "cash": br.cash, "open_stakes": br.open_stakes(), "open_risk": self.open_risk(),
+                "profits": br.profits,
                 "initial": br.initial_capital, "peak": peak, "drawdown": dd, "daily_pnl": daily,
                 "kill_switch": kill, "cooldown_until": cooldown if cooldown > clock.now() else None,
                 "losing_streak": streak, "stake_base": br.stake_base(self.limits["reinvest_fraction"],
                                                                       self.limits["floor_pct_of_initial"])}
+
+    def open_risk(self) -> float:
+        """Somma delle perdite massime delle puntate aperte (trade: fino allo stop; puntate secche: tutta la puntata)."""
+        import json
+        tot = 0.0
+        for b in self.office.bankroll.open_bets():
+            ex = (json.loads(b["extra"]) if b.get("extra") else {}).get("exchange") or {}
+            tot += b["stake"] * ex["risk_per_unit"] if ex.get("risk_per_unit") else b["stake"]
+        return tot
 
     def _losing_streak(self) -> int:
         rows = self.store.query("SELECT pnl FROM bets WHERE status!='OPEN' AND status!='VOID' ORDER BY settled_ts DESC, id DESC LIMIT 50")
@@ -106,14 +156,14 @@ class RiskManager(Agent):
         age = ((snapshot.get("sim_time") or snapshot["ts"]) - (p.get("odds_ts") or 0)) / scale
         check(age <= L["max_odds_age_seconds"], f"Quote fresche ({age:.0f} s ≤ {L['max_odds_age_seconds']} s)")
         if not p.get("exchange") and not p.get("legs"):
-            check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker ({p['n_books']})")
-            check(p["dispersion"] <= L["max_odds_dispersion"], "Bookmaker concordi sulla probabilità")
-        check(p["edge"] >= L["min_edge"] or bool(p.get("exchange")), f"Edge ≥ {L['min_edge']:.1%} ({p['edge']:+.2%})")
+            check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker di riferimento ({p['n_books']})")
+            check(p["dispersion"] <= L["max_odds_dispersion"], "Bookmaker di riferimento concordi sulla probabilità")
+            check(p["edge"] >= L["min_edge"], f"EV netto ≥ {L['min_edge']:.1%} ({p['edge']:+.2%})")
 
         open_bets = self.office.bankroll.open_bets()
         is_exchange = bool(p.get("exchange"))
-        today_n = self.store.query("SELECT COUNT(*) n FROM bets WHERE ts >= ? AND market " + ("=" if is_exchange else "!=")
-                                   + " 'exchange_win'", (_day_start_iso(),))[0]["n"]
+        today_n = self.store.query("SELECT COUNT(*) n FROM bets WHERE ts >= ? AND market " + ("IN" if is_exchange else "NOT IN")
+                                   + " ('exchange_win', 'exchange_trade')", (_day_start_iso(),))[0]["n"]
         day_cap = L["max_exchange_trades_per_day"] if is_exchange else L["max_bets_per_day"]
         check(len(open_bets) < L["max_open_bets"], f"Puntate aperte < {L['max_open_bets']}")
         check(today_n < day_cap, f"Operazioni di oggi < {day_cap} ({'exchange' if is_exchange else 'sport'})")
@@ -128,22 +178,31 @@ class RiskManager(Agent):
               (f" ({verdict.get('reason')})" if verdict["level"] == "block" else ""))
 
         base = state["stake_base"]
-        stake, k_full = stake_for(p, base, L)
+        min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
+        stake, k_full = stake_for(p, base, L, min_stake)
         if verdict["level"] == "caution":
-            stake = round(stake * L.get("sentiment_caution_stake_factor", 0.5), 2)
-        room_total = L["max_open_exposure_pct"] * state["bankroll"] - state["open_stakes"]
+            stake = float(int(stake * L.get("sentiment_caution_stake_factor", 0.5) * 100) / 100)
+        stake = max(0.0, min(stake, state["cash"]))                  # l'exchange blocca subito la puntata sul conto
+        risk_now = worst_loss(p, stake)
+        check(state.get("open_risk", 0.0) + risk_now <= L["max_open_risk_pct"] * state["bankroll"] + 1e-9,
+              f"Rischio aperto ≤ {L['max_open_risk_pct']:.0%} del bankroll "
+              f"({state.get('open_risk', 0.0) + risk_now:.2f} € con questa)")
         on_match = sum(b["stake"] for b in open_bets if b["match_id"] == p["match_id"])
-        room_match = L["max_exposure_per_match_pct"] * state["bankroll"] - on_match
-        stake = round(max(0.0, min(stake, room_total, room_match, state["cash"])), 2)
-        check(stake >= L["min_stake"], f"Puntata ≥ minimo {L['min_stake']:.2f} € (calcolata {stake:.2f} €)")
+        check(on_match == 0 or on_match + risk_now <= L["max_exposure_per_match_pct"] * state["bankroll"],
+              "Esposizione sulla stessa partita nei limiti")
+        check(stake >= min_stake - 1e-9 and stake > 0,
+              f"Puntata ≥ minimo exchange {min_stake:.2f} € (calcolata {stake:.2f} €"
+              + (f"; il vantaggio non basta per giustificare la puntata minima con questo bankroll: Kelly pieno "
+                 f"{k_full:.1%}, servirebbe almeno {min_stake / max(base, 1e-9) / L.get('min_stake_max_kelly_share', 0.5):.1%})"
+                 if not p.get("exchange") else ")"))
 
         approved = not reasons
-        decision = {"approved": approved, "stake": stake if approved else 0.0, "kelly_full": k_full,
+        decision = {"approved": approved, "stake": stake if approved else 0.0, "kelly_full": k_full, "risk": risk_now,
                     "sentiment": verdict,
                     "reasons": reasons, "checks": [{"ok": ok, "label": lab} for ok, lab in checks]}
         if approved:
-            how = ("puntata fissa: trading/arbitraggio" if p.get("exchange") or p.get("legs")
-                   else f"Kelly pieno {k_full:.1%} × {L['kelly_fraction']:.2f}")
+            how = (f"perdita massima {risk_now:.2f} € allo stop" if p.get("exchange")
+                   else f"Kelly netto {k_full:.1%} × {L['kelly_fraction']:.2f}")
             self.say(f"APPROVO {p['label']} a {p['odds']:.2f}: puntata {stake:.2f} € ({how}, base {base:.2f} €)"
                      + (f" · sentiment: {verdict['reason']}" if verdict["level"] == "caution" else "") + ".",
                      "ok", "approve", payload=decision)

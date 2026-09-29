@@ -1,76 +1,79 @@
 # ─────────────────────────────────────────────────────────────
-#  SPORTS BETTING OFFICE — impostazioni generali
-#  Ufficio gemello del Crypto Trading Office, dedicato alle scommesse
-#  sportive. Modalità PAPER: quote vere (o simulate), soldi finti.
+#  BET_BOT — impostazioni generali
+#  Bot autonomo su Betfair Exchange Italia. Gira in locale sul tuo PC.
 # ─────────────────────────────────────────────────────────────
 
-# paper = soldi finti, quote del feed scelto.
-# live  = puntate VERE, ma solo su Betfair Exchange e solo se TUTTI questi cancelli sono aperti:
-#         execution.provider = betfair, chiave verificata, ordine di prova riuscito,
-#         interruttore "Puntate reali" acceso nelle Impostazioni, strategia elencata in live_strategies.
-#         Se un cancello è chiuso l'ufficio resta in paper e lo scrive nel registro.
+# paper = exchange simulato con le stesse regole di Betfair (fill-or-kill, liquidità, commissione),
+#         prezzi veri se feed.provider = betfair, soldi finti.
+# live  = soldi VERI su Betfair, solo se TUTTI i cancelli sono aperti: execution.provider = betfair,
+#         conto verificato, ordine di prova riuscito, interruttore "Puntate reali" acceso nelle
+#         Impostazioni e strategia elencata in live_strategies. Altrimenti resta in paper e lo scrive.
 mode: paper
+
+capital:
+  initial: 30             # budget di partenza in EUR
+  currency: EUR
 
 execution:
   provider: paper         # paper | betfair
-  betfair_min_stake: 2.0  # puntata minima dell'exchange (EUR)
-  # Le puntate su bookmaker SENZA API (quote da The Odds API) non si automatizzano:
-  # con manual_alerts: true arrivano su Telegram come "giocata da piazzare a mano".
-  manual_alerts: true
-live_strategies: []       # es. [S04_greenup_cavalli_v1] — vuota = nessuna strategia con soldi veri
+  min_stake: 2.0          # betfair.it: back da 2 € in su, a multipli di 0,50 €; lay da 0,50 €
+  commission: 0.045       # betfair.it: 4,5% sulla vincita netta di mercato (con feed betfair si legge dal mercato)
+  paper_liquidity_factor: 1.5   # in paper si abbina solo se nel book c'è 1,5 × la puntata
+live_strategies: []       # es. [S04_greenup_cavalli_v2] — vuota = nessuna strategia con soldi veri
 
-capital:
-  initial: 100            # bankroll iniziale in EUR
-  currency: EUR
+# Strategie che lavorano (le altre nella libreria sono ritirate e non girano).
+# Una strategia "attiva" punta solo se il bankroll basta per la puntata minima entro i limiti di
+# rischio; altrimenti lavora IN ATTESA (in ombra) e si sblocca da sola quando il bankroll cresce.
+active_strategies:
+  - S05_favoriti_exchange_v1   # favoriti netti pre-partita (calcio, tennis, basket) con EV netto positivo
+  - S06_live_exchange_v1       # favorito in vantaggio nel finale, in-play
+observe_strategies:            # solo ombra, senza capitale: si attivano solo dopo prove sui dati veri di betfair.it
+  - S07_scalping_prepartita_v1 # trade back→lay prima dell'inizio: da provare col registratore (feed.record)
+  - S04_greenup_cavalli_v2     # su betfair.it l'ippica non c'è: gira solo nel mondo simulato
 
 feed:
-  # mock     = calendario e quote simulati (bookmaker virtuale, partite che
-  #            iniziano/finiscono davvero nel tempo). Nessuna chiave richiesta.
-  # odds_api = The Odds API (https://the-odds-api.com), chiave in
-  #            runtime/sport/local_settings.json oppure variabile ODDS_API_KEY.
+  # mock    = mondo simulato (exchange + bookmaker di riferimento), nessuna chiave. Per provare.
+  # betfair = Betfair Exchange Italia: cavalli e calcio con book back/lay. Con la app key "delayed"
+  #           (gratuita) i prezzi arrivano in ritardo: va bene per il paper, non per il live.
   provider: mock
-  # statistiche live (minuto, punteggio, tiri, cartellini) per il calcio:
-  #   none | api_football  (chiave in Impostazioni; piano gratuito 100 richieste/giorno)
+  # quote di riferimento per stimare la probabilità giusta nel calcio: none | odds_api
+  reference: none
+  # statistiche live (minuto, punteggio, tiri, cartellini): none | api_football
   live_stats: none
-  # corse di cavalli da exchange quando la fonte principale non è betfair: none | betfair
-  exchange: none
-  sports:                 # chiavi nel formato di The Odds API
+  # true = salva ogni ciclo i prezzi in runtime/recordings/ (circa 3-5 MB al giorno compressi) per il replay
+  record: false
+  sports:                 # chiavi di The Odds API (quote di riferimento) e sport del mondo simulato
     - soccer_italy_serie_a
     - soccer_epl
     - soccer_spain_la_liga
+    - tennis_atp
+    - tennis_wta
     - basketball_nba
-  regions: eu             # bookmaker europei
-  markets: h2h            # esito finale (1X2 / moneyline)
-  # quante partite "in cartellone" nel feed simulato e quanto dura una partita
+  reference_groups: [Tennis]   # gruppi di The Odds API da aggiungere da soli (i tornei di tennis cambiano ogni settimana)
+  regions: eu
+  markets: h2h
   mock:
     matches_per_cycle: 6
     match_minutes: 90
-    speed: 30             # 1 minuto reale = 30 minuti di partita (simulazione accelerata)
+    speed: 30             # 1 minuto reale = 30 minuti simulati
     bookmakers: 8
-    margin: 0.05          # margine medio dei bookmaker (5%)
-    seed: null            # null = casuale; un numero rende il feed riproducibile
+    margin: 0.05
+    exchange_update: 0.35 # quanto spesso l'exchange simulato insegue la probabilità vera
+    exchange_liquidity: 400
+    seed: null
   betfair:
-    stream: false         # true = prezzi in tempo reale dallo Stream API (socket SSL) invece del polling
+    stream: false         # true = prezzi in tempo reale dallo Stream API invece del polling
     race_countries: [GB, IE]
-    race_hours: 2         # corse in partenza entro 2 ore
-    soccer: true          # anche i mercati MATCH_ODDS del calcio
-    soccer_hours: 36
+    race_hours: 2
+    sports: [soccer, tennis, basketball]   # mercati MATCH_ODDS letti da Betfair
+    soccer_hours: 36                       # finestra per gli eventi (calcio, tennis, basket)
   odds_api:
-    odds_refresh_seconds: 7200     # piano gratuito: quote ogni 2 ore (con un piano a pagamento scendi a 60–300)
-    scores_refresh_seconds: 21600  # punteggi ogni 6 ore (i risultati servono per chiudere le puntate)
+    odds_refresh_seconds: 7200     # piano gratuito: ogni 2 ore
+    scores_refresh_seconds: 21600
   api_football:
     live_refresh_seconds: 120
     stats_from_minute: 55
     max_stats_per_refresh: 4
 
-# Ciclo operativo: ogni quanti secondi l'ufficio guarda quote e risultati.
 cycle_seconds: 60
 dashboard_port: 8766
-
-# Strategie ATTIVE (quelle non elencate restano in osservazione: piazzano
-# solo "scommesse ombra" senza capitale).
-active_strategies:
-  - S01_favoriti_v1
-  - S02_live_scalp_v1
-  - S03_surebet_v1
-  - S04_greenup_cavalli_v1

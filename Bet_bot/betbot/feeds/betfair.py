@@ -5,6 +5,16 @@ ufficiale per leggere quote E piazzare puntate. I bookmaker a quota fissa
 italiani (Sisal, Snai, Eurobet, Bet365…) non hanno API pubbliche: automatizzarne
 il sito viola i termini d'uso e porta alla chiusura del conto. L'ufficio non lo fa.
 
+Regole dell'exchange italiano (documentazione Betfair, verificate il 29/09/2026):
+  • pool di liquidità SEPARATO da quello internazionale (regulator MR_IT): prezzi e volumi solo da qui;
+  • niente ippica: le corse di cavalli non sono quotate su betfair.it;
+  • back minimo 2 € a multipli di 0,50 €; lay pari a una puntata back di almeno 0,50 €;
+  • back e lay nella stessa richiesta placeOrders vengono rifiutati: si mandano separati;
+  • commissione 4,5% sulla vincita netta di mercato (campo marketBaseRate di ogni mercato);
+  • la sessione scade dopo 20 minuti anche se si usa l'API: keepAlive ogni 10 minuti;
+  • app key "delayed" gratuita (prezzi in ritardo 1-180 s, può comunque puntare); app key "live" senza
+    costo per i conti italiani, dopo la verifica del conto.
+
 Endpoint (documentazione ufficiale Betfair, "Betting On Italian Exchange"):
   login      https://identitysso.betfair.it/api/login            (utente + password + app key)
   certlogin  https://identitysso-cert.betfair.it/api/certlogin   (certificato SSL, consigliato per i bot)
@@ -34,7 +44,20 @@ BETTING = "https://api.betfair.com/exchange/betting/json-rpc/v1"
 ACCOUNT = "https://api.betfair.com/exchange/account/json-rpc/v1"
 STREAM_HOST, STREAM_PORT = "stream-api.betfair.com", 443
 
-HORSE_RACING, SOCCER = "7", "1"
+HORSE_RACING, SOCCER, TENNIS, BASKETBALL = "7", "1", "2", "7522"
+# sport → (eventTypeId Betfair, tipo di mercato, esiti attesi)
+SPORTS = {"soccer": (SOCCER, "MATCH_ODDS", 3), "tennis": (TENNIS, "MATCH_ODDS", 2), "basketball": (BASKETBALL, "MATCH_ODDS", 2)}
+
+
+def split_event_name(name: str) -> tuple[str, str] | None:
+    """"Inter v Lecce" → (Inter, Lecce); "Boston Celtics @ Miami Heat" (sport USA: ospite @ casa) → (Miami Heat, Boston Celtics)."""
+    if " v " in name:
+        home, _, away = name.partition(" v ")
+        return home.strip(), away.strip()
+    if " @ " in name:
+        away, _, home = name.partition(" @ ")
+        return home.strip(), away.strip()
+    return None
 
 
 class BetfairError(Exception):
@@ -44,7 +67,18 @@ class BetfairError(Exception):
 class BetfairClient:
     """Chiamate sincrone (requests). Il feed le esegue in un thread per non bloccare il loop async."""
 
-    SESSION_TTL = 3 * 3600            # keepAlive ogni 3 ore (la sessione italiana scade dopo ~4 h di inattività)
+    SESSION_TTL = 600                 # betfair.it: la sessione scade dopo 20 minuti → keepAlive ogni 10
+    LOGIN_ERRORS = {
+        "ITALIAN_CONTRACT_ACCEPTANCE_REQUIRED": "Betfair chiede di accettare le nuove condizioni del contratto: entra su "
+                                                "betfair.it dal browser, accetta, poi riavvia Bet_bot.",
+        "ITALIAN_PROFILING_ACCEPTANCE_REQUIRED": "Betfair chiede di completare il questionario di profilazione: entra su "
+                                                 "betfair.it dal browser, completalo, poi riavvia Bet_bot.",
+        "INVALID_USERNAME_OR_PASSWORD": "utente o password Betfair sbagliati.",
+        "ACCOUNT_NOW_LOCKED": "conto Betfair bloccato per troppi tentativi: sbloccalo dal sito.",
+        "TEMPORARY_BAN_TOO_MANY_REQUESTS": "troppi login in poco tempo: Betfair blocca per 20 minuti.",
+        "CERT_AUTH_REQUIRED": "serve il login con certificato: imposta cert_file e key_file.",
+        "INVALID_APP_KEY": "app key non valida o disattivata.",
+    }
 
     def __init__(self, creds: dict):
         self.app_key = creds.get("app_key") or ""
@@ -55,12 +89,16 @@ class BetfairClient:
         self.token_ts = 0.0
         self.calls = 0
         self.errors = 0
+        self.last_login_try = 0.0
         self.http = requests.Session()
 
     # ── sessione ────────────────────────────────────────────────
     def login(self) -> str:
         if not (self.app_key and self.username and self.password):
             raise BetfairError("Credenziali Betfair incomplete (app key, utente, password).")
+        if time.time() - self.last_login_try < 60:
+            raise BetfairError("Login Betfair rimandato di un minuto (protezione contro il blocco per troppi tentativi).")
+        self.last_login_try = time.time()
         headers = {"X-Application": self.app_key, "Accept": "application/json",
                    "Content-Type": "application/x-www-form-urlencoded"}
         data = {"username": self.username, "password": self.password}
@@ -76,7 +114,7 @@ class BetfairClient:
         except (requests.RequestException, ValueError) as exc:
             raise BetfairError(f"Login Betfair non riuscito: {exc}") from exc
         if not ok:
-            raise BetfairError(f"Login Betfair rifiutato: {err}")
+            raise BetfairError(f"Login Betfair rifiutato: {self.LOGIN_ERRORS.get(err, err)}")
         self.token, self.token_ts = token, time.time()
         return token
 
@@ -130,7 +168,12 @@ class BetfairClient:
             mfilter["marketCountries"] = countries
         return self.rpc("listMarketCatalogue", {"filter": mfilter, "maxResults": max_results, "sort": "FIRST_TO_START",
                                                 "marketProjection": ["EVENT", "RUNNER_DESCRIPTION", "MARKET_START_TIME",
-                                                                     "COMPETITION"]})
+                                                                     "COMPETITION", "MARKET_DESCRIPTION"]})
+
+    def event_types(self) -> dict[str, str]:
+        """Sport disponibili per questo conto: {id: nome}. Su betfair.it l'ippica (7) non deve esserci."""
+        res = self.rpc("listEventTypes", {"filter": {}})
+        return {str(e["eventType"]["id"]): e["eventType"]["name"] for e in res}
 
     def books(self, market_ids: list[str]) -> list[dict]:
         out = []
@@ -271,17 +314,27 @@ class BetfairFeed(Feed):
         self.cache = MarketCache()
         self.stream_task: asyncio.Task | None = None
         self.stream_ids: tuple = ()
+        self.available: dict | None = None
 
     def _refresh_catalogue(self) -> None:
         if time.time() - self.cat_ts < 600 and self.cat:
             return
         cat = {}
-        for m in self.client.catalogue(HORSE_RACING, "WIN", self.cfg.get("race_hours", 2),
-                                       self.cfg.get("race_countries", ["GB", "IE"]), 20):
-            cat[m["marketId"]] = {**m, "_kind": "race"}
-        if self.cfg.get("soccer", True):
-            for m in self.client.catalogue(SOCCER, "MATCH_ODDS", self.cfg.get("soccer_hours", 36), None, 40):
-                cat[m["marketId"]] = {**m, "_kind": "soccer"}
+        if not self.available or HORSE_RACING in self.available:       # su betfair.it l'ippica non c'è
+            for m in self.client.catalogue(HORSE_RACING, "WIN", self.cfg.get("race_hours", 2),
+                                           self.cfg.get("race_countries", ["GB", "IE"]), 20):
+                cat[m["marketId"]] = {**m, "_kind": "race"}
+        if self.available is None:
+            try:
+                self.available = self.client.event_types()
+            except BetfairError:
+                self.available = {}
+        sports = self.cfg.get("sports") or (["soccer"] if self.cfg.get("soccer", True) else [])
+        sports = [s for s in sports if not self.available or SPORTS[s][0] in self.available]
+        for sport in sports:
+            event_type, market_type, _ = SPORTS[sport]
+            for m in self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40):
+                cat[m["marketId"]] = {**m, "_kind": sport}
         self.cat, self.cat_ts = cat, time.time()
 
     def _prices_rest(self) -> dict[str, dict]:
@@ -315,25 +368,36 @@ class BetfairFeed(Feed):
                                           for rid, v in p["runners"].items() if v.get("back") and v.get("lay")}}
             else:
                 runners = cat.get("runners", [])
-                home, _, away = cat["event"]["name"].partition(" v ")
-                if len(runners) != 3 or not away:
+                sport = cat["_kind"]
+                n_out = SPORTS.get(sport, (None, None, 3))[2]
+                names = split_event_name(cat["event"]["name"])
+                if len(runners) != n_out or not names:
                     continue
+                home, away = names
                 order = {}
                 for r in runners:                      # abbinamento per nome, non per posizione
                     name = r["runnerName"].strip()
                     order[str(r["selectionId"])] = ("draw" if name.lower() in ("the draw", "pareggio", "draw")
                                                     else "home" if name == home.strip() else "away" if name == away.strip() else None)
-                if sorted(v for v in order.values() if v) != ["away", "draw", "home"]:
+                expected = ["away", "draw", "home"] if n_out == 3 else ["away", "home"]
+                if sorted(v for v in order.values() if v) != expected:
                     continue                           # nomi non riconosciuti: meglio saltare che invertire casa e ospite
                 prices_ = {order[rid]: v["back"] for rid, v in p["runners"].items() if order.get(rid) and v.get("back")}
-                if len(prices_) < 3:
+                if len(prices_) < n_out:
                     continue
+                exchange = {order[rid]: {k: v.get(k) for k in ("back", "lay", "back_size", "lay_size")}
+                            for rid, v in p["runners"].items() if order.get(rid)}
                 live = bool(p.get("inplay"))
-                matches[mid] = {"match_id": mid, "sport": "soccer", "league": (cat.get("competition") or {}).get("name", "Calcio"),
+                label = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket"}.get(sport, sport)
+                rate = (cat.get("description") or {}).get("marketBaseRate")
+                matches[mid] = {"match_id": mid, "sport": sport, "league": (cat.get("competition") or {}).get("name", label),
+                                "commission": rate / 100 if rate else None,
                                 "home": home.strip(), "away": away.strip(), "kickoff": start.isoformat(),
                                 "status": "FINISHED" if p["status"] == "CLOSED" else "LIVE" if live else "SCHEDULED",
                                 "minute": None, "home_score": None, "away_score": None, "result": None,
-                                "books": {} if live else {"Betfair": prices_}, "live_books": {"Betfair": prices_} if live else {},
+                                # "books" restano vuoti: le quote di riferimento arrivano da un'altra fonte (feed.reference)
+                                "books": {}, "live_books": {},
+                                "exchange": exchange,
                                 "closing": None, "odds_ts": now, "betfair": {"market_id": mid, "selection_ids":
                                                                             {v: int(k) for k, v in order.items()}}}
         return {"ts": now, "sim_time": now, "time_scale": 1.0,
