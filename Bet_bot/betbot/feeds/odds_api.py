@@ -32,7 +32,7 @@ class OddsApiFeed(Feed):
         self.key = api_key()
         if not self.key:
             raise FeedError("Manca la chiave di The Odds API: variabile ODDS_API_KEY o "
-                            "runtime/sport/local_settings.json {\"odds_api_key\": \"...\"}.")
+                            "runtime/local_settings.json {\"odds_api_key\": \"...\"}.")
         self.calls = 0
         self.errors = 0
         self.remaining = None

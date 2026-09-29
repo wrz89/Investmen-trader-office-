@@ -271,7 +271,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 .hq-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .hq-tag { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: auto; cursor: pointer; background: var(--room); color: var(--ink);
   border: 1px solid var(--wall); border-radius: 7px; padding: 2px 7px 3px; font: 500 10.5px/1.3 var(--f-body); white-space: nowrap; text-align: center;
-  box-shadow: 0 4px 10px -6px rgba(0, 0, 0, .45); opacity: .94; }
+  box-shadow: 0 4px 10px -6px rgba(0, 0, 0, .45); opacity: .94; user-select: none; -webkit-user-select: none; }
 .hq-tag:hover { opacity: 1; border-color: var(--accent); z-index: 3; }
 .hq-tag b { font: 720 11.5px/1.2 var(--f-sign); font-stretch: 92%; }
 .hq-tag .rl { color: var(--muted); }
@@ -811,13 +811,14 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   let drawerSig = "";
   const drawerKey = k => { const d = (S?.agents || []).find(x => x.agent === k), e = (S?.events || []).find(x => x.agent === k); return `${k}|${d?.state}|${d?.message}|${e?.id}`; };
   function fillDrawer(k) {
-    const a = BY[k], d = (S.agents || []).find(x => x.agent === k), bd = $("dr-body"), top = bd.scrollTop;
+    const a = BY[k], d = (S.agents || []).find(x => x.agent === k), bd = $("dr-body"), top = bd.scrollTop, ft = bd.querySelector(".feed")?.scrollTop || 0;
     $("dr-eyebrow").textContent = d?.state ? `stato: ${d.state}` : "";
     $("dr-title").textContent = a.name;
     $("dr-role").textContent = a.role;
     const evs = (S.events || []).filter(e => e.agent === k).slice(0, 60);
     bd.innerHTML = `<p>${esc(d?.message || "")}</p>` +
       (evs.length ? `<ul class="feed" style="max-height:none">${feedRows(evs)}</ul>` : `<p class="empty">Nessun evento registrato.</p>`);
+    const f = bd.querySelector(".feed"); if (f) f.scrollTop = ft;
     bd.scrollTop = top;
     drawerSig = drawerKey(k);
   }
@@ -825,7 +826,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const other = k !== openAgent;
     openAgent = k;
     fillDrawer(k);
-    if (other) $("dr-body").scrollTop = 0;
+    if (other) { $("dr-body").scrollTop = 0; const f = $("dr-body").querySelector(".feed"); if (f) f.scrollTop = 0; }
     $("drawer").setAttribute("aria-hidden", "false");
     $("dr-close").focus();
   }
