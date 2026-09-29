@@ -106,7 +106,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background-size: 24px 24px;
   display: grid; gap: 14px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-areas: "scan res quant pm" "risk risk exec audit";
+  grid-template-areas: "scan news res quant" "pm risk exec audit";
 }
 .room { position: relative; cursor: pointer; background: var(--room); border: 1px solid var(--wall); border-radius: 4px; padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; text-align: left; box-shadow: var(--shadow); transition: border-color .25s, box-shadow .25s; container-type: inline-size; }
 .room:hover { border-color: var(--accent); }
@@ -115,9 +115,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .room[data-k="strategy_researcher"] { grid-area: res; }
 .room[data-k="quant_researcher"] { grid-area: quant; }
 .room[data-k="portfolio_manager"] { grid-area: pm; }
-.room[data-k="risk_manager"] { grid-area: risk; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); column-gap: 16px; }
-.room[data-k="risk_manager"] .plate { grid-column: 1 / -1; }
-.room[data-k="risk_manager"] .mini { border-top: 0; padding-top: 0; align-content: start; }
+.room[data-k="risk_manager"] { grid-area: risk; }
+.room[data-k="news_analyst"] { grid-area: news; }
 .room[data-k="execution"] { grid-area: exec; }
 .room[data-k="auditor"] { grid-area: audit; }
 .plate { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
@@ -213,6 +212,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hq-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
 .room .bubble { position: static; width: auto; box-shadow: none; background: var(--paper); }
 .room .bubble::after { display: none; }
+.drawer .bubble { position: static; width: auto; box-shadow: none; background: var(--paper); }
+.drawer .bubble::after { display: none; }
+.mini .row .tag { flex: none; white-space: nowrap; }
 
 /* ── pannello impostazioni ─────────────────── */
 .top-right { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; justify-content: flex-end; }
@@ -290,18 +292,34 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; font-size: 13px; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; font-family: var(--f-data); text-align: right; }
 
+/* ── il tuo piano ─────────────────────────── */
+.plan-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.plan-grid > div { display: grid; gap: 14px; min-width: 0; }
+.sleeve { display: grid; gap: 4px; padding: 8px 0; border-bottom: 1px dashed var(--wall); font-size: 13px; }
+.sleeve:last-child { border-bottom: 0; padding-bottom: 0; }
+.sleeve small { color: var(--muted); font-size: 12px; }
+.sleeve .num, .sleeve .tag { flex: none; white-space: nowrap; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.steps li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; }
+.steps li b { font: 600 12px/1.5 var(--f-data); color: var(--accent); }
+.proj { display: grid; gap: 7px; font-size: 12.5px; }
+.proj .bar { height: 10px; position: relative; }
+.proj .bar s { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); opacity: .55; }
+.plain { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.news-list li { grid-template-columns: 58px minmax(0, 1fr); }
+.news-list a { color: var(--ink); text-decoration: none; } .news-list a:hover { color: var(--accent); text-decoration: underline; }
+@media (max-width: 620px) { .steps li { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .foot { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--wall); padding-top: 14px; display: grid; gap: 4px; }
 
 @media (max-width: 1080px) {
-  .floor { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "scan res" "quant pm" "risk risk" "exec audit"; }
+  .floor { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "scan news" "res quant" "pm risk" "exec audit"; }
+  .plan-grid { grid-template-columns: minmax(0, 1fr); }
   .two { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 620px) {
-  .floor { grid-template-columns: minmax(0, 1fr); grid-template-areas: "scan" "res" "quant" "risk" "exec" "audit" "pm"; padding: 10px; }
+  .floor { grid-template-columns: minmax(0, 1fr); grid-template-areas: "scan" "news" "res" "quant" "risk" "exec" "audit" "pm"; padding: 10px; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stamp { font-size: 22px; }
-  .room[data-k="risk_manager"] { grid-template-columns: minmax(0, 1fr); }
-  .room[data-k="risk_manager"] .mini { border-top: 1px dashed var(--wall); padding-top: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -311,9 +329,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <div class="eyebrow">Ufficio quantitativo · 7 agenti</div>
+      <div class="eyebrow">Ufficio quantitativo · 8 agenti</div>
       <h1>Crypto Trading Office</h1>
-      <p id="subtitle">Sette colleghi in un ufficio vero: lavorano alla scrivania, fanno riunioni e pause caffè. Clicca su uno di loro per leggere tutto quello che ha fatto.</p>
+      <p id="subtitle">Otto colleghi in un ufficio vero: lavorano alla scrivania, fanno riunioni e pause caffè. Clicca su uno di loro per leggere tutto quello che ha fatto.</p>
       <div class="chips" id="chips"></div>
     </div>
     <div class="top-right">
@@ -343,6 +361,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
   <section class="panel" aria-label="Le scrivanie">
     <div class="floor-head"><h2>Le scrivanie</h2></div>
     <div class="floor" id="floor"></div>
+  </section>
+
+  <section class="panel" aria-label="Il tuo piano" id="plan-sec" hidden>
+    <header><h2>Il tuo piano</h2><p id="plan-note"></p></header>
+    <div class="plan-grid" id="plan"></div>
   </section>
 
   <div class="two">
@@ -397,8 +420,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
     risk_manager:        { n: 5, name: "Risk Manager", role: "Veto assoluto su ogni operazione" },
     execution:           { n: 6, name: "Execution Agent", role: "Esegue solo ordini approvati" },
     auditor:             { n: 7, name: "Auditor", role: "Registra ogni operazione e scrive il report" },
+    news_analyst:        { n: 8, name: "News Analyst", role: "Legge le notizie pubbliche e può solo frenare" },
   };
-  const ORDER = ["market_scanner", "strategy_researcher", "quant_researcher", "portfolio_manager", "risk_manager", "execution", "auditor"];
+  const ORDER = ["market_scanner", "news_analyst", "strategy_researcher", "quant_researcher", "portfolio_manager", "risk_manager", "execution", "auditor"];
   const STATE_LABEL = { working: "Al lavoro", ok: "Operativo", blocked: "Veto", alert: "Allerta", idle: "In attesa" };
   const STATUS_LABEL = { RESEARCH: "In ricerca", PAPER: "Paper trading", REJECTED: "Rifiutata", SUSPENDED: "Sospesa", BLOCKED: "Bloccata", LIVE: "Live", RETIRED: "Ritirata", SUPERSEDED: "Sostituita", OBSERVE: "In osservazione" };
   const STATUS_CLASS = { RESEARCH: "st-working", PAPER: "st-ok", REJECTED: "st-blocked", SUSPENDED: "st-alert", BLOCKED: "st-blocked", LIVE: "st-ok", RETIRED: "st-idle", SUPERSEDED: "st-idle", OBSERVE: "st-working" };
@@ -452,7 +476,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
     risk_manager:        { nick: "Franco", skin: "#d9a07a", hair: "#a3a9ae", style: "bald",  beard: true, shirt: "#b83b35", brows: true, paddle: true, prop: "stamp", wall: "shield", screen: "gauges" },
     execution:           { nick: "Paolo",  skin: "#8d5b3e", hair: "#161412", style: "short", shirt: "#2c8fa3", headset: true, prop: "phone", wall: "clocks", screen: "book" },
     auditor:             { nick: "Elena",  skin: "#eec3a0", hair: "#2a1d18", style: "long",  shirt: "#5b6472", glasses: true, prop: "ledger", wall: "binders", screen: "table" },
+    news_analyst:        { nick: "Nora",   skin: "#f0c09a", hair: "#9a3b22", style: "curly", shirt: "#b8458f", prop: "news", wall: "news", screen: "news" },
   };
+  const SEV = { high: ["bad", "alto rischio"], medium: ["warn", "da seguire"], positive: ["ok", "positiva"], neutral: ["", "neutra"] };
+  const fgClass = (v) => v == null ? "" : v <= 25 ? "bad" : v <= 45 ? "warn" : v >= 75 ? "warn" : "ok";
+  const untilTxt = (u) => new Date(u * 1000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   // ── contenuti specifici di ogni stanza ─────────
   function miniFor(k, a) {
     const st = a?.stats || {};
@@ -502,6 +530,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
       return `<div class="row"><span>Equity</span>${spark(eqs)}<span class="num">${fmt(rs.equity ?? S.meta.initial_capital)}</span></div>
         <div class="row"><span>Trade registrati</span><span class="num">${(S.trades || []).length}</span></div>
         <div class="row"><span>Report giornalieri</span><span class="num">${(S.reports || []).length}</span></div>`;
+    }
+    if (k === "news_analyst") {
+      const fg = (S.fear_greed || {}).now || st.fear_greed;
+      const blocks = Object.entries(S.news_blocks || {});
+      const top = (S.news || []).filter((n) => n.severity === "high" || n.severity === "medium").slice(0, 2);
+      return `<div class="gauge"><div class="row"><span>Fear &amp; Greed</span><span class="num">${fg ? `${fg.value} · ${esc(fg.label)}` : "n/d"}</span></div><div class="bar"><i class="${fgClass(fg?.value) === "bad" ? "b" : fgClass(fg?.value) === "warn" ? "w" : ""}" style="width:${fg ? fg.value : 0}%"></i></div></div>
+        <div class="row"><span>Notizie lette (24 h)</span><span class="num">${st.news_24h ?? (S.news || []).length}</span></div>
+        <div class="row"><span>Blocchi prudenziali</span>${blocks.length ? `<span class="tag bad">${blocks.map(([a, v]) => `${esc(a)} fino alle ${untilTxt(v.until)}`).join(", ")}</span>` : `<span class="tag ok">nessuno</span>`}</div>
+        ${top.map((n) => `<div class="row"><span>${esc(n.title)}</span><span class="tag ${SEV[n.severity]?.[0] || ""}">${esc(SEV[n.severity]?.[1] || n.severity)}${(n.assets || []).length ? ` · ${esc(n.assets.join(" "))}` : ""}</span></div>`).join("")}
+        <div class="row"><span>Può fare trading?</span><span class="tag">no: può solo frenare</span></div>`;
     }
     if (k === "portfolio_manager") {
       const by = {};
@@ -645,6 +683,40 @@ button { font: inherit; color: inherit; cursor: pointer; }
     $("#backlog").innerHTML = (res?.stats?.backlog || []).map((b) => `<li>${esc(b.idea)}</li>`).join("") || `<li>Nessuna idea in coda.</li>`;
   }
 
+  const ST_TAG = { paper: "ok", "da validare": "warn", "da costruire": "warn", "in osservazione": "", live: "ok" };
+  function renderPlan() {
+    const P = S.plan;
+    const sec = $("#plan-sec");
+    if (!P || !P.start_capital) { sec.hidden = true; return; }
+    sec.hidden = false;
+    $("#plan-note").textContent = `Profilo ${P.profile} · ${P.platform} · ${fmt(P.start_capital, 0)} € + ${fmt(P.monthly, 0)} €/mese`;
+    const pr = P.projection || { years: 10, scenarios: [] };
+    const months = pr.years * 12, paid = P.start_capital + P.monthly * months;
+    const fv = (r) => { let v = P.start_capital; for (let i = 0; i < months; i++) v = v * Math.pow(1 + r, 1 / 12) + P.monthly; return v; };
+    const rows = pr.scenarios.map((s) => ({ ...s, v: fv(s.rate) }));
+    const hi = Math.max(paid, ...rows.map((r) => r.v));
+    $("#plan").innerHTML = `
+      <div>
+        <div class="card"><div class="card-head"><h3>Come lavorano i soldi</h3><span class="id">quote = massimo investito</span></div>
+          ${(P.sleeves || []).map((x) => `<div class="sleeve"><div class="row"><b>${esc(x.name)}</b><span class="tag ${ST_TAG[x.status] ?? ""}">${esc(x.status)}</span></div>
+            <div class="row"><small>${esc(x.note)}</small><span class="num">${x.max_share ? `fino al ${pct(x.max_share, 0)}` : "0%"}</span></div></div>`).join("")}
+          <p>Quando le strategie non vedono segnali, il capitale resta in USDC: in media oggi è investito meno del 10%.</p></div>
+        <div class="card"><div class="card-head"><h3>Tempi</h3><span class="id">il reale solo dopo la promozione</span></div>
+          <ul class="steps">${(P.phases || []).map((f) => `<li><b>${esc(f.when)}</b><span>${esc(f.what)}</span></li>`).join("")}</ul></div>
+      </div>
+      <div>
+        <div class="card"><div class="card-head"><h3>Proiezione a ${pr.years} anni</h3><span class="id">versati ${fmt(paid, 0)} € · lordo tasse</span></div>
+          <div class="proj">${rows.map((r) => `<div><div class="row"><span>${esc(r.label)}</span><span class="num ${r.v >= paid ? "pos" : "neg"}">${fmt(r.v, 0)} €</span></div>
+            <div class="bar"><i class="${r.v >= paid ? "" : "b"}" style="width:${(r.v / hi * 100).toFixed(1)}%"></i><s style="left:${(paid / hi * 100).toFixed(1)}%"></s></div></div>`).join("")}</div>
+          <p>La tacca indica quanto hai versato. Sono scenari, non promesse: nessuno può garantire un rendimento.</p></div>
+        <div class="card"><div class="card-head"><h3>Chi fa cosa</h3></div>
+          <div class="eyebrow">Tu, una volta sola</div><ul class="plain">${(P.you_do || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+          <div class="eyebrow">L'ufficio, da solo</div><ul class="plain">${(P.office_does || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>
+        <div class="card"><div class="card-head"><h3>Rischi da conoscere</h3></div>
+          <ul class="plain">${(P.risks || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>
+      </div>`;
+  }
+
   function feedItems(list) {
     return list.map((e) => `<li class="lv-${esc(e.level)} k-${esc(e.kind)}"><time>${esc(hhmm(e.ts))}</time><span class="who">${esc(PEOPLE[e.agent] ? `${PEOPLE[e.agent].nick} · ${AG[e.agent].name}` : e.agent)}</span><span class="msg">${esc(e.message)}</span></li>`).join("");
   }
@@ -695,6 +767,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
       const h = st.health || {};
       const ctx = Object.entries(st.context || {}).map(([b, v]) => `<dt>Funding ${esc(b)} (perp)</dt><dd>${v.funding_rate == null ? "n/d" : pct(v.funding_rate, 4)}</dd>`).join("");
       extra = `<div><div class="eyebrow">Salute dati</div><dl class="kv"><dt>Exchange</dt><dd>${esc(st.exchange || "")}</dd><dt>Chiamate API recenti</dt><dd>${h.calls ?? "—"}</dd><dt>Errori</dt><dd>${pct(h.error_rate || 0, 0)}</dd><dt>Latenza media</dt><dd>${h.avg_latency_ms ?? "—"} ms</dd>${ctx}</dl></div>`;
+    }
+    if (k === "news_analyst") {
+      const blocks = Object.entries(S.news_blocks || {});
+      const fg = (S.fear_greed || {}).now;
+      extra = `<div><div class="eyebrow">Come lavora</div><p class="role">Legge ogni 15 minuti le testate crypto pubbliche (CoinDesk, Cointelegraph, Decrypt, The Block) e l'indice Fear &amp; Greed. Se una notizia ad alto rischio (hack, insolvenza, delisting, sanzioni…) riguarda un asset dell'ufficio, chiede a Franco di bloccare i nuovi ingressi per 12 ore. Non compra e non vende mai: può solo rendere l'ufficio più prudente. Solo notizie pubbliche, nessuna informazione privilegiata.</p></div>
+        <div><div class="eyebrow">Stato</div><dl class="kv"><dt>Fear &amp; Greed</dt><dd>${fg ? `${fg.value} · ${esc(fg.label)}` : "n/d"}</dd>
+        ${blocks.map(([a, v]) => `<dt>Blocco ${esc(a)}</dt><dd>fino alle ${untilTxt(v.until)}</dd>`).join("") || "<dt>Blocchi attivi</dt><dd>nessuno</dd>"}</dl></div>
+        <div><div class="eyebrow">Ultime notizie lette</div><ul class="feed news-list">${(S.news || []).slice(0, 25).map((n) => `<li><time>${esc(hhmm(n.published || n.ts))}</time><span class="msg"><span class="tag ${SEV[n.severity]?.[0] || ""}">${esc(SEV[n.severity]?.[1] || n.severity)}${(n.assets || []).length ? ` · ${esc(n.assets.join(" "))}` : ""}</span> ${n.link ? `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a>` : esc(n.title)} <small class="role">${esc(n.source)}</small></span></li>`).join("") || `<li class="empty">Nessuna notizia ancora: arriveranno al prossimo ciclo.</li>`}</ul></div>`;
     }
     const evs = (S.events || []).filter((e) => e.agent === k).slice(0, 60);
     $("#dr-body").innerHTML = `<div class="bubble"><span>${esc(a.message || "")}</span><time>${esc(ago(a.updated))}</time></div>${extra}
@@ -761,6 +841,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
         ${checkRow("n-vetoes_all", "Anche i veti sulle strategie rifiutate", "Tanti messaggi: utile solo per curiosità", n.vetoes_all, off)}
         ${checkRow("n-daily_report", "Report giornaliero", "Il riepilogo di Elena a fine giornata", n.daily_report, off)}
         ${checkRow("n-alerts", "Allarmi", "Kill switch, errori, dati anomali (al massimo uno all'ora per tipo)", n.alerts, off)}
+        ${checkRow("n-news", "Allarmi notizie di Nora", "Quando una notizia ad alto rischio blocca i nuovi ingressi", n.news, off)}
       </section>
       <section class="set-sec">
         <h3>Accensione</h3>
@@ -786,7 +867,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     bind("tg-detect", () => act("/api/telegram/detect"));
     bind("tg-test", () => act("/api/telegram/test"));
     bind("tg-clear", () => act("/api/settings/telegram", { clear: true }));
-    ["trades", "vetoes", "vetoes_all", "daily_report", "alerts"].forEach((k) => {
+    ["trades", "vetoes", "vetoes_all", "daily_report", "alerts", "news"].forEach((k) => {
       const el = document.getElementById(`n-${k}`);
       if (el) el.addEventListener("change", () => act("/api/settings/notify", { [k]: el.checked }));
     });
@@ -820,7 +901,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   const REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const T = window.THREE;
   let sceneBusy = false, hqReady = false, lastEventId = 0, ambientTimer = null;
-  let renderer, scene3, camera, controls, hemi, sun, screenCanvas, screenTex, labelMeshes = [];
+  let renderer, scene3, camera, controls, hemi, sun, screenCanvas, screenTex, newsCanvas, newsTex, newsSig = "", labelMeshes = [];
   const walkers = {}, MAT = {}, COLOR_MAT = {};
 
   const PAL = {
@@ -844,13 +925,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
     d_meet_s: [-6, -2.9], d_meet_n: [-6, -4.9], meet: [-6, -5.9], m_w: [-10.9, -6.2], m_e: [-4.1, -6.2], m_ne: [-4.1, -10.8],
     d_fr_s: [0.5, -2.9], d_fr_n: [0.5, -4.9], f_side: [2.3, -6.4], f_back: [2.3, -9.4],
     coffee: [8.5, -0.9], d_mk_s: [5.8, -2.9], d_mk_n: [5.8, -4.9], mk_side: [9.9, -6.4], mk_back: [9.9, -9.4],
-    d_ar_w: [3, 8], d_ar_e: [5, 8], e_side: [6.6, 5.2],
+    d_ar_w: [3, 8], d_ar_e: [5, 8], e_side: [6.6, 5.2], a_nora: [0.5, 7.9],
   };
   const EDGES = [["a_sofia", "a_luca"], ["a_luca", "n_top"], ["a_giulia", "a_paolo"], ["a_paolo", "h2"], ["h2", "n_top"],
     ["a_luca", "d_meet_s"], ["n_top", "d_meet_s"], ["d_meet_s", "d_meet_n"], ["d_meet_n", "meet"], ["meet", "m_w"], ["meet", "m_e"], ["m_e", "m_ne"],
     ["n_top", "d_fr_s"], ["d_fr_s", "d_fr_n"], ["d_fr_n", "f_side"], ["f_side", "f_back"],
     ["n_top", "coffee"], ["d_fr_s", "coffee"], ["coffee", "d_mk_s"], ["d_mk_s", "d_mk_n"], ["d_mk_n", "mk_side"], ["mk_side", "mk_back"],
-    ["h2", "d_ar_w"], ["d_ar_w", "d_ar_e"], ["d_ar_e", "e_side"]];
+    ["h2", "d_ar_w"], ["d_ar_w", "d_ar_e"], ["d_ar_e", "e_side"], ["h2", "a_nora"], ["a_nora", "d_ar_w"]];
   const ADJ = {};
   EDGES.forEach(([a, b]) => { (ADJ[a] = ADJ[a] || []).push(b); (ADJ[b] = ADJ[b] || []).push(a); });
   function route(from, to) {
@@ -870,6 +951,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     risk_manager: { node: "f_back", x: 0.5, z: -9.4, pose: "sit", face: S_FWD },
     portfolio_manager: { node: "mk_back", x: 8, z: -9.4, pose: "sit", face: S_FWD },
     auditor: { node: "e_side", x: 8.5, z: 6.1, pose: "sit", face: S_FWD },
+    news_analyst: { node: "a_nora", x: 0.5, z: 9.2, pose: "sit", face: S_FWD },
   };
   const MEETPOS = {
     market_scanner: { node: "meet", x: -9.3, z: -6.9, pose: "sit", face: N_FWD },
@@ -879,6 +961,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     auditor: { node: "m_e", x: -4.4, z: -8.6, pose: "sit", face: W_FWD },
     risk_manager: { node: "m_w", x: -10.9, z: -8.6, pose: "stand", face: E_FWD },
     portfolio_manager: { node: "m_ne", x: -7.5, z: -10.7, pose: "stand", face: S_FWD },
+    news_analyst: { node: "m_ne", x: -5.4, z: -10.7, pose: "stand", face: S_FWD },
   };
   const COFFEEPOS = [{ node: "coffee", x: 8.1, z: -2.3, pose: "stand", face: N_FWD }, { node: "coffee", x: 9.4, z: -2.1, pose: "stand", face: -2.6 },
                      { node: "coffee", x: 10.6, z: -1.6, pose: "stand", face: -2.2 }];
@@ -964,6 +1047,34 @@ button { font: inherit; color: inherit; cursor: pointer; }
     screenTex.needsUpdate = true;
   }
 
+  function drawNewsScreen() {
+    if (!newsCanvas) return;
+    const fg = (S.fear_greed || {}).now, blocks = Object.keys(S.news_blocks || {});
+    const heads = (S.news || []).slice(0, 4);
+    const sig = JSON.stringify([fg?.value, blocks, heads.map((n) => n.title)]);
+    if (sig === newsSig) return;
+    newsSig = sig;
+    const g = newsCanvas.getContext("2d"), W = 512, H = 300;
+    g.fillStyle = "#101820"; g.fillRect(0, 0, W, H);
+    g.fillStyle = blocks.length ? R : "#b8458f"; g.fillRect(0, 0, W, 50);
+    g.fillStyle = "#fff"; g.font = "800 30px Archivo, Arial, sans-serif"; g.textAlign = "left";
+    g.fillText(blocks.length ? `BLOCCO: ${blocks.join(" ")}` : "NOTIZIE", 16, 36);
+    g.textAlign = "right"; g.font = "600 22px Arial, sans-serif";
+    g.fillText(fg ? `Fear & Greed ${fg.value}` : "Fear & Greed n/d", W - 16, 34);
+    g.textAlign = "left";
+    const colr = { high: R, medium: Y, positive: G };
+    heads.forEach((n, i) => {
+      const y = 92 + i * 54;
+      g.fillStyle = colr[n.severity] || "#6b7a8a"; g.fillRect(16, y - 20, 8, 30);
+      g.fillStyle = "#e8eef4"; g.font = "22px Arial, sans-serif";
+      let t = n.title; while (g.measureText(t).width > W - 52 && t.length > 8) t = t.slice(0, -2);
+      g.fillText(t === n.title ? t : t + "…", 34, y);
+      g.fillStyle = "#8a9aab"; g.font = "16px Arial, sans-serif"; g.fillText(n.source || "", 34, y + 20);
+    });
+    if (!heads.length) { g.fillStyle = "#8a9aab"; g.font = "22px Arial, sans-serif"; g.fillText("In attesa delle prime notizie…", 34, 120); }
+    newsTex.needsUpdate = true;
+  }
+
   function buildOffice() {
     // pavimenti delle stanze
     box(24.6, 0.3, 24.6, mat("edge"), 0, -0.16, 0).castShadow = false;
@@ -1028,9 +1139,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
     });
     desk(8.5, 6.1, scrLines(["#fff", "#fff", "#fff", "#fff"]));
     plant(11.2, 11.2);
+    // angolo notizie di Nora: scrivania e grande schermo con titoli e Fear & Greed
+    desk(0.5, 9.2, scrLines([Y, "#fff", R, "#fff"]));
+    box(0.08, 1.9, 0.08, mat("metal"), -1.85, 0.95, 9.7); box(0.5, 0.05, 0.5, mat("metal"), -1.85, 0.03, 9.7);
+    box(0.06, 1.12, 1.9, mat("metal"), -1.8, 1.75, 9.7);
+    const ns = canvasTex(512, 300, () => {}); newsCanvas = ns.canvas; newsTex = ns.tex;
+    const nsF = new T.Mesh(new T.PlaneGeometry(1.8, 1.05), new T.MeshBasicMaterial({ map: newsTex })); nsF.rotation.y = Math.PI / 2; nsF.position.set(-1.76, 1.75, 9.7); scene3.add(nsF);
+    drawNewsScreen();
     // etichette sul pavimento
     floorLabel("SALA RIUNIONI", -7.5, -4.8, 4.6); floorLabel("RISCHIO · FRANCO", 0.5, -4.8, 4.6); floorLabel("DIREZIONE · MARCO", 8.2, -4.8, 4.6);
     floorLabel("OPEN SPACE", -4, 11, 5.2); floorLabel("CAFFÈ", 7, 2.2, 2.8); floorLabel("ARCHIVIO · ELENA", 8.2, 11.1, 4.6);
+    floorLabel("NOTIZIE · NORA", 0.6, 11.4, 3.6);
   }
 
   // ── gli omini ──
@@ -1165,7 +1284,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.domElement.setAttribute("role", "img");
-    renderer.domElement.setAttribute("aria-label", "L'ufficio in 3D: sala riunioni, ufficio del Risk Manager, direzione, open space, angolo caffè e archivio, con i sette agenti");
+    renderer.domElement.setAttribute("aria-label", "L'ufficio in 3D: sala riunioni, ufficio del Risk Manager, direzione, open space, angolo caffè e archivio, con gli otto agenti");
     host.prepend(renderer.domElement);
     scene3 = new T.Scene(); scene3.background = new T.Color(pal.bg);
     camera = new T.OrthographicCamera(-10, 10, 10, -10, -100, 200);
@@ -1252,7 +1371,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     return scene("Riunione in sala: ognuno riporta il proprio stato con i messaggi reali del registro.", async () => {
       setScreen("Riunione", "stato dell'ufficio");
       await Promise.all(ORDER.map((k, i) => sleep(i * 300).then(() => walkers[k].go(MEETPOS[k]))));
-      for (const k of ["portfolio_manager", "market_scanner", "quant_researcher", "risk_manager", "execution", "auditor"]) {
+      for (const k of ["portfolio_manager", "market_scanner", "news_analyst", "quant_researcher", "risk_manager", "execution", "auditor"]) {
         setScreen("Riunione", `parla ${PEOPLE[k].nick}`);
         await walkers[k].say(agentMsg(k), 3600);
       }
@@ -1319,6 +1438,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
         await w.say(e.message, 2600);
         await w.go({ node: "d_fr_n", x: 0.4, z: -6.9, pose: "stand", face: N_FWD });
         if (!inScene) await w.home();
+      } else if (e.kind === "news_alert") {
+        w.setProp("paper"); w.setMood("alert");
+        await w.say(e.message, 3400);
+        await w.go({ node: "d_fr_n", x: 1.3, z: -6.7, pose: "stand", face: N_FWD });
+        await walkers.risk_manager.say("Ricevuto, Nora: blocco i nuovi ingressi finché l'allarme è attivo.", 3000);
+        w.setMood("ok");
+        if (!inScene) await w.home();
       } else if (e.kind === "veto") {
         w.setProp("paddle"); stamp();
         await w.say(e.message, 3400);
@@ -1369,7 +1495,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     }, 5000 + Math.random() * 5000);
   }
 
-  function renderHQ() { initHQ(); syncMoods(); if (live) onNewEvents(); }
+  function renderHQ() { initHQ(); syncMoods(); drawNewsScreen(); if (live) onNewEvents(); }
   function cardSay(k, text) {
     const el = $(`#floor .room[data-k="${k}"]`);
     if (!el) return;
@@ -1396,6 +1522,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   function renderAll() {
     renderHeader();
     renderFloor();
+    renderPlan();
     renderHQ();
     renderBoard();
     renderFeed();

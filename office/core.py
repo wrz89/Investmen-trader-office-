@@ -13,6 +13,7 @@ from .account import PaperAccount, today
 from .agents.auditor import Auditor
 from .agents.execution import Execution
 from .agents.market_scanner import MarketScanner
+from .agents.news_analyst import NewsAnalyst
 from .agents.portfolio_manager import PortfolioManager
 from .agents.quant_researcher import QuantResearcher
 from .agents.risk_manager import RiskManager
@@ -53,8 +54,9 @@ class Office:
         self.risk = RiskManager(self)
         self.execution = Execution(self)
         self.auditor = Auditor(self)
+        self.news = NewsAnalyst(self)
         self.agents = [self.pm, self.scanner, self.researcher, self.quant,
-                       self.risk, self.execution, self.auditor]
+                       self.risk, self.execution, self.auditor, self.news]
         self.store.set("office_meta", {
             "mode": self.settings["mode"], "exchange": ex["data"], "universe": self.settings["universe"],
             "timeframe": self.settings["timeframe"], "currency": self.settings["capital"]["currency"],
@@ -90,6 +92,11 @@ class Office:
             return {"ok": False}
 
         prices = {s: v["bid"] for s, v in snapshot["symbols"].items() if v.get("bid")}
+        try:
+            self.news.run(snapshot)            # la sentinella delle notizie non deve mai fermare il ciclo
+        except Exception as exc:
+            self.news.say(f"Errore nella lettura delle notizie: {exc}. Nessun effetto sul trading.", "alert",
+                          "news_source", level="WARN")
 
         # 1) gestione posizioni aperte (uscite prima degli ingressi)
         by_id = {s["module"].STRATEGY_ID: s for s in strategies_state}

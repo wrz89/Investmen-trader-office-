@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────
+#  NORA · NEWS ANALYST — fonti pubbliche e regole
+#  Nora non apre mai trade: può solo chiedere a Franco di bloccare
+#  i NUOVI ingressi quando una notizia è ad alto rischio.
+# ─────────────────────────────────────────────────────────────
+feeds:
+  - {name: CoinDesk, url: "https://www.coindesk.com/arc/outboundfeeds/rss/"}
+  - {name: Cointelegraph, url: "https://cointelegraph.com/rss"}
+  - {name: Decrypt, url: "https://decrypt.co/feed"}
+  - {name: The Block, url: "https://www.theblock.co/rss.xml"}
+fear_greed_url: "https://api.alternative.me/fng/?limit=30"
+
+refresh_minutes: 15      # ogni quanto rilegge le fonti
+max_age_hours: 24        # notizie più vecchie vengono ignorate
+block_hours: 12          # durata del blocco dei nuovi ingressi dopo una notizia ad alto rischio
+
+# Come si riconosce di quale asset parla una notizia (nel titolo)
+aliases:
+  BTC: [bitcoin, btc]
+  ETH: [ethereum, ether, eth]
+  XRP: [xrp, ripple]
+  SOL: [solana, sol]
+  USDC: [usdc, circle]
+  BYBIT: [bybit]
+# Se l'allarme riguarda la valuta di quotazione o l'exchange, si blocca TUTTO
+block_all_for: [USDC, BYBIT]
+
+high_risk: [hack, hacked, hacker, hackers, exploit, exploited, drained, stolen, breach, depeg, depegs, depegged, de-peg,
+            delist, delists, delisting, insolvent, insolvency, bankrupt, bankruptcy, "halts withdrawals",
+            "halted withdrawals", "suspends withdrawals", "pauses withdrawals", "withdrawals paused", "rug pull"]
+medium_risk: [lawsuit, sues, sued, ban, bans, banned, outage, crackdown, investigation, probe, fraud, "security incident",
+              liquidations, liquidated, selloff, sell-off, plunge, plunges, crash, crashes]
+positive: [approval, approved, approves, "all-time high", "record high", inflows, upgrade, partnership, adoption, rally, surges]

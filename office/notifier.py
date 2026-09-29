@@ -22,8 +22,9 @@ WHO = {
     "risk_manager": "Franco · Risk Manager",
     "execution": "Paolo · Execution",
     "auditor": "Elena · Auditor",
+    "news_analyst": "Nora · News Analyst",
 }
-ICON = {"fill": "💱", "trade": "📒", "veto": "⛔", "kill_switch": "🚨", "alert": "⚠️", "report": "📊"}
+ICON = {"news_alert": "📰", "fill": "💱", "trade": "📒", "veto": "⛔", "kill_switch": "🚨", "alert": "⚠️", "report": "📊"}
 
 
 def _escape(text: str) -> str:
@@ -117,6 +118,8 @@ class Notifier:
             authorized = (payload or {}).get("strategy_status") == "PAPER"
             if authorized or n.get("vetoes_all"):
                 text = f"{ICON['veto']} <b>{who}</b>\n{_escape(message)}"
+        elif kind == "news_alert" and n.get("news", True):
+            text = f"{ICON['news_alert']} <b>{who}</b>\n{_escape(message)}"
         elif kind == "kill_switch" and n.get("alerts"):
             text = f"{ICON['kill_switch']} <b>{who}</b>\n{_escape(message)}"
         elif (level in ("ERROR", "CRITICAL") or kind == "anomaly") and n.get("alerts"):

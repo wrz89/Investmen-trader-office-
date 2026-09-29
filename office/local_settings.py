@@ -19,6 +19,7 @@ DEFAULTS = {
         "vetoes_all": False,    # anche i veti sulle strategie rifiutate (molto rumoroso)
         "daily_report": True,
         "alerts": True,         # kill switch, errori, dati anomali
+        "news": True,           # allarmi di Nora sulle notizie ad alto rischio
     },
     "keep_awake": True,         # impedisce la sospensione del PC mentre l'ufficio lavora
 }

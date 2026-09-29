@@ -1,6 +1,6 @@
 # Crypto Trading Office
 
-Ufficio quantitativo con 7 agenti per il trading crypto di breve periodo.
+Ufficio quantitativo con 8 agenti per il trading crypto di breve periodo.
 **Modalità attuale: PAPER TRADING**, cioè prezzi veri e soldi finti. Niente leva e niente short.
 
 | # | Agente | Cosa fa | File |
@@ -12,6 +12,7 @@ Ufficio quantitativo con 7 agenti per il trading crypto di breve periodo.
 | 5 | Risk Manager | **veto assoluto**, sizing, kill switch | `office/agents/risk_manager.py` |
 | 6 | Execution Agent | esegue solo ordini approvati (paper) e fa i controlli pre/post ordine | `office/agents/execution.py` |
 | 7 | Auditor | registro trade immutabile e report giornaliero | `office/agents/auditor.py` |
+| 8 | News Analyst (Nora) | legge notizie pubbliche e Fear & Greed; con una notizia ad alto rischio su un asset (o su USDC/Bybit) chiede il blocco dei nuovi ingressi per 12 ore. Non apre mai trade | `office/agents/news_analyst.py`, `config/news.yaml` |
 
 Nessun LLM sta nel percorso che porta a un ordine: tutte le decisioni sono regole numeriche.
 
@@ -67,6 +68,8 @@ Il token del bot resta in `runtime/local_settings.json`, solo sul tuo PC. Può e
 - **Mai sovrascrivere una strategia**: ogni versione è un file (`s01_momentum_v1.py`). Se il codice di una versione registrata cambia, la strategia viene bloccata. Per modificarla si crea `s01_momentum_v2.py`.
 - **Registro immutabile**: il database rifiuta modifiche e cancellazioni dei trade.
 - **Dati dubbi = nessuna operazione**: candele vecchie, buchi, prezzi incoerenti, API instabile o movimenti anomali bloccano l'operatività.
+- **Le notizie possono solo frenare**: gli allarmi di Nora aggiungono un controllo al Risk Manager, non generano mai ordini. Solo fonti pubbliche.
+- **Il piano d'investimento** (`config/investment_plan.yaml`) è mostrato nella dashboard: profilo, quote massime, tempi, proiezioni e rischi.
 - **Live non disponibile**: il codice rifiuta la modalità live. Verrà aggiunta solo dopo un paper trading superato.
 
 ## Note pratiche

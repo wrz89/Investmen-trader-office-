@@ -7,6 +7,8 @@ l'ufficio è acceso, tutto viene bloccato.
 """
 from __future__ import annotations
 
+import time
+
 from ..config import CONFIG_DIR, file_sha256, load_yaml
 from ..store import now_iso
 from .base import Agent
@@ -76,6 +78,11 @@ class RiskManager(Agent):
             "ok" if sym in validated_on else f"validata solo su {', '.join(validated_on) or 'nessun asset'}")
         chk("Dati di mercato affidabili", info.get("ok", False) and not info.get("anomalies"),
             "; ".join(info.get("anomalies", [])) or "nessuna anomalia")
+        base = sym.split("/")[0]
+        news = {k: v for k, v in (self.store.get("news_blocks") or {}).items()
+                if k in (base, "ALL") and v.get("until", 0) > time.time()}
+        chk("Nessun allarme notizie (Nora)", not news,
+            "nessun allarme" if not news else f"«{next(iter(news.values()))['reason']}»")
         err = snapshot["health"].get("error_rate", 0)
         chk("API stabile", err <= L["max_api_error_rate"], f"errori {err:.0%}")
         chk("Dati freschi", info.get("data_age_s", 1e9) <= L["max_data_age_seconds"],

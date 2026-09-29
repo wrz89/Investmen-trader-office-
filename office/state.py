@@ -61,8 +61,20 @@ def build_state(store: Store) -> dict:
     for r in reports:
         r["data"] = _j(r["data"])
 
+    try:
+        news = store.query("SELECT ts, published, source, title, link, assets, severity, words FROM news "
+                           "ORDER BY COALESCE(published, ts) DESC LIMIT 40")
+    except Exception:
+        news = []
+    for n in news:
+        n["assets"], n["words"] = _j(n["assets"]) or [], _j(n["words"]) or []
+
     return {
         "generated": time.time(),
+        "news": news,
+        "news_blocks": {k: v for k, v in (store.get("news_blocks") or {}).items() if v.get("until", 0) > time.time()},
+        "fear_greed": store.get("fear_greed"),
+        "plan": load_yaml("investment_plan.yaml"),
         "meta": store.get("office_meta", {}),
         "cycle": store.get("cycle", {}),
         "agents": agents,
