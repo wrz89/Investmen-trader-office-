@@ -17,10 +17,10 @@ sleeves:
     status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
     max_share: 0.0
     note: "Con le commissioni reali resta in utile (PF 2,27) ma lo Sharpe scende a 0,96, sotto la soglia 1,0 fissata prima dei test. Le soglie non si abbassano dopo aver visto i risultati"
-  - name: BTC con filtro di trend 200 giorni
-    status: da validare           # pre-registrazione, poi walk-forward + hold-out
-    max_share: 0.30
-    note: "compra BTC solo sopra la media a 200 giorni, altrimenti USDC. Pochi scambi l'anno: le commissioni pesano poco"
+  - name: BTC sopra la media di lungo periodo (STRATEGY_06_v1)
+    status: bocciata              # 29/09/2026: 10 criteri su 11, prove statistiche insufficienti
+    max_share: 0.0
+    note: "Fuori campione 2021-2025: +26%/anno contro +19% di compra e tieni, perdita massima 31% contro 77%. Ma su 3,6 anni la probabilità che non sia fortuna è 77%, sotto il 90% richiesto (Deflated Sharpe). Hold-out non consumato"
   - name: Tesoriere · USDC in Earn flessibile
     status: rinviato              # verificato il 29/09/2026 sull'app Bybit EU
     max_share: 0.0
@@ -46,12 +46,10 @@ office_does:
 phases:
   - when: ottobre 2026 → promozione
     what: "Nessuna strategia attiva con i costi reali: l'ufficio osserva e non opera. I 50 €/mese restano sul tuo conto corrente, da parte."
-  - when: ottobre–dicembre 2026
-    what: Validazione BTC trend 200 giorni (regole fissate prima del test)
-  - when: "stima: primavera 2027"
-    what: "Promozione se superati TUTTI i criteri (≥ 12 settimane e ≥ 20 trade chiusi: con ~37 trade/anno servono circa 6-7 mesi). Decisione finale tua."
-  - when: dopo la promozione
-    what: Bonifico dell'accumulato + 50 €/mese automatici. Si parte piccoli.
+  - when: 29/09/2026
+    what: "Verificate con i costi reali: v5 e BTC di lungo periodo non superano tutti i criteri. Nessuna strategia approvata"
+  - when: prossimo passo
+    what: "Decisione tua sulla direzione (osservazione, accumulo automatico o altro). Nessun soldo reale finché una strategia non passa"
 
 risks:
   - "Tutto su crypto: in un crollo generale (-50/-70%) le strategie escono, ma non a costo zero"
