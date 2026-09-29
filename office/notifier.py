@@ -120,6 +120,9 @@ class Notifier:
                 text = f"{ICON['veto']} <b>{who}</b>\n{_escape(message)}"
         elif kind == "reminder":                                   # promemoria: sempre, se Telegram è collegato
             text = f"🗓️ <b>{who}</b>\n{_escape(message)}"
+        elif kind == "accum_alert" and n.get("alerts"):            # accumulo reale rimandato o in errore
+            if self._cooldown_ok(f"{kind}|{message[:60]}"):
+                text = f"{ICON['alert']} <b>{who}</b>\n{_escape(message)}"
         elif kind == "news_alert" and n.get("news", True):
             text = f"{ICON['news_alert']} <b>{who}</b>\n{_escape(message)}"
         elif kind == "kill_switch" and n.get("alerts"):

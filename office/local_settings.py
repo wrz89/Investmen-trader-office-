@@ -22,6 +22,10 @@ DEFAULTS = {
         "news": True,           # allarmi di Nora sulle notizie ad alto rischio
     },
     "keep_awake": True,         # impedisce la sospensione del PC mentre l'ufficio lavora
+    # Chiave API di Bybit EU per il piano di accumulo con soldi veri (solo trading, niente prelievi,
+    # legata all'IP del PC). Il segreto non esce mai da questo file: né verso il browser né su GitHub.
+    "bybit": {"key": "", "secret": "", "verified": False, "problems": [], "ips": [],
+              "test_done": False, "live": False},
 }
 
 
@@ -52,4 +56,8 @@ def public(data: dict) -> dict:
     out["telegram"]["token"] = f"{token[:6]}…{token[-4:]}" if len(token) > 12 else ""
     out["telegram"]["configured"] = bool(token and data["telegram"].get("chat_id"))
     out["telegram"]["has_token"] = bool(token)
+    key = data["bybit"].get("key") or ""
+    out["bybit"]["key"] = f"{key[:4]}…{key[-3:]}" if len(key) > 8 else ""
+    out["bybit"]["secret"] = ""                     # mai, nemmeno mascherato
+    out["bybit"]["has_key"] = bool(key and data["bybit"].get("secret"))
     return out

@@ -179,8 +179,9 @@ class RiskManager(Agent):
             reasons.append("modalità live non abilitata in questa versione")
         if not q.get("direct") and not (q.get("usdc_ask") and q.get("usdc_eur")):
             reasons.append("prezzi non disponibili")
-        if q.get("spread_bps") is not None and q["spread_bps"] > L["max_spread_bps"]:
-            reasons.append(f"spread {q['spread_bps']:.1f} bp oltre il limite")
+        max_spread = q.get("max_spread_bps") or L["max_spread_bps"]
+        if q.get("spread_bps") is not None and q["spread_bps"] > max_spread:
+            reasons.append(f"spread {q['spread_bps']:.1f} bp oltre il limite di {max_spread} bp")
         if q.get("age_s") is not None and q["age_s"] > L["max_data_age_seconds"]:
             reasons.append(f"prezzo vecchio di {q['age_s']:.0f} s")
         err = snapshot["health"].get("error_rate", 0)

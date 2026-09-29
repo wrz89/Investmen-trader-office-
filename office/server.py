@@ -30,7 +30,7 @@ def settings_view() -> dict:
     }
 
 
-def handle_action(path: str, body: dict) -> dict:
+def handle_action(path: str, body: dict, store: Store | None = None) -> dict:
     s = local_settings.load()
     if path == "/api/settings/telegram":
         token = (body.get("token") or "").strip()
@@ -71,6 +71,86 @@ def handle_action(path: str, body: dict) -> dict:
         st = system.set_autostart(bool(body.get("enabled")))
         return {"message": "Avvio automatico attivato: l'ufficio partirà da solo quando accedi a Windows."
                 if st["enabled"] else "Avvio automatico disattivato."}
+    if path.startswith("/api/settings/bybit") or path.startswith("/api/bybit/"):
+        try:
+            return _bybit_action(path, body, s, store)
+        except (ValueError, LookupError):
+            raise
+        except Exception as exc:                       # errori di rete o di Bybit: messaggio leggibile
+            raise ValueError(f"Bybit ha risposto con un errore: {exc}") from exc
+    raise LookupError(path)
+
+
+def _bybit_action(path: str, body: dict, s: dict, store: Store | None) -> dict:
+    from .accumulation import allocation_of, record_buy
+    from .config import load_settings
+    from .live_exchange import LiveExchange, fill_of
+    b = s["bybit"]
+    allowed = list(allocation_of(load_yaml("accumulation.yaml")))
+    if path == "/api/settings/bybit":
+        if body.get("clear"):
+            s["bybit"] = dict(local_settings.DEFAULTS["bybit"])
+            local_settings.save(s)
+            return {"message": "Chiave di Bybit rimossa dall'ufficio. Ricordati di cancellarla anche su Bybit."}
+        key, secret = (body.get("key") or "").strip(), (body.get("secret") or "").strip()
+        if not (key.isalnum() and 10 <= len(key) <= 64) or not (secret.isalnum() and 20 <= len(secret) <= 128):
+            raise ValueError("Chiave o segreto non validi: copiali di nuovo da Bybit (solo lettere e numeri).")
+        s["bybit"] = {**local_settings.DEFAULTS["bybit"], "key": key, "secret": secret}
+        local_settings.save(s)
+        return {"message": "Chiave salvata sul tuo PC. Ora premi 'Verifica la chiave'."}
+    if path == "/api/bybit/ip":
+        import requests
+        ip = requests.get("https://api.ipify.org?format=json", timeout=8).json()["ip"]
+        return {"message": f"L'IP pubblico del tuo PC è {ip}: incollalo su Bybit in 'Solo IP consentiti'.", "ip": ip}
+    live = LiveExchange(load_settings(), allowed)
+    if not live.configured:
+        raise ValueError("Prima incolla e salva chiave e segreto di Bybit.")
+    if path == "/api/bybit/verify":
+        v = live.verify()
+        b.update(verified=v["ok"], problems=v["problems"], ips=v["ips"])
+        if not v["ok"]:
+            b.update(live=False, test_done=False)
+        local_settings.save(s)
+        if not v["ok"]:
+            raise ValueError("Chiave NON accettata: " + "; ".join(v["problems"]) + ".")
+        return {"message": f"Chiave verificata: solo trading spot, prelievi disattivati, IP {', '.join(v['ips'])}. "
+                           f"Euro disponibili per il trading: {v['eur_free']:.2f} €. Ora fai l'ordine di prova."}
+    if path == "/api/bybit/test_order":
+        if not b.get("verified"):
+            raise ValueError("Prima verifica la chiave.")
+        if b.get("test_done"):
+            return {"message": "Ordine di prova già fatto: puoi accendere gli acquisti reali."}
+        sym, eur = allowed[0], 5.0
+        if live.eur_free() < eur:
+            raise ValueError("Servono almeno 5 € nel conto di trading (Unificato): sposta gli euro dal conto Fondi.")
+        oid = live.market_buy(sym, eur)
+        import time as _t
+        for _ in range(5):
+            o = live.order(sym, oid)
+            if o.get("status") in ("closed", "canceled", "rejected", "expired"):
+                break
+            _t.sleep(1)
+        f = fill_of(o, sym)
+        if f["qty"] <= 0:
+            raise ValueError(f"L'ordine di prova non è stato eseguito (stato: {o.get('status')}).")
+        if store is not None:
+            record_buy(store, "prova", "live", "diretta (mercato)", sym, f["eur"], f["eur"] / f["qty"], f["qty"],
+                       f["fee_eur"], f"ordine di prova · ordine Bybit {oid}")
+            store.event("execution", f"ORDINE DI PROVA con soldi veri: {f['qty']:.8f} {sym.split('/')[0]} per "
+                                     f"{f['eur']:.2f} € (commissione {f['fee_eur']:.4f} €). Collegamento funzionante.",
+                        "INFO", "fill")
+        b["test_done"] = True
+        local_settings.save(s)
+        return {"message": f"Ordine di prova riuscito: {f['qty']:.8f} {sym.split('/')[0]} per {f['eur']:.2f} €. "
+                           "Ora puoi accendere gli acquisti reali."}
+    if path == "/api/settings/bybit_live":
+        on = bool(body.get("enabled"))
+        if on and not (b.get("verified") and b.get("test_done")):
+            raise ValueError("Per accendere gli acquisti reali servono chiave verificata e ordine di prova riuscito.")
+        b["live"] = on
+        local_settings.save(s)
+        return {"message": "ACQUISTI REALI ACCESI: dal prossimo acquisto dovuto l'ufficio compra con i tuoi soldi su Bybit."
+                if on else "Acquisti reali spenti: l'accumulo torna in prova (paper)."}
     raise LookupError(path)
 
 
@@ -113,7 +193,7 @@ def make_handler(store: Store, port: int):
             try:
                 length = min(int(self.headers.get("Content-Length") or 0), 10_000)
                 body = json.loads(self.rfile.read(length) or b"{}")
-                result = handle_action(self.path, body)
+                result = handle_action(self.path, body, store)
                 store.event("portfolio_manager", f"Impostazioni: {result['message']}", "INFO", "settings")
                 self._json(200, {**result, "settings": settings_view()})
             except LookupError:

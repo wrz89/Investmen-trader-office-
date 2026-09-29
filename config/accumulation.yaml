@@ -32,6 +32,15 @@ amount_eur: 70           # importo FISSO: non aumenta mai dopo un calo (regole 3
 execution:
   order_type: limit
   limit_timeout_hours: 24
+# Spread massimo accettato per l'accumulo (le coppie in euro sono meno liquide di quelle
+# in USDC; con l'ordine limite si compra al prezzo di acquisto e lo spread non si paga).
+# Oltre questa soglia l'acquisto si RIMANDA, non si salta.
+max_spread_bps: 50
+
+# SOLDI VERI (decisione dell'utente del 29/09/2026): l'ufficio esegue con una chiave API
+# di Bybit EU solo trading, senza prelievi, legata all'IP del PC. Si attiva dalle
+# Impostazioni, solo dopo: chiave verificata + ordine di prova da 5 € riuscito.
+# Il modulo può SOLO comprare le monete qui sopra; tetto mensile = importo pianificato.
 day_of_month: 5          # dal 5 del mese (dopo lo stipendio e il bonifico periodico)
 # Capitale iniziale (deciso dall'utente il 29/09/2026): 140 € entrati a rate, non in un
 # giorno solo. Calendario fissato prima di iniziare: 35 € in più nei primi 4 acquisti
@@ -50,14 +59,16 @@ start_month: "2026-10"
 # dopo l'osservazione in ombra: allora potrà decidere quando stare fuori.
 sells: never
 
-# Passaggio ai soldi veri, fissato prima del primo acquisto in paper:
+# Passaggio ai soldi veri. Il 29/09/2026 l'utente ha deciso di partire subito, senza i
+# 2 mesi di prova in paper previsti prima: al loro posto, controlli tecnici sul reale.
 go_live:
-  min_paper_buys: 2      # due mesi di acquisti in paper riusciti (ottobre e novembre 2026)
-  max_errors: 0          # nessun errore o acquisto saltato per guasto
-  requires:              # e in più, fatti da te:
-    - "conto Bybit EU verificato e bonifico periodico di 70 € impostato"
-    - "chiavi API solo trading, senza prelievi, legate all'IP del tuo PC"
-    - "tua decisione esplicita"
+  min_paper_buys: 0      # era 2: rinunciato per decisione esplicita dell'utente (29/09/2026)
+  max_errors: 0
+  requires:
+    - "conto Bybit EU verificato e fondi depositati (fatto il 29/09/2026)"
+    - "chiave API verificata dall'ufficio: solo trading spot, prelievi disattivati, legata all'IP del PC"
+    - "ordine di prova da 5 € in BTC riuscito e registrato"
+    - "interruttore 'Acquisti reali' acceso da te nelle Impostazioni"
 
 # Promemoria per te (Marco li manda su Telegram, una volta sola, dalla data indicata).
 # L'Acquisto ricorrente di Bybit con soldi veri è impostato da te nell'app: l'ufficio non

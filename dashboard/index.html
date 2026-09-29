@@ -725,7 +725,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       return A.due_now ? "oggi (appena i controlli di Franco sono ok)" : `dal ${A.day_of_month} ${new Date(y, mo - 1, 1).toLocaleDateString("it-IT", { month: "long", year: "numeric" })}`;
     };
     const G = A?.gaps || {};
-    const accCard = A ? `<div class="card"><div class="card-head"><h3>Accumulo automatico</h3><span class="tag ${A.buys ? "ok" : "warn"}">${esc((S.meta.mode || "paper"))} · ${fmt(A.amount_eur, 0)} €/mese</span></div>
+    const accCard = A ? `<div class="card"><div class="card-head"><h3>Accumulo automatico</h3><span class="tag ${A.mode === "live" ? "bad" : A.buys ? "ok" : "warn"}">${A.mode === "live" ? "SOLDI VERI" : "prova (paper)"} · ${fmt(A.amount_eur, 0)} €/mese</span></div>
         <div class="metrics">
           <div class="metric"><small>Versati</small><b>${fmt(A.eur_in, 0)} €</b></div>
           <div class="metric"><small>Valore oggi</small><b class="${!A.buys ? "" : A.value >= A.eur_in ? "pos" : "neg"}">${!A.buys || A.value == null ? "—" : fmt(A.value, 2) + " €"}</b></div>
@@ -873,7 +873,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       return;
     }
     if (!SET) { body.innerHTML = `<p class="empty">Caricamento…</p>`; return; }
-    const tg = SET.telegram, n = SET.notify, as = SET.autostart, P = SET.promotion || {};
+    const tg = SET.telegram, n = SET.notify, as = SET.autostart, P = SET.promotion || {}, by = SET.bybit || {};
     const off = !live;
     body.innerHTML = `
       ${setMsg ? `<div class="set-msg ${setMsg.ok ? "" : "err"}" role="status">${esc(setMsg.text)}</div>` : ""}
@@ -889,6 +889,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <li>Controlla che tutto funzioni:
             <div class="field"><button class="btn" id="tg-test" type="button" ${tg.configured ? "" : "disabled"}>Invia messaggio di prova</button>${tg.has_token ? `<button class="btn" id="tg-clear" type="button">Scollega</button>` : ""}</div></li>
         </ol>
+      </section>
+      <section class="set-sec">
+        <h3>Bybit · acquisti reali</h3>
+        <div class="conn"><span class="dot ${by.live ? "live" : ""}"></span>${by.live ? "<b>ACCESO</b>: l'ufficio compra con i tuoi soldi" : by.test_done ? "Pronto: manca solo l'interruttore (passo 5)" : by.verified ? "Chiave verificata: manca l'ordine di prova (passo 4)" : by.has_key ? "Chiave salvata, da verificare (passo 3)" : "Nessuna chiave"}</div>
+        <p>L'ufficio può <b>solo comprare</b> le monete del piano, per l'importo del mese. Non può vendere, prelevare né usare leva. Chiave e segreto restano sul tuo PC. <b>Non incollarli mai in chat</b>.</p>
+        <ol>
+          <li>Scopri l'IP del tuo PC: <div class="field"><button class="btn" id="by-ip" type="button">Mostra il mio IP</button></div></li>
+          <li>Su Bybit: profilo → <b>API</b> → <b>Crea nuova chiave</b> → <b>generata dal sistema</b> → uso <b>Transazioni API</b>. Permessi: <b>Lettura e scrittura</b>, spunta <b>solo Spot · Trade</b>. <b>Niente</b> Prelievo, Trasferimento, Contratti, Opzioni, Earn. Accesso: <b>solo IP consentiti</b> con l'IP del passo 1. Poi incolla qui:
+            <div class="field"><input type="text" id="by-key" autocomplete="off" placeholder="${by.has_key ? `salvata: ${esc(by.key)}` : "API key"}"></div>
+            <div class="field"><input type="password" id="by-secret" autocomplete="off" placeholder="API secret"><button class="btn primary" id="by-save" type="button">Salva</button></div></li>
+          <li>Controllo della chiave (permessi, prelievi, IP): <div class="field"><button class="btn" id="by-verify" type="button" ${by.has_key ? "" : "disabled"}>Verifica la chiave</button></div>
+            ${(by.problems || []).length ? `<div class="set-msg err">${by.problems.map(esc).join("<br>")}</div>` : ""}</li>
+          <li>Ordine di prova con soldi veri: <b>5 € di BTC</b>, per controllare che tutto funzioni: <div class="field"><button class="btn" id="by-test" type="button" ${by.verified && !by.test_done ? "" : "disabled"}>${by.test_done ? "Prova fatta ✓" : "Fai l'ordine di prova"}</button></div></li>
+          <li>${checkRow("by-live", "Acquisti reali accesi", "Dal prossimo acquisto dovuto (giorno 5) l'ufficio compra su Bybit. Lo puoi spegnere quando vuoi.", by.live, !(by.verified && by.test_done))}</li>
+        </ol>
+        ${by.has_key ? `<div class="field"><button class="btn" id="by-clear" type="button">Rimuovi la chiave dall'ufficio</button></div>` : ""}
       </section>
       <section class="set-sec">
         <h3>Cosa ricevere</h3>
@@ -923,6 +939,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
     bind("tg-detect", () => act("/api/telegram/detect"));
     bind("tg-test", () => act("/api/telegram/test"));
     bind("tg-clear", () => act("/api/settings/telegram", { clear: true }));
+    bind("by-ip", () => act("/api/bybit/ip"));
+    bind("by-save", () => { const k = $("#by-key").value.trim(), sc = $("#by-secret").value.trim(); if (k && sc) act("/api/settings/bybit", { key: k, secret: sc }); else { setMsg = { ok: false, text: "Incolla sia la API key sia il secret." }; renderSettings(); } });
+    bind("by-verify", () => act("/api/bybit/verify"));
+    bind("by-test", () => { if (confirm("Confermi un acquisto REALE di 5 € di BTC su Bybit?")) act("/api/bybit/test_order"); });
+    bind("by-clear", () => { if (confirm("Rimuovere la chiave dall'ufficio? Gli acquisti reali si spengono.")) act("/api/settings/bybit", { clear: true }); });
+    const byLive = document.getElementById("by-live");
+    if (byLive) byLive.addEventListener("change", () => {
+      if (byLive.checked && !confirm("Accendere gli acquisti REALI? L'ufficio comprerà ogni mese con i tuoi soldi su Bybit.")) { byLive.checked = false; return; }
+      act("/api/settings/bybit_live", { enabled: byLive.checked });
+    });
     ["trades", "vetoes", "vetoes_all", "daily_report", "alerts", "news"].forEach((k) => {
       const el = document.getElementById(`n-${k}`);
       if (el) el.addEventListener("change", () => act("/api/settings/notify", { [k]: el.checked }));

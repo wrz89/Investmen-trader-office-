@@ -37,6 +37,27 @@ CREATE TABLE IF NOT EXISTS route_gaps (
 """
 
 
+class _Postpone(Exception):
+    """Acquisto rimandato al prossimo ciclo (resta dovuto)."""
+
+
+def live_mode() -> str:
+    """'live' solo se nelle Impostazioni hai attivato gli acquisti reali (chiave verificata e ordine di prova)."""
+    from . import local_settings
+    b = local_settings.load().get("bybit") or {}
+    return "live" if (b.get("live") and b.get("key") and b.get("secret")) else "paper"
+
+
+def record_buy(store, month, mode, route, sym, eur, cost, qty, fee_eur, note) -> None:
+    store.execute(
+        "INSERT INTO accumulation_buys(ts, month, mode, route, eur, price_eur, qty, fee_eur, note, asset) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?)", (now_iso(), month, mode, route, eur, cost, qty, fee_eur, note, sym))
+
+
+def _is_month(m: str) -> bool:
+    return len(m or "") == 7 and m[4] == "-"          # "AAAA-MM"; esclude l'ordine di prova
+
+
 def allocation_of(cfg: dict) -> dict[str, float]:
     return cfg.get("allocation") or {cfg.get("symbol", "BTC/EUR"): 1.0}
 
@@ -115,6 +136,7 @@ class Accumulation:
         base = symbol.split("/")[0]
         q["usdc_ask"] = (snapshot["symbols"].get(f"{base}/USDC") or {}).get("ask")
         q["usdc_eur"] = usdc_eur
+        q["max_spread_bps"] = self.cfg.get("max_spread_bps")
         return q
 
     def reminders(self, today: str | None = None) -> None:
@@ -163,21 +185,34 @@ class Accumulation:
             pm.say(f"Piano di accumulo: acquisti di {month}, {amount:.0f} € → "
                    + ", ".join(f"{a.split('/')[0]} {v:.2f} €" for a, v in legs.items())
                    + " (prima gli asset sotto quota).", "working", "accumulation")
+        mode = self.mode()
         done = self._legs_done(month)
-        mode = self.office.settings["mode"]
         ex_cfg = cfg.get("execution") or {}
-        orders = self.store.get("accum_orders") or {}
+        okey = "accum_orders_live" if mode == "live" else "accum_orders"
+        orders = self.store.get(okey) or {}
+        live = self.live_exchange() if mode == "live" else None
         for sym, eur in plan["legs"].items():
-            if sym in done:
-                continue
             q = quotes[sym]
+            pending = orders.get(sym) if (orders.get(sym) or {}).get("month") == month else None
+            if sym in done and not pending:
+                continue
             ok, reasons = risk.check_accumulation(q, snapshot, sym.split("/")[0])
             route = q["route"]
             if ok and route["best"] is None:
                 ok, reasons = False, ["nessun prezzo disponibile"]
-            pending = orders.get(sym) if (orders.get(sym) or {}).get("month") == month else None
+            if ok and live and not q.get("direct"):
+                ok, reasons = False, [f"coppia {sym} non disponibile: con i soldi veri si compra solo in euro diretto"]
+            if not ok and pending and pending.get("type") == "market":
+                ok = True                                                   # ordine già inviato: va solo registrato
             if not ok:
                 if pending:                                                 # prudenza: niente ordini in attesa
+                    if live:
+                        try:
+                            self._live_close_limit(live, month, sym, pending, cancel=True)
+                        except Exception as exc:
+                            risk.say(f"Accumulo {month} · {sym}: non riesco ad annullare l'ordine ({exc}), "
+                                     "riprovo al prossimo ciclo.", "alert", "accum_alert", level="ERROR")
+                            continue
                     orders.pop(sym, None)
                     ex.say(f"Accumulo {month} · {sym}: annullo l'ordine limite in attesa ({reasons[0]}).",
                            "blocked", "accumulation")
@@ -186,6 +221,20 @@ class Accumulation:
                     risk.say(f"Accumulo {month} · {sym} RIMANDATO al prossimo ciclo: {'; '.join(reasons)}. "
                              "L'acquisto resta dovuto.", "blocked", "accumulation")
                     self.store.set(f"accum_postpone_{sym}", key)
+                continue
+            if live:
+                try:
+                    self._live_leg(live, month, sym, eur, q, pending, orders, ex_cfg, okey, plan)
+                except _Postpone as why:
+                    key = f"{month}|{sym}|{why}"
+                    if self.store.get(f"accum_postpone_{sym}") != key:
+                        risk.say(f"Accumulo {month} · {sym} RIMANDATO: {why}. L'acquisto resta dovuto.",
+                                 "blocked", "accum_alert", level="WARN")
+                        self.store.set(f"accum_postpone_{sym}", key)
+                except Exception as exc:
+                    risk.say(f"Accumulo {month} · {sym}: errore con Bybit ({exc}). Nessun nuovo ordine, "
+                             "riprovo al prossimo ciclo.", "alert", "accum_alert", level="ERROR")
+                self.store.set(okey, orders)
                 continue
             if pending:
                 if self._limit_filled(sym, pending):
@@ -215,20 +264,102 @@ class Accumulation:
             other = [k for k in route["routes"] if k != route["best"]]
             note = (f"alternativa {other[0]} {route['routes'][other[0]]:,.2f} €" if other else "unica strada disponibile")
             self._record(month, mode, route["best"], sym, eur, cost, qty, fee_eur, note)
-        self.store.set("accum_orders", orders)
+        self.store.set(okey, orders)
         if set(plan["legs"]) <= set(self._legs_done(month)):
             s = self.summary()
             aud.say(f"Registro accumulo: mese {month} completo. Versati {s['eur_in']:.0f} € in totale, "
                     f"valore {s['value'] or 0:.2f} €.", "ok", "accumulation")
 
     def _record(self, month, mode, route, sym, eur, cost, qty, fee_eur, note) -> None:
-        self.store.execute(
-            "INSERT INTO accumulation_buys(ts, month, mode, route, eur, price_eur, qty, fee_eur, note, asset) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?)", (now_iso(), month, mode, route, eur, cost, qty, fee_eur, note, sym))
+        record_buy(self.store, month, mode, route, sym, eur, cost, qty, fee_eur, note)
         self.office.execution.say(
-            f"Accumulo {month} ({mode}): {qty:.8f} {sym.split('/')[0]} con {eur:.2f} € "
-            f"(strada {route}, {cost:,.2f} € commissioni comprese; {note}).",
-            "ok", "fill", payload={"accumulation": True, "month": month, "asset": sym})
+            f"Accumulo {month} ({'SOLDI VERI' if mode == 'live' else mode}): {qty:.8f} {sym.split('/')[0]} "
+            f"con {eur:.2f} € (strada {route}, {cost:,.2f} € commissioni comprese; {note}).",
+            "ok", "fill", payload={"accumulation": True, "month": month, "asset": sym, "mode": mode})
+
+    # ── soldi veri (Bybit EU, solo acquisti) ────────────────
+    def mode(self) -> str:
+        return live_mode()
+
+    def live_exchange(self):
+        from .live_exchange import LiveExchange
+        return LiveExchange(self.office.settings, list(self.targets), getattr(self.office, "live_factory", None))
+
+    def _record_live(self, month: str, sym: str, order: dict, route: str, note: str) -> float:
+        from .live_exchange import fill_of
+        f = fill_of(order, sym)
+        if f["qty"] > 0:
+            self._record(month, "live", route, sym, f["eur"], f["eur"] / f["qty"], f["qty"], f["fee_eur"],
+                         f"{note} · ordine Bybit {order.get('id')}")
+        return f["eur"]
+
+    def _live_close_limit(self, live, month: str, sym: str, pending: dict, cancel: bool) -> float:
+        """Chiude un ordine limite in attesa (annullandolo se serve) e registra l'eventuale parte eseguita."""
+        o = live.order(sym, pending["id"])
+        if cancel and o.get("status") == "open":
+            live.cancel(sym, pending["id"])
+            o = live.order(sym, pending["id"])
+        return self._record_live(month, sym, o, "limite (maker)", "ordine limite, eseguito in parte" if
+                                 o.get("status") != "closed" else "ordine limite")
+
+    def _live_cap(self, month: str, eur: float, plan: dict, orders: dict) -> None:
+        """Tetto di sicurezza: nel mese non si spende mai più di quanto pianificato."""
+        spent = sum(r["eur"] for r in self._rows("live") if r["month"] == month)
+        waiting = sum(o["eur"] for o in orders.values() if o.get("month") == month)
+        if spent + waiting + eur > sum(plan["legs"].values()) + 0.5:
+            raise RuntimeError(f"tetto mensile: già {spent + waiting:.2f} € su {sum(plan['legs'].values()):.2f} €")
+
+    def _live_market(self, live, month: str, sym: str, eur: float, orders: dict, okey: str) -> None:
+        oid = live.market_buy(sym, eur)
+        orders[sym] = {"month": month, "eur": eur, "id": oid, "type": "market", "placed": time.time()}
+        self.store.set(okey, orders)                   # registrato SUBITO: mai due ordini per la stessa parte
+        o = live.order(sym, oid)
+        if o.get("status") in ("closed", "canceled", "rejected", "expired"):
+            self._record_live(month, sym, o, "diretta (mercato)", "ordine a mercato")
+            orders.pop(sym, None)
+
+    def _live_leg(self, live, month, sym, eur, q, pending, orders, ex_cfg, okey, plan) -> None:
+        exa = self.office.execution
+        if pending:
+            if pending.get("type") == "market":
+                o = live.order(sym, pending["id"])
+                if o.get("status") in ("closed", "canceled", "rejected", "expired"):
+                    self._record_live(month, sym, o, "diretta (mercato)", "ordine a mercato")
+                    orders.pop(sym, None)
+                return
+            o = live.order(sym, pending["id"])
+            hours = (time.time() - pending["placed"]) / 3600
+            if o.get("status") == "closed":
+                self._record_live(month, sym, o, "limite (maker)", "ordine limite")
+                orders.pop(sym, None)
+                return
+            if o.get("status") == "open" and hours < float(ex_cfg.get("limit_timeout_hours", 24)):
+                return                                                      # resta in attesa
+            spent = self._live_close_limit(live, month, sym, pending, cancel=True)
+            orders.pop(sym, None)
+            rest = round(pending["eur"] - spent, 2)
+            if rest >= 1.0:
+                exa.say(f"Accumulo {month} · {sym}: ordine limite non eseguito in {hours:.0f} ore, "
+                        f"compro a mercato i {rest:.2f} € rimanenti.", "working", "accumulation")
+                if live.eur_free() < rest:
+                    raise _Postpone(f"saldo EUR insufficiente per i {rest:.2f} € rimanenti")
+                self._live_market(live, month, sym, rest, orders, okey)
+            return
+        self._live_cap(month, eur, plan, orders)
+        free = live.eur_free()
+        if free < eur:
+            raise _Postpone(f"saldo EUR disponibile {free:.2f} € < {eur:.2f} €: fai il bonifico, o sposta gli euro "
+                            "dal conto Fondi al conto di trading (Unificato)")
+        if ex_cfg.get("order_type") == "limit" and q.get("bid"):
+            oid = live.limit_buy(sym, eur, q["bid"])
+            orders[sym] = {"month": month, "eur": eur, "id": oid, "type": "limit", "limit": q["bid"],
+                           "placed": time.time()}
+            self.store.set(okey, orders)
+            exa.say(f"Accumulo {month} · {sym} (SOLDI VERI): ordine limite di {eur:.2f} € a {q['bid']:,.2f} € "
+                    f"su Bybit. Se non si esegue entro {ex_cfg.get('limit_timeout_hours', 24)} ore compro a mercato.",
+                    "working", "accumulation")
+            return
+        self._live_market(live, month, sym, eur, orders, okey)
 
     def _limit_filled(self, sym: str, order: dict) -> bool:
         """Paper: l'ordine limite si considera eseguito solo se dopo l'inserimento il prezzo è sceso SOTTO il limite."""
@@ -240,8 +371,9 @@ class Accumulation:
         return bool(len(after) and float(after["low"].min()) < order["limit"])
 
     # ── libro ───────────────────────────────────────────────
-    def _rows(self) -> list[dict]:
-        rows = self.store.query("SELECT * FROM accumulation_buys ORDER BY id")
+    def _rows(self, mode: str | None = None) -> list[dict]:
+        """Il libro della modalità corrente: i soldi veri e quelli di prova non si mescolano mai."""
+        rows = self.store.query("SELECT * FROM accumulation_buys WHERE mode=? ORDER BY id", (mode or self.mode(),))
         for r in rows:
             r["asset"] = r.get("asset") or "BTC/EUR"
         return rows
@@ -251,7 +383,7 @@ class Accumulation:
 
     def _completed_months(self) -> set[str]:
         plan = self.store.get("accum_plan") or {}
-        months = {r["month"] for r in self._rows()}
+        months = {r["month"] for r in self._rows() if _is_month(r["month"])}
         # un mese è completo quando tutte le sue parti pianificate sono state comprate
         return {m for m in months if m != plan.get("month") or set(plan.get("legs", {})) <= self._legs_done(m)}
 
@@ -266,7 +398,7 @@ class Accumulation:
     def next_amount(self) -> float:
         """Importo del mese: quota fissa + eventuale rata del capitale iniziale (calendario prefissato)."""
         cfg = self.cfg
-        months_done = len({r["month"] for r in self._rows()})     # si calcola prima del primo acquisto del mese
+        months_done = len({r["month"] for r in self._rows() if _is_month(r["month"])})  # prima del 1° acquisto del mese
         n, initial = int(cfg.get("initial_tranches") or 0), float(cfg.get("initial_eur") or 0)
         return float(cfg["amount_eur"]) + (initial / n if n and months_done < n else 0.0)
 
@@ -294,10 +426,10 @@ class Accumulation:
             "enabled": cfg.get("enabled"), "amount_eur": cfg["amount_eur"], "day_of_month": cfg["day_of_month"],
             "initial_eur": cfg.get("initial_eur", 0), "initial_tranches": cfg.get("initial_tranches", 0),
             "next_amount": self.next_amount(), "start_month": cfg["start_month"], "go_live": cfg.get("go_live"),
-            "months": len({r["month"] for r in rows}), "buys": len(rows), "eur_in": eur_in,
+            "months": len({r["month"] for r in rows if _is_month(r["month"])}), "buys": len(rows), "eur_in": eur_in,
             "value": total_value if rows else None, "assets": assets,
-            "last": rows[-8:][::-1],
-            "orders": self.store.get("accum_orders") or {},
+            "last": rows[-8:][::-1], "mode": self.mode(),
+            "orders": self.store.get("accum_orders_live" if self.mode() == "live" else "accum_orders") or {},
             "order_type": (cfg.get("execution") or {}).get("order_type", "market"),
             "gaps": {"n": len(gaps), "via_usdc_better": sum(g["best"] == "via USDC" for g in gaps),
                      "best_gap_bps": min((g["gap_bps"] for g in gaps), default=None),
