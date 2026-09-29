@@ -341,15 +341,16 @@ class Accumulation:
             if rest >= 1.0:
                 exa.say(f"Accumulo {month} · {sym}: ordine limite non eseguito in {hours:.0f} ore, "
                         f"compro a mercato i {rest:.2f} € rimanenti.", "working", "accumulation")
-                if live.eur_free() < rest:
+                if live.ensure_eur(rest) < rest:
                     raise _Postpone(f"saldo EUR insufficiente per i {rest:.2f} € rimanenti")
                 self._live_market(live, month, sym, rest, orders, okey)
             return
         self._live_cap(month, eur, plan, orders)
-        free = live.eur_free()
+        free = live.ensure_eur(eur)
         if free < eur:
-            raise _Postpone(f"saldo EUR disponibile {free:.2f} € < {eur:.2f} €: fai il bonifico, o sposta gli euro "
-                            "dal conto Fondi al conto di trading (Unificato)")
+            raise _Postpone(f"nel conto di trading ci sono {free:.2f} € su {eur:.2f} € necessari: fai il bonifico, "
+                            "o sposta gli euro dal conto Fondi al conto di trading (o dai alla chiave il permesso "
+                            "'trasferimento tra conti' e lo faccio io)")
         if ex_cfg.get("order_type") == "limit" and q.get("bid"):
             oid = live.limit_buy(sym, eur, q["bid"])
             orders[sym] = {"month": month, "eur": eur, "id": oid, "type": "limit", "limit": q["bid"],

@@ -141,7 +141,7 @@ def test_live_postpones_without_euros_and_places_nothing(live_office):
     live_office.accumulation.run(SNAP)
     assert live_office.fake.calls == []
     msgs = [e["message"] for e in live_office.store.query("SELECT message FROM events WHERE kind='accum_alert'")]
-    assert any("saldo EUR" in m for m in msgs)
+    assert any("conto di trading" in m for m in msgs)
 
 
 def test_live_refuses_symbols_outside_the_plan(live_office):
@@ -179,3 +179,28 @@ def test_server_bybit_flow(tmp_path, monkeypatch):
     with pytest.raises(ValueError):                         # chiave peggiorata: reale spento subito
         server.handle_action("/api/bybit/verify", {})
     assert local_settings.load()["bybit"]["live"] is False
+
+
+def test_ensure_eur_moves_only_the_missing_amount_from_funding():
+    from office.live_exchange import LiveExchange
+
+    class F(FakeBybit):
+        def __init__(self):
+            super().__init__(eur=2.0)
+            self.funding, self.transfers = 200.0, []
+
+        def fetch_balance(self, params=None):
+            return {"free": {"EUR": self.funding if (params or {}).get("type") == "funding" else self.eur}}
+
+        def transfer(self, code, amount, frm, to):
+            assert (code, frm, to) == ("EUR", "funding", "unified")
+            self.transfers.append(amount)
+            self.funding -= amount
+            self.eur += amount
+
+    fake = F()
+    live = LiveExchange({"exchange": {}}, ["BTC/EUR"], lambda *a: fake)
+    live.key, live.secret = "K" * 12, "S" * 30
+    assert live.ensure_eur(5.0) >= 5.0 and fake.transfers == [3.01]
+    assert live.ensure_eur(1.0) >= 1.0 and fake.transfers == [3.01]      # già sufficiente: nessun trasferimento
+    assert parse_permissions({"result": {"permissions": {"Wallet": ["AccountTransfer"]}}})["transfer"] is True

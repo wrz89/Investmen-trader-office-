@@ -28,8 +28,9 @@ def parse_permissions(resp: dict) -> dict:
     spot = any(p in ("SpotTrade", "Spot") for p in flat) or bool(perms.get("Spot"))
     derivatives = any(bool(perms.get(k)) for k in ("ContractTrade", "Options", "Derivatives"))
     ips = [ip for ip in (r.get("ips") or []) if ip]
+    transfer = "AccountTransfer" in flat                  # solo tra i TUOI conti Bybit (Fondi → Trading)
     return {"read_only": str(r.get("readOnly")) == "1", "spot_trade": spot, "withdraw": withdraw,
-            "derivatives": derivatives, "ips": ips, "ip_bound": bool(ips) and ips != ["*"]}
+            "derivatives": derivatives, "ips": ips, "ip_bound": bool(ips) and ips != ["*"], "transfer": transfer}
 
 
 def key_problems(p: dict) -> list[str]:
@@ -81,11 +82,34 @@ class LiveExchange:
     def verify(self) -> dict:
         p = parse_permissions(self.ex.privateGetV5UserQueryApi())
         problems = key_problems(p)
-        return {**p, "problems": problems, "ok": not problems, "eur_free": self.eur_free()}
+        return {**p, "problems": problems, "ok": not problems, "eur_free": self.eur_free(),
+                "eur_funding": self.funding_eur()}
 
     def eur_free(self) -> float:
         bal = self.ex.fetch_balance()
         return float((bal.get("free") or {}).get("EUR") or 0.0)
+
+    def funding_eur(self) -> float:
+        try:
+            bal = self.ex.fetch_balance({"type": "funding"})
+            return float((bal.get("free") or {}).get("EUR") or 0.0)
+        except Exception:
+            return 0.0
+
+    def ensure_eur(self, eur: float) -> float:
+        """Euro disponibili per comprare. Se nel conto di trading non bastano e la chiave ha il permesso
+        'trasferimento tra conti', sposta SOLO la differenza dal conto Fondi (sempre dentro il tuo Bybit)."""
+        free = self.eur_free()
+        if free >= eur:
+            return free
+        missing = round(eur - free + 0.01, 2)
+        if not (0 < missing <= 1000) or self.funding_eur() < missing:
+            return free
+        try:
+            self.ex.transfer("EUR", missing, "funding", "unified")
+        except Exception:
+            return free                                   # permesso assente: si avvisa l'utente
+        return self.eur_free()
 
     def _check(self, symbol: str, eur: float) -> None:
         if symbol not in self.allowed:

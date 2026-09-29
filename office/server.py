@@ -131,16 +131,23 @@ def _bybit_action(path: str, body: dict, s: dict, store: Store | None) -> dict:
         local_settings.save(s)
         if not v["ok"]:
             raise ValueError("Chiave NON accettata: " + "; ".join(v["problems"]) + ".")
+        b["transfer"] = v["transfer"]
+        local_settings.save(s)
+        move = ("Posso spostare da solo gli euro dal conto Fondi al conto di trading." if v["transfer"] else
+                "Gli euro nel conto Fondi vanno spostati a mano nel conto di trading (o aggiungi alla chiave il "
+                "permesso 'trasferimento tra conti').")
         return {"message": f"Chiave verificata: solo trading spot, prelievi disattivati, IP {', '.join(v['ips'])}. "
-                           f"Euro disponibili per il trading: {v['eur_free']:.2f} €. Ora fai l'ordine di prova."}
+                           f"Euro: {v['eur_free']:.2f} € nel conto di trading, {v['eur_funding']:.2f} € nel conto Fondi. "
+                           f"{move} Ora fai l'ordine di prova."}
     if path == "/api/bybit/test_order":
         if not b.get("verified"):
             raise ValueError("Prima verifica la chiave.")
         if b.get("test_done"):
             return {"message": "Ordine di prova già fatto: puoi accendere gli acquisti reali."}
         sym, eur = allowed[0], 5.0
-        if live.eur_free() < eur:
-            raise ValueError("Servono almeno 5 € nel conto di trading (Unificato): sposta gli euro dal conto Fondi.")
+        if live.ensure_eur(eur) < eur:
+            raise ValueError("Servono almeno 5 € nel conto di trading (Unificato). Spostali dal conto Fondi (Asset → "
+                             "Trasferisci), oppure dai alla chiave il permesso 'trasferimento tra conti' e lo faccio io.")
         oid = live.market_buy(sym, eur)
         import time as _t
         for _ in range(5):

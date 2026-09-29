@@ -909,7 +909,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <p>L'ufficio può <b>solo comprare</b> le monete del piano, per l'importo del mese. Non può vendere, prelevare né usare leva. Chiave e segreto restano sul tuo PC. <b>Non incollarli mai in chat</b>.</p>
         <ol>
           <li>Scopri l'IP del tuo PC: <div class="field"><button class="btn" id="by-ip" type="button">Mostra il mio IP</button></div></li>
-          <li>Su Bybit: profilo → <b>API</b> → <b>Crea nuova chiave</b> → <b>generata dal sistema</b> → uso <b>Transazioni API</b>. Permessi: <b>Lettura e scrittura</b>, spunta <b>solo Spot · Trade</b>. <b>Niente</b> Prelievo, Trasferimento, Contratti, Opzioni, Earn. Accesso: <b>solo IP consentiti</b> con l'IP del passo 1. Poi incolla qui:
+          <li>Su Bybit: profilo → <b>API</b> → <b>Crea nuova chiave</b> → <b>generata dal sistema</b> → uso <b>Transazioni API</b>. Permessi: <b>Lettura e scrittura</b>, spunta <b>Spot · Trade</b> e, se vuoi che sposti io gli euro dal conto Fondi, <b>Asset · Trasferimento tra conti</b> (solo tra i tuoi conti Bybit). <b>Niente</b> Prelievo, Contratti, Opzioni, Earn. Accesso: <b>solo IP consentiti</b> con l'IP del passo 1. Poi incolla qui:
             ${by.has_key ? `<div class="conn"><span class="dot live"></span>Chiave salvata sul PC: <b>${esc(by.key)}</b> (il segreto non si mostra mai)</div>` : ""}
             <div class="field"><input type="text" id="by-key" autocomplete="off" placeholder="${by.has_key ? "per cambiarla, incolla una nuova API key" : "API key"}"></div>
             <div class="field"><input type="password" id="by-secret" autocomplete="off" placeholder="API secret"><button class="btn primary" id="by-save" type="button">Salva</button></div></li>
