@@ -154,6 +154,14 @@ def make_handler(store: Store, port: int):
                 self._json(200, settings_view())
             elif self.path in ("/", "/index.html"):
                 self._send(200, DASHBOARD_FILE.read_bytes(), "text/html; charset=utf-8")
+            elif self.path.startswith("/vendor/") and self.path.split("?")[0].endswith(".js"):
+                # librerie 3D salvate in locale: l'ufficio 3D funziona anche senza internet
+                name = self.path.split("?")[0].rsplit("/", 1)[-1]
+                f = DASHBOARD_FILE.parent / "vendor" / name
+                if f.is_file() and "/" not in name and ".." not in name:
+                    self._send(200, f.read_bytes(), "application/javascript; charset=utf-8")
+                else:
+                    self.send_error(404)
             else:
                 self.send_error(404)
 
