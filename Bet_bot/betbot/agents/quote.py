@@ -11,14 +11,27 @@ def board(snap: dict, limit: int = 40) -> dict:
     matches = []
     for m in snap["matches"].values():
         books = m.get("live_books") if m["status"] == "LIVE" else m.get("books")
+        ex = m.get("exchange") or {}
         fav = None
+        if not books and ex:
+            # senza quote di riferimento: favorito e probabilità dal solo exchange (medio tra back e lay)
+            mids = {s: 2 / ((b.get("back") or 0) + (b.get("lay") or b.get("back") or 0)) for s, b in ex.items() if b.get("back")}
+            tot = sum(mids.values())
+            if tot:
+                sel = max(mids, key=mids.get)
+                fav = {"selection": sel, "name": m["home"] if sel == "home" else m["away"] if sel == "away" else "X",
+                       "fair_prob": mids[sel] / tot, "best_odds": ex[sel]["back"], "best_book": "Betfair",
+                       "edge": 0.0, "n_books": 0}
         if books:
             c = {k: v for k, v in consensus(books).items() if not k.startswith("_")}
             if c:
                 sel, v = max(c.items(), key=lambda kv: kv[1]["fair_prob"])
+                exb = (ex.get(sel) or {}).get("back")
+                comm = m.get("commission") or 0.045
                 fav = {"selection": sel, "name": m["home"] if sel == "home" else m["away"] if sel == "away" else "X",
-                       "fair_prob": v["fair_prob"], "best_odds": v["best_odds"], "best_book": v["best_book"],
-                       "edge": v["edge"], "n_books": v["n_books"]}
+                       "fair_prob": v["fair_prob"], "best_odds": exb or v["best_odds"], "best_book": "Betfair" if exb else v["best_book"],
+                       "edge": (v["fair_prob"] * (exb - 1) * (1 - comm) - (1 - v["fair_prob"])) if exb else v["edge"],
+                       "n_books": v["n_books"]}
         matches.append({k: m.get(k) for k in ("match_id", "league", "home", "away", "kickoff", "status", "minute",
                                               "home_score", "away_score", "result", "stats")} | {"fav": fav})
     order = {"LIVE": 0, "SCHEDULED": 1, "FINISHED": 2}
@@ -79,6 +92,11 @@ class Quote(Agent):
             self.store.record_odds(rows)
         self._prune()
         self.office.cache = snap                               # cache in memoria (il ruolo di Redis)
+        src = snap["health"].get("source", "")
+        if ("riferimento fermo" in src or "non disponibili" in src) and self.store.get("ref_alert_day") != snap.get("sim_time", 0) // 86400:
+            self.store.set("ref_alert_day", snap.get("sim_time", 0) // 86400)
+            self.log(f"Quote di riferimento non aggiornate: {src}. Le puntate secche restano ferme finché tornano.",
+                     "ERROR", "no_data")
         if self.settings["feed"].get("record"):
             try:
                 from ..feeds.recorder import Recorder

@@ -80,12 +80,13 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
     for b in open_bets:
         r = snapshot.get("races", {}).get(b["match_id"])
         if not r:
-            actions.append({"bet_id": b["id"], "action": "hedge", "price": b["odds"],
+            actions.append({"bet_id": b["id"], "action": "hedge", "urgent": True, "price": b["odds"],
                             "reason": "corsa partita: mercato non più nel feed, chiusura prudenziale"})
             continue
         run = r["runners"].get(b["selection"])
         if r["status"] != "OPEN" or not run:
-            actions.append({"bet_id": b["id"], "action": "hedge", "price": b["odds"], "reason": "corsa partita: chiusura forzata"})
+            actions.append({"bet_id": b["id"], "action": "hedge", "urgent": True, "price": b["odds"],
+                            "reason": "corsa partita: chiusura forzata"})
             continue
         plan = trade_plan(b["odds"], p)
         lay = run.get("lay") or b["odds"]
@@ -93,9 +94,9 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
             actions.append({"bet_id": b["id"], "action": "hedge", "price": lay,
                             "reason": f"target raggiunto: lay a {lay:.2f} (back {b['odds']:.2f}) → profitto verde"})
         elif lay >= plan["stop"]:
-            actions.append({"bet_id": b["id"], "action": "hedge", "price": lay,
+            actions.append({"bet_id": b["id"], "action": "hedge", "urgent": True, "price": lay,
                             "reason": f"stop loss: lay a {lay:.2f} (back {b['odds']:.2f})"})
         elif r["seconds_to_off"] <= p["exit_seconds_to_off"]:
-            actions.append({"bet_id": b["id"], "action": "hedge", "price": lay,
+            actions.append({"bet_id": b["id"], "action": "hedge", "urgent": True, "price": lay,
                             "reason": f"time-to-jump: {r['seconds_to_off']:.0f} s al via, chiudo a {lay:.2f}"})
     return actions

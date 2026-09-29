@@ -58,7 +58,7 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
                     "label": f"{m['home']} - {m['away']} · {m[sel]} (live {m['minute']}')", "market": "h2h",
                     "selection": sel, "bookmaker": "Betfair", "odds": price, "fair_prob": v["fair_prob"], "edge": edge,
                     "commission": comm, "n_books": v["n_books"], "dispersion": v["dispersion"], "live": True,
-                    "odds_ts": m.get("odds_ts"),
+                    "odds_ts": m.get("odds_ts"), "ref_ts": m.get("ref_ts"),
                     "reason": f"{m[sel]} avanti {m['home_score']}-{m['away_score']} al {m['minute']}': Betfair {price:.2f}, "
                               f"probabilità live {v['fair_prob']:.0%}, EV netto {edge:+.1%}"})
     return out
@@ -76,7 +76,7 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
         if _leader(m) != b["selection"]:
             lay = (m["exchange"].get(b["selection"]) or {}).get("lay")
             if lay:
-                actions.append({"bet_id": b["id"], "action": "hedge", "price": lay,
+                actions.append({"bet_id": b["id"], "action": "hedge", "urgent": True, "price": lay,
                                 "reason": f"vantaggio perso ({m['home_score']}-{m['away_score']} al {m['minute']}'): "
                                           f"chiudo con un lay a {lay:.2f}"})
     return actions

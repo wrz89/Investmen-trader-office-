@@ -31,10 +31,10 @@ S07_scalping_prepartita_v1:
   odds_max: 4.0
   max_minutes_before: 120
   min_minutes_before: 10
-  exit_minutes_before: 3
+  exit_minutes_before: 5
   target_ticks: 2
   stop_ticks: 3
-  slippage_ticks: 2
+  slippage_ticks: 6
   wom_min: 0.65
   min_book_multiple: 5.0
   min_net_target_return: 0.004
@@ -42,6 +42,14 @@ S07_scalping_prepartita_v1:
   - soccer
   - tennis
   - basketball
+S08_basket_quarto_quarto_v1:
+  description: 'Basket in-play: back di chi conduce di 15+ punti all''inizio del quarto quarto, solo se Betfair paga più della probabilità storica
+    (96,5-99,5%).'
+  min_lead: 15
+  min_elapsed: 0.75
+  max_elapsed: 0.85
+  min_edge: 0.005
+  odds_max: 1.1
 S04_greenup_cavalli_v2:
   description: 'Cavalli pre-gara su Betfair: back→lay con target e stop in tick, uscita 60 s prima del via, puntata dimensionata sulla perdita
     massima.'
@@ -52,7 +60,7 @@ S04_greenup_cavalli_v2:
   exit_seconds_to_off: 60
   target_ticks: 2
   stop_ticks: 3
-  slippage_ticks: 2
+  slippage_ticks: 6
   wom_min: 0.62
   min_book_multiple: 5.0
   min_net_target_return: 0.004

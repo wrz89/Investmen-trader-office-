@@ -18,7 +18,7 @@ def today() -> str:
 class Bankroll:
     def __init__(self, store: Store, initial_capital: float):
         self.store = store
-        untouched = not store.query("SELECT 1 FROM bets LIMIT 1")
+        untouched = not store.query("SELECT 1 FROM bets WHERE mode!='shadow' LIMIT 1")
         changed = store.get("initial_capital") not in (None, float(initial_capital))
         if store.get("cash") is None or (changed and untouched):
             store.set("cash", float(initial_capital))
@@ -38,7 +38,11 @@ class Bankroll:
         return float(self.store.get("initial_capital"))
 
     def open_bets(self) -> list[dict]:
-        return self.store.query("SELECT * FROM bets WHERE status='OPEN' ORDER BY id")
+        """Puntate aperte che impegnano il bankroll (le ombre no)."""
+        return self.store.query("SELECT * FROM bets WHERE status='OPEN' AND mode!='shadow' ORDER BY id")
+
+    def open_shadow_trades(self) -> list[dict]:
+        return self.store.query("SELECT * FROM bets WHERE status='OPEN' AND mode='shadow' ORDER BY id")
 
     def open_stakes(self) -> float:
         return sum(b["stake"] for b in self.open_bets())

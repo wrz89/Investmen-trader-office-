@@ -149,7 +149,7 @@ class MockFeed(Feed):
         kickoff = self.now() + self.rng.uniform(0.25, 6.0) * 3600
         truth, strength = self._true_probs(sport)
         return {"match_id": f"M{self._counter:05d}", "sport": sport, "league": league, "home": home, "away": away,
-                "strength": strength,
+                "strength": strength, "duration": self.match_minutes,
                 "kickoff_epoch": kickoff, "kickoff": _iso(kickoff), "status": "SCHEDULED", "minute": 0,
                 "home_score": 0, "away_score": 0, "result": None, "truth": truth, "closing": None,
                 "books": {}, "live_books": {}, "exchange": {}, "odds_ts": None,
@@ -226,7 +226,7 @@ class MockFeed(Feed):
                 # l'exchange (Betfair) segue la verità con un po' di ritardo, come i book soft
                 if not m.get("exchange") or self.rng.random() < self.exchange_update:
                     m["exchange"] = self._exchange_book(m["truth"])
-                m["odds_ts"] = now
+                m["odds_ts"] = m["ref_ts"] = now
                 return
         minute = min(self.match_minutes, int((now - m["kickoff_epoch"]) / 60))
         for _ in range(minute - m["seen_minute"]):        # gol minuto per minuto

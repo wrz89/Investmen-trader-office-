@@ -26,10 +26,11 @@ live_strategies: []       # es. [S04_greenup_cavalli_v2] — vuota = nessuna str
 # rischio; altrimenti lavora IN ATTESA (in ombra) e si sblocca da sola quando il bankroll cresce.
 active_strategies:
   - S05_favoriti_exchange_v1   # favoriti netti pre-partita (calcio, tennis, basket) con EV netto positivo
-  - S06_live_exchange_v1       # favorito in vantaggio nel finale, in-play
 observe_strategies:            # solo ombra, senza capitale: si attivano solo dopo prove sui dati veri di betfair.it
+  - S06_live_exchange_v1       # in-play: serve un riferimento live aggiornato (piano a pagamento di The Odds API)
   - S07_scalping_prepartita_v1 # trade back→lay prima dell'inizio: da provare col registratore (feed.record)
   - S04_greenup_cavalli_v2     # su betfair.it l'ippica non c'è: gira solo nel mondo simulato
+  - S08_basket_quarto_quarto_v1 # basket +15 nel 4° quarto: 96-99% di vittorie ma quote 1,01-1,04, da verificare
 
 feed:
   # mock    = mondo simulato (exchange + bookmaker di riferimento), nessuna chiave. Per provare.
@@ -49,7 +50,9 @@ feed:
     - tennis_atp
     - tennis_wta
     - basketball_nba
-  reference_groups: [Tennis]   # gruppi di The Odds API da aggiungere da soli (i tornei di tennis cambiano ogni settimana)
+  # gruppi di The Odds API da aggiungere da soli, es. [Tennis]: i tornei cambiano ogni settimana e ognuno costa
+  # richieste. Col piano gratuito (500 al mese) lascia vuoto e metti in sports solo 2-3 campionati.
+  reference_groups: []
   regions: eu
   markets: h2h
   mock:
@@ -68,6 +71,8 @@ feed:
     sports: [soccer, tennis, basketball]   # mercati MATCH_ODDS letti da Betfair
     soccer_hours: 36                       # finestra per gli eventi (calcio, tennis, basket)
   odds_api:
+    max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito
+    min_remaining: 50              # sotto 50 crediti rimasti il riferimento si ferma (e S05 con lui)
     odds_refresh_seconds: 7200     # piano gratuito: ogni 2 ore
     scores_refresh_seconds: 21600
   api_football:

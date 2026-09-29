@@ -1,7 +1,8 @@
-pandas>=2.0
-numpy>=1.24
-pyyaml>=6.0
-requests>=2.31
+# versioni con tetto: un aggiornamento automatico non può installare una versione "maggiore" che rompa il bot
+pandas>=2.0,<4
+numpy>=1.24,<3
+pyyaml>=6.0,<7
+requests>=2.31,<3
 tzdata>=2024.1
-pytest>=7.0
-openpyxl>=3.1
+openpyxl>=3.1,<4
+pytest>=7.0,<10

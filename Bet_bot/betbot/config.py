@@ -20,7 +20,9 @@ SAMPLE_DATA_DIR = ROOT / "data"          # esempio del formato CSV generico per 
 
 RUNTIME_DIR = Path(os.environ.get("BETBOT_RUNTIME_DIR", ROOT / "runtime"))
 REPORTS_DIR = RUNTIME_DIR / "reports"
-DB_PATH = RUNTIME_DIR / "sport.db"
+DB_PATH = RUNTIME_DIR / "betbot.db"            # paper: soldi finti
+DB_LIVE_PATH = RUNTIME_DIR / "betbot_live.db"  # live: SOLO soldi veri, bankroll dal saldo Betfair
+STOP_FILE = RUNTIME_DIR / "ferma.richiesta"    # `betbot.py ferma` lo crea: il ciclo chiude i trade ed esce
 LOCAL_SETTINGS = RUNTIME_DIR / "local_settings.json"
 
 
@@ -38,8 +40,23 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+LOCAL_OVERRIDE = RUNTIME_DIR / "impostazioni.yaml"   # le TUE scelte: aggiorna.bat non le tocca mai
+
+
+def _deep_merge(base: dict, extra: dict) -> dict:
+    for k, v in (extra or {}).items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
 def load_settings(overrides: dict | None = None) -> dict:
     settings = load_yaml("settings.yaml")
+    if LOCAL_OVERRIDE.exists():
+        with open(LOCAL_OVERRIDE, encoding="utf-8") as fh:
+            _deep_merge(settings, yaml.safe_load(fh) or {})
     for key, value in (overrides or {}).items():
         if value is None:
             continue

@@ -21,8 +21,8 @@ class Auditor(Agent):
         start = datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=TZ)
         a = start.astimezone(timezone.utc).isoformat(timespec="seconds")
         b = (start + timedelta(days=1)).astimezone(timezone.utc).isoformat(timespec="seconds")
-        bets = self.store.query("SELECT * FROM bets WHERE settled_ts >= ? AND settled_ts < ?", (a, b))
-        placed = self.store.query("SELECT COUNT(*) n FROM bets WHERE ts >= ? AND ts < ?", (a, b))[0]["n"]
+        bets = self.store.query("SELECT * FROM bets WHERE mode!='shadow' AND settled_ts >= ? AND settled_ts < ?", (a, b))
+        placed = self.store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND ts >= ? AND ts < ?", (a, b))[0]["n"]
         vetoes = self.store.query("SELECT COUNT(*) n FROM events WHERE kind='veto' AND ts >= ? AND ts < ?", (a, b))[0]["n"]
         m = summarize(bets)
         report = {"day": day, "placed": placed, "vetoes": vetoes, **{k: m[k] for k in

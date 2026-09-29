@@ -6,8 +6,9 @@ al bot viene ignorato. I comandi possono solo informare o FRENARE:
   /stato     bankroll, profitti, drawdown, puntate aperte, blocchi attivi
   /aperte    elenco delle puntate in gioco
   /oggi      riepilogo della giornata
-  /stop      kill switch immediato: nessuna nuova puntata (le posizioni aperte continuano
-             a essere gestite fino alla chiusura). Il reset si fa solo dal PC.
+  /stop      kill switch immediato: nessuna nuova puntata, ordini non abbinati annullati (le posizioni
+             aperte continuano a essere gestite). Il reset si fa solo dal PC.
+  /chiudi    chiude subito tutti i trade aperti (uscita urgente)
   /pausa N   niente nuove puntate per N minuti (predefinito 60)
   /riprendi  toglie la pausa (NON il kill switch)
   /aiuto     questo elenco
@@ -23,7 +24,7 @@ from . import clock, local_settings, notifier
 from .store import now_iso
 
 HELP = ("Comandi Bet_bot:\n/stato · bankroll e blocchi\n/aperte · puntate in gioco\n/oggi · riepilogo del giorno\n"
-        "/stop · kill switch immediato (reset solo dal PC)\n/pausa 60 · niente nuove puntate per 60 minuti\n"
+        "/stop · kill switch immediato (reset solo dal PC)\n/chiudi · chiude subito i trade aperti\n/pausa 60 · niente nuove puntate per 60 minuti\n"
         "/riprendi · toglie la pausa\n/aiuto · questo elenco")
 
 
@@ -101,17 +102,31 @@ class TelegramCommands:
                 self.office.risk.say("KILL SWITCH ATTIVATO da Telegram: nessuna nuova puntata. Le posizioni aperte "
                                      "vengono gestite fino alla chiusura. Reset solo dal PC.", "alert", "kill_switch",
                                      level="CRITICAL")
-            return "Fermato. Nessuna nuova puntata. Per ripartire: dal PC, betbot.py reset-kill-switch."
+            cancelled = ""
+            if self.office.settings.get("mode") == "live" and self.office.client is not None:
+                try:
+                    self.office.client.cancel()                     # annulla ogni ordine non abbinato
+                    cancelled = " Ordini non abbinati annullati su Betfair."
+                except Exception as exc:
+                    cancelled = f" Annullamento ordini non riuscito: {exc}."
+            return ("Fermato. Nessuna nuova puntata." + cancelled + " Per chiudere subito i trade aperti: /chiudi. "
+                    "Per ripartire: dal PC, betbot.py reset-kill-switch.")
+        if cmd == "/chiudi":
+            trades = [b for b in self.office.bankroll.open_bets() if b["market"] in ("exchange_trade", "exchange_win")]
+            if not trades:
+                return "Nessun trade aperto da chiudere."
+            self.store.set("close_all_requested", True)
+            return f"Chiudo {len(trades)} trade aperti al prossimo passaggio (entro pochi secondi)."
         if cmd == "/pausa":
             minutes = int(arg) if arg.isdigit() else 60
             minutes = max(1, min(minutes, 24 * 60))
             until = clock.now() + minutes * 60
-            self.store.set("cooldown_until", until)
+            self.store.set("telegram_pause_until", until)
             self.office.risk.say(f"Pausa chiesta da Telegram: nessuna nuova puntata per {minutes} minuti.", "blocked",
                                  "circuit", level="WARN")
             return f"In pausa per {minutes} minuti."
         if cmd == "/riprendi":
-            self.store.set("cooldown_until", 0)
+            self.store.set("telegram_pause_until", 0)             # solo la pausa del telefono: i freni automatici restano
             self.office.risk.log("Pausa tolta da Telegram.", "INFO", "circuit")
             return "Pausa tolta." + (" Attenzione: il kill switch è ancora attivo (reset solo dal PC)."
                                      if self.store.get("kill_switch") else "")

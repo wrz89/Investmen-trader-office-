@@ -9,6 +9,8 @@
     python betbot.py replay [--da AAAA-MM-GG] [--a AAAA-MM-GG]
                                           fa girare TUTTE le strategie sui prezzi registrati (feed.record: true)
     python betbot.py diagnosi             controlla installazione, configurazione, Telegram, chiavi e Betfair
+    python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
+    python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
     python betbot.py dashboard [--simulazione | --replay]   apre solo la dashboard
     python betbot.py report                report del giorno
     python betbot.py stato                 riepilogo veloce
@@ -55,7 +57,9 @@ def main() -> int:
         return 1
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
-                                       "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi"])
+                                       "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
+                                       "ferma", "avvio-automatico"])
+    p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--replay", action="store_true", help="dashboard: mostra i dati dell'ultimo replay")
@@ -94,6 +98,34 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "ferma":
+        import time as _t
+        from betbot.config import STOP_FILE
+        if not office_running(port):
+            print("Bet_bot non è acceso.")
+            return 0
+        STOP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        STOP_FILE.write_text("ferma", encoding="utf-8")
+        print("Richiesta di spegnimento inviata: chiudo i trade aperti e spengo (al massimo 2 minuti)…")
+        for _ in range(150):
+            if not office_running(port):
+                print("Bet_bot spento.")
+                return 0
+            _t.sleep(1)
+        print("Bet_bot non si è spento entro 2 minuti: controlla la finestra del bot.")
+        return 1
+
+    if a.comando == "avvio-automatico":
+        from betbot import system
+        if a.valore not in ("on", "off"):
+            st = system.autostart_status()
+            print(f"Avvio automatico: {'attivo' if st['enabled'] else 'spento'}. Usa: betbot.py avvio-automatico on|off")
+            return 0
+        st = system.set_autostart(a.valore == "on")
+        print("Avvio automatico attivato: Bet_bot partirà ridotto a icona quando accedi a Windows."
+              if st["enabled"] else "Avvio automatico disattivato.")
         return 0
 
     if a.comando == "diagnosi":
@@ -171,8 +203,8 @@ def main() -> int:
         try:
             serve(port, background=True)
         except OSError:
-            print(f"La porta {port} è occupata: l'ufficio è probabilmente già acceso.")
-            return 1
+            print(f"La porta {port} è occupata: Bet_bot è probabilmente già acceso.")
+            return 0
         _write_pid()
         print(f"Ufficio sportivo avviato in modalità {office.settings['mode'].upper()} "
               f"(feed {office.settings['feed']['provider']}).")
@@ -183,7 +215,7 @@ def main() -> int:
             asyncio.run(office.run_forever())
         except KeyboardInterrupt:
             office.auditor.daily_report()
-            print("\nUfficio fermato. Report del giorno in runtime/sport/reports/.")
+            print("\nBet_bot fermato. Report del giorno in runtime/reports/.")
     elif a.comando == "report":
         from betbot.agents.auditor import render_markdown
         print(render_markdown(office.auditor.daily_report(a.giorno)))

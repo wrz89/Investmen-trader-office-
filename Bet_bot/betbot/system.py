@@ -28,11 +28,11 @@ def _python_exe() -> Path:
 
 def startup_script() -> str:
     """Script VBS che avvia Bet_bot in una finestra ridotta a icona, senza aprire il browser."""
-    py, main = str(_python_exe()), str(ROOT / "betbot.py")
+    bat = str(ROOT / "avvia.bat")
     return (
         'Set sh = CreateObject("WScript.Shell")\r\n'
         f'sh.CurrentDirectory = "{ROOT}"\r\n'
-        f'sh.Run """{py}"" ""{main}"" avvia --no-browser", 7, False\r\n'
+        f'sh.Run """{bat}"" --no-browser", 7, False\r\n'
     )
 
 

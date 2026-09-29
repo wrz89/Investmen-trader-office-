@@ -7,6 +7,8 @@
 # ── Trade su exchange (back→lay con stop) ─────────────────────
 max_risk_per_trade_pct: 0.015  # perdita massima allo stop (con scivolamento) ≤ 1,5% del bankroll (0,45 € su 30 €)
 max_trade_stake_pct: 0.25      # puntata del trade ≤ 25% del bankroll (il denaro resta bloccato finché si chiude)
+max_open_trade_stake_pct: 0.15 # "salto di prezzo": la somma delle puntate dei trade aperti ≤ 15% del bankroll
+max_open_trades_small: 1       # sotto small_bankroll: un solo trade aperto alla volta, alla puntata minima
 
 # ── Puntate secche (si perde tutta la puntata) ────────────────
 sizing: kelly            # kelly | flat
@@ -33,11 +35,19 @@ max_same_league_open: 3
 min_bookmakers: 2               # bookmaker di riferimento per la probabilità giusta
 max_odds_age_seconds: 180
 min_edge: 0.01                  # EV netto di commissione ≥ 1%
+max_plausible_edge: 0.08        # EV > 8% contro un riferimento sharp = quasi sempre un errore di dato: veto
+max_reference_age_seconds: 9000 # quote di riferimento pre-partita al massimo di 2,5 ore (piano gratuito: ogni 2 ore)
+max_reference_age_live_seconds: 300   # in-play il riferimento deve avere meno di 5 minuti
 max_odds_dispersion: 0.06
 
 # ── Circuit breaker ───────────────────────────────────────────
-max_daily_loss: 0.05            # −5% nel giorno (1,50 € su 30 €) → stop fino a domani
-max_drawdown: 0.15              # −15% dal massimo → KILL SWITCH (reset solo dal PC)
+# Con 2 € minimi su 30 € le percentuali scatterebbero dopo una o due perdite: sotto i 100 € valgono
+# limiti ASSOLUTI (budget di perdita), sopra si passa alle percentuali.
+small_bankroll: 100             # sotto questa soglia: limiti assoluti e trade alla puntata minima
+kill_below_bankroll: 20.0       # KILL SWITCH se il bankroll scende sotto 20 € (−10 € dal capitale)
+max_daily_loss_eur: 4.0         # stop fino a domani dopo 4 € persi nel giorno
+max_daily_loss: 0.05            # sopra i 100 €: −5% nel giorno → stop fino a domani
+max_drawdown: 0.15              # sopra i 100 €: −15% dal massimo → KILL SWITCH (reset solo dal PC)
 max_losing_streak: 6
 cooldown_minutes: 120
 

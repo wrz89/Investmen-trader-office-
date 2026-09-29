@@ -1,10 +1,12 @@
 @echo off
 cd /d "%~dp0"
 echo === Aggiornamento Bet_bot ===
-echo I tuoi dati (cartella runtime) e l'installazione (.venv) non vengono toccati.
+echo I tuoi dati e le tue impostazioni (cartella runtime, runtime\impostazioni.yaml) e l'installazione (.venv) non vengono toccati.
 echo Ramo GitHub: master, oppure quello scritto in runtime\ramo.txt
 pause
 if exist "runtime\betbot.pid" (
+  echo Spegnimento ordinato di Bet_bot: chiudo i trade aperti...
+  ".venv\Scripts\python.exe" betbot.py ferma
   echo Chiudo Bet_bot acceso...
   for /f "usebackq delims=" %%P in ("runtime\betbot.pid") do (
     taskkill /F /PID %%P /FI "IMAGENAME eq python.exe" >nul 2>&1

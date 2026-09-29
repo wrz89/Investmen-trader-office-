@@ -88,11 +88,11 @@ class PaperExchange:
             return {"ok": False, "error": "mercato non disponibile nel feed"}
         need = size * self.liquidity_factor
         if side == "BACK":
-            best, avail = book.get("back"), book.get("back_size") or 0.0
+            best, avail = book.get("back"), book.get("back_size_best", book.get("back_size")) or 0.0
             if not best or best < price - 1e-9:
                 return {"ok": False, "error": f"quota da puntare {best or '—'} sotto il prezzo chiesto {price:.2f}"}
         else:
-            best, avail = book.get("lay"), book.get("lay_size") or 0.0
+            best, avail = book.get("lay"), book.get("lay_size_best", book.get("lay_size")) or 0.0
             if not best or best > price + 1e-9:
                 return {"ok": False, "error": f"quota da bancare {best or '—'} sopra il prezzo chiesto {price:.2f}"}
         if avail < need:
@@ -101,8 +101,9 @@ class PaperExchange:
 
 
 class Executor:
-    def __init__(self, settings: dict, client=None):
+    def __init__(self, settings: dict, client=None, store=None):
         self.settings = settings
+        self.store = store
         ex = settings.get("execution") or {}
         self.min_stake = float(ex.get("min_stake", 2.0))
         self.commission = float(ex.get("commission", 0.045))
@@ -117,8 +118,49 @@ class Executor:
         return self._client
 
     def route(self, p: dict, snapshot: dict) -> str:
+        """live = soldi veri; paper = exchange simulato; shadow = in modalità live, strategia non ammessa ai
+        soldi veri: si segue in ombra, senza toccare il bankroll vero (mai mescolare paper e live)."""
         ok, _ = Gates.live_allowed(self.settings, p["strategy_id"])
-        return "live" if ok and exchange_target(p, snapshot) else "paper"
+        if ok and exchange_target(p, snapshot) and not (snapshot.get("health") or {}).get("delayed"):
+            return "live"
+        return "shadow" if self.settings.get("mode") == "live" else "paper"
+
+    # ── ordini veri: registrati PRIMA dell'invio, ritrovati dopo un errore ──────────────
+    def _send(self, strategy_id: str, market_id: str, sel_id: int, side: str, price: float, size: float) -> dict:
+        import uuid
+        from .store import now_iso
+        ref = f"bb{uuid.uuid4().hex[:20]}"
+        if self.store is not None:
+            self.store.execute("INSERT INTO orders(ts, ref, strategy_id, market_id, selection_id, side, price, size, status, "
+                               "updated) VALUES(?,?,?,?,?,?,?,?,?,?)", (now_iso(), ref, strategy_id, market_id, str(sel_id),
+                                                                        side, price, size, "PENDING", now_iso()))
+        try:
+            r = self.client.place(market_id, sel_id, side, price, size, fill_or_kill=True, order_ref=ref,
+                                  strategy_ref=strategy_id.split("_")[0] + strategy_id.split("_")[-1])
+        except Exception as exc:
+            r = self._recover(ref, str(exc))
+        self._update_order(ref, r)
+        return r
+
+    def _recover(self, ref: str, error: str) -> dict:
+        """Risposta persa (timeout, rete): l'ordine potrebbe essere partito. Lo si cerca su Betfair."""
+        try:
+            found = self.client.current_orders(order_refs=[ref])
+        except Exception as exc:
+            return {"matched": 0.0, "status": "UNKNOWN", "error": f"{error}; verifica non riuscita: {exc}"}
+        if found:
+            o = found[0]
+            return {"bet_id": o.get("betId"), "matched": float(o.get("sizeMatched") or 0.0),
+                    "avg_price": float(o.get("averagePriceMatched") or 0.0), "status": o.get("status"), "recovered": True}
+        return {"matched": 0.0, "status": "NOT_FOUND", "error": error}
+
+    def _update_order(self, ref: str, r: dict) -> None:
+        if self.store is None:
+            return
+        from .store import now_iso
+        self.store.execute("UPDATE orders SET status=?, bet_id=?, matched=?, avg_price=?, error=?, updated=? WHERE ref=?",
+                           ("MATCHED" if r.get("matched") else r.get("status") or "KILLED", r.get("bet_id"), r.get("matched"),
+                            r.get("avg_price"), r.get("error"), now_iso(), ref))
 
     def place(self, p: dict, stake: float, snapshot: dict) -> dict:
         """Ordine BACK fill-or-kill. → {"ok", "mode", "odds", "stake", "ref", "error"}"""
@@ -126,18 +168,18 @@ class Executor:
         stake = round_back_stake(stake, self.min_stake)
         if not stake:
             return {"ok": False, "mode": mode, "error": f"puntata sotto il minimo dell'exchange {self.min_stake:.2f} €"}
-        if mode == "paper":
+        if mode in ("paper", "shadow"):
             r = self.paper.place("BACK", p["odds"], stake, book_for(p, snapshot))
             if not r["ok"]:
                 return {"ok": False, "mode": mode, "error": r["error"]}
             return {"ok": True, "mode": mode, "odds": r["price"], "stake": r["matched"], "ref": None}
         market_id, sel_id = exchange_target(p, snapshot)
-        try:
-            r = self.client.place(market_id, sel_id, "BACK", p["odds"], stake, fill_or_kill=True, ref=p["strategy_id"])
-        except Exception as exc:
-            return {"ok": False, "mode": mode, "error": str(exc)}
+        r = self._send(p["strategy_id"], market_id, sel_id, "BACK", p["odds"], stake)
+        if r.get("status") == "UNKNOWN":
+            return {"ok": False, "mode": mode, "unknown": True,
+                    "error": f"esito dell'ordine sconosciuto ({r.get('error')}): controllo manuale richiesto"}
         if r["matched"] <= 0:
-            return {"ok": False, "mode": mode, "error": f"non abbinata a {p['odds']:.2f} (fill-or-kill annullato)"}
+            return {"ok": False, "mode": mode, "error": r.get("error") or f"non abbinata a {p['odds']:.2f} (fill-or-kill annullato)"}
         return {"ok": True, "mode": mode, "odds": r["avg_price"] or p["odds"], "stake": r["matched"],
                 "ref": {"bet_id": r["bet_id"], "market_id": market_id, "selection_id": sel_id}}
 
@@ -149,20 +191,21 @@ class Executor:
         if bet["mode"] != "live":
             book = book_for({"market_id": bet["match_id"], "match_id": bet["match_id"], "selection": bet["selection"]},
                             snapshot or {})
-            if book is None:                              # mercato sparito dal feed: chiusura al prezzo richiesto
-                return {"ok": True, "price": lay_price}
+            if book is None:
+                # mercato sparito: niente chiusura "gratis". La posizione resta aperta e si regola sul risultato
+                # (il caso peggiore per un trade), come succederebbe sull'exchange vero.
+                return {"ok": False, "error": "mercato non più nel feed: la posizione si regola sul risultato"}
             best = book.get("lay")
-            if best and best <= price + 1e-9 and (book.get("lay_size") or 0) >= size * self.paper.liquidity_factor:
+            avail = book.get("lay_size_best", book.get("lay_size")) or 0
+            if best and best <= price + 1e-9 and avail >= size * self.paper.liquidity_factor:
                 return {"ok": True, "price": max(best, lay_price) if not urgent else best}
             return {"ok": False, "error": f"lay non abbinabile a {price:.2f} (miglior quota da bancare {best or '—'})"}
         ref = (json.loads(bet["extra"]) if bet.get("extra") else {}).get("betfair") or {}
-        try:
-            r = self.client.place(ref["market_id"], ref["selection_id"], "LAY", price, size, fill_or_kill=True,
-                                  ref=f"hedge-{bet['id']}")
-        except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+        r = self._send(bet["strategy_id"], ref["market_id"], ref["selection_id"], "LAY", price, size)
+        if r.get("status") == "UNKNOWN":
+            return {"ok": False, "unknown": True, "error": f"esito del lay sconosciuto ({r.get('error')})"}
         if r["matched"] <= 0:
-            return {"ok": False, "error": f"lay non abbinato a {price:.2f}"}
+            return {"ok": False, "error": r.get("error") or f"lay non abbinato a {price:.2f}"}
         return {"ok": True, "price": r["avg_price"] or price}
 
     def settled_live(self, bets: list[dict]) -> dict[str, dict]:

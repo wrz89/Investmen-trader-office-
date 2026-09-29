@@ -136,11 +136,21 @@ def test_risk_vetoes(office):
     assert not d["approved"] and any("Kill switch" in r for r in d["reasons"])
 
 
-def test_kill_switch_triggers_on_drawdown(office):
-    office.bankroll.cash = office.bankroll.initial_capital * 0.8
+def test_kill_switch_small_bankroll_uses_absolute_floor(office):
+    office.bankroll.cash = 24.0                                                   # −6 € da 30: sopra la soglia di 20 €
+    assert not office.risk.portfolio_state()["kill_switch"]
+    office.bankroll.cash = 19.5
+    st = office.risk.portfolio_state()
+    assert st["kill_switch"] and "sotto la soglia" in st["kill_switch"]
+    assert any("KILL SWITCH" in m for m in office.notifier.sent)                  # arriva anche su Telegram
+
+
+def test_kill_switch_percent_rule_above_100(office):
+    office.bankroll.cash = 200.0
+    office.risk.portfolio_state()                                                 # picco 200 €
+    office.bankroll.cash = 165.0                                                  # −17,5%
     st = office.risk.portfolio_state()
     assert st["kill_switch"] and "drawdown" in st["kill_switch"]
-    assert any("KILL SWITCH" in m for m in office.notifier.sent)                  # arriva anche su Telegram
 
 
 def test_paper_bet_notifies_and_settles_with_commission(office):
@@ -254,8 +264,8 @@ def test_short_simulation_runs_and_books_balance(tmp_path, monkeypatch):
     importlib.reload(sim)
     m = asyncio.run(sim.run(hours=8, step_minutes=3, seed=3))
     s = Store(m["db"])
-    pnl = sum(r["pnl"] or 0 for r in s.query("SELECT pnl FROM bets WHERE status!='OPEN'"))
-    open_stakes = sum(r["stake"] for r in s.query("SELECT stake FROM bets WHERE status='OPEN'"))
+    pnl = sum(r["pnl"] or 0 for r in s.query("SELECT pnl FROM bets WHERE status!='OPEN' AND mode!='shadow'"))
+    open_stakes = sum(r["stake"] for r in s.query("SELECT stake FROM bets WHERE status='OPEN' AND mode!='shadow'"))
     assert float(s.get("cash")) + open_stakes == pytest.approx(m["initial"] + pnl, abs=1e-3)
     importlib.reload(cfg)
 
@@ -331,9 +341,10 @@ def test_telegram_commands_can_only_inform_or_brake(office):
     assert "Comandi" in tc.handle("/aiuto")
     assert tc.handle("ciao") is None
     tc.handle("/pausa 30")
-    assert office.risk.portfolio_state()["cooldown_until"]
+    assert office.risk.portfolio_state()["telegram_pause_until"]
+    assert not office.risk.evaluate(_proposal(fair_prob=0.85), _snap(), office.risk.portfolio_state())["approved"]
     tc.handle("/riprendi")
-    assert not office.risk.portfolio_state()["cooldown_until"]
+    assert not office.risk.portfolio_state()["telegram_pause_until"]
     tc.handle("/stop")
     assert office.store.get("kill_switch")
     d = office.risk.evaluate(_proposal(), _snap(), office.risk.portfolio_state())

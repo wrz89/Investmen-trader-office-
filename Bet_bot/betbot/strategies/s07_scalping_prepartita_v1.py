@@ -79,7 +79,8 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
                     "n_books": 1, "dispersion": 0.0, "live": False, "odds_ts": m.get("odds_ts"),
                     "exchange": {"target": plan["target"], "stop": plan["stop"], "worst": plan["worst"],
                                  "risk_per_unit": plan["risk_per_unit"], "gain_per_unit": plan["gain_per_unit"],
-                                 "exit_minutes_before": p["exit_minutes_before"], "commission": p["commission"]},
+                                 "exit_minutes_before": p["exit_minutes_before"],
+                                 "commission": m.get("commission") or p["commission"]},
                     "reason": f"{name} back {b['back']:.2f}, WoM {w:.0%}, target lay {plan['target']:.2f} "
                               f"(+{plan['gain_per_unit']:.1%} netto), stop {plan['stop']:.2f} "
                               f"(−{plan['risk_per_unit']:.1%} nel caso peggiore), serve centrare il "
@@ -95,7 +96,7 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
         m = snapshot["matches"].get(bet["match_id"])
         b = ((m or {}).get("exchange") or {}).get(bet["selection"])
         if not m or not b or m["status"] != "SCHEDULED":
-            actions.append({"bet_id": bet["id"], "action": "hedge", "price": (b or {}).get("lay") or bet["odds"],
+            actions.append({"bet_id": bet["id"], "action": "hedge", "urgent": True, "price": (b or {}).get("lay") or bet["odds"],
                             "reason": "partita iniziata o mercato non più nel feed: chiusura prudenziale"})
             continue
         plan = trade_plan(bet["odds"], p)
@@ -104,9 +105,9 @@ def manage(open_bets: list[dict], snapshot: dict, params: dict, ctx: dict) -> li
             actions.append({"bet_id": bet["id"], "action": "hedge", "price": lay,
                             "reason": f"target raggiunto: lay a {lay:.2f} (back {bet['odds']:.2f}) → profitto verde"})
         elif lay >= plan["stop"]:
-            actions.append({"bet_id": bet["id"], "action": "hedge", "price": lay,
+            actions.append({"bet_id": bet["id"], "action": "hedge", "urgent": True, "price": lay,
                             "reason": f"stop loss: lay a {lay:.2f} (back {bet['odds']:.2f})"})
         elif _minutes_to(m["kickoff"], now) <= p["exit_minutes_before"]:
-            actions.append({"bet_id": bet["id"], "action": "hedge", "price": lay,
+            actions.append({"bet_id": bet["id"], "action": "hedge", "urgent": True, "price": lay,
                             "reason": f"inizio tra meno di {p['exit_minutes_before']} min: chiudo a {lay:.2f}"})
     return actions

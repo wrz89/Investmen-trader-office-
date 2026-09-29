@@ -37,7 +37,7 @@ def merge_reference(matches: dict, ref_matches: dict, max_kickoff_gap_h: float =
                 m["home_score"], m["away_score"] = r["home_score"], r["away_score"]
             if r.get("result") and not m.get("result"):
                 m["result"] = r["result"]
-            m["odds_ts"] = min(m.get("odds_ts") or time.time(), r.get("odds_ts") or time.time())
+            m["ref_ts"] = r.get("odds_ts")          # età del riferimento, controllata a parte dal Risk Manager
             n += 1
             break
     return n

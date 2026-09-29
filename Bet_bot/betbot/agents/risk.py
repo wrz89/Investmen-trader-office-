@@ -82,40 +82,51 @@ class RiskManager(Agent):
     # ── stato e circuit breaker ────────────────────────────────
     def portfolio_state(self) -> dict:
         br = self.office.bankroll
+        L = self.limits
         value = br.total
         day_start = br.day_start(value)
         peak = br.update_peak(value)
         dd = 1 - value / peak if peak > 0 else 0.0
         daily = value / day_start - 1 if day_start > 0 else 0.0
+        # Con 2 € minimi su 30 € le percentuali scatterebbero dopo una o due perdite: sotto `small_bankroll`
+        # valgono limiti assoluti (budget di perdita), sopra le percentuali.
+        small = peak < L.get("small_bankroll", 0)
         kill = self.store.get("kill_switch")
-        if dd >= self.limits["max_drawdown"] and not kill:
-            kill = f"drawdown {dd:.1%} ≥ limite {self.limits['max_drawdown']:.0%}"
-            self.store.set("kill_switch", kill)
-            self.say(f"KILL SWITCH ATTIVATO: {kill}. Nessuna nuova puntata. Reset solo manuale.", "alert",
-                     "kill_switch", level="CRITICAL")
-        if daily <= -self.limits["max_daily_loss"] and self.store.get("daily_stop_day") != today():
+        if not kill:
+            if small and value <= L.get("kill_below_bankroll", 0):
+                kill = f"bankroll {value:.2f} € sotto la soglia di {L['kill_below_bankroll']:.0f} €"
+            elif not small and dd >= L["max_drawdown"]:
+                kill = f"drawdown {dd:.1%} ≥ limite {L['max_drawdown']:.0%}"
+            if kill:
+                self.store.set("kill_switch", kill)
+                self.say(f"KILL SWITCH ATTIVATO: {kill}. Nessuna nuova puntata. Reset solo dal PC.", "alert",
+                         "kill_switch", level="CRITICAL")
+        loss_today = max(0.0, day_start - value)
+        daily_budget = L.get("max_daily_loss_eur", 0.0) if small else L["max_daily_loss"] * day_start
+        if loss_today > 0 and loss_today >= daily_budget - 1e-9 and self.store.get("daily_stop_day") != today():
             self.store.set("daily_stop_day", today())
-            self.say(f"Circuit breaker: perdita del giorno {daily:.1%} oltre il limite del "
-                     f"{self.limits['max_daily_loss']:.0%}. Nessuna nuova puntata fino a domani.", "blocked", "circuit",
-                     level="WARN")
+            self.say(f"Circuit breaker: persi {loss_today:.2f} € oggi (limite {daily_budget:.2f} €). "
+                     "Nessuna nuova puntata fino a domani.", "blocked", "circuit", level="WARN")
         if file_sha256(LIMITS_FILE) != self.seal and not self.store.get("limits_tampered"):
             self.store.set("limits_tampered", True)
-            self.say("Il file dei limiti di rischio è cambiato a ufficio acceso: blocco ogni nuova puntata. "
-                     "Riavvia l'ufficio per sigillare i nuovi limiti.", "alert", "circuit", level="CRITICAL")
+            self.say("Il file dei limiti di rischio è cambiato a bot acceso: blocco ogni nuova puntata. "
+                     "Riavvia Bet_bot per sigillare i nuovi limiti.", "alert", "circuit", level="CRITICAL")
         streak = self._losing_streak()
         cooldown = self.store.get("cooldown_until") or 0
-        if streak >= self.limits["max_losing_streak"] and cooldown < clock.now() and not self.store.get("cooldown_streak_seen") == streak:
-            cooldown = clock.now() + self.limits["cooldown_minutes"] * 60
+        if streak >= L["max_losing_streak"] and cooldown < clock.now() and not self.store.get("cooldown_streak_seen") == streak:
+            cooldown = clock.now() + L["cooldown_minutes"] * 60
             self.store.set("cooldown_until", cooldown)
             self.store.set("cooldown_streak_seen", streak)
-            self.say(f"Circuit breaker: {streak} perdite di fila. Pausa di {self.limits['cooldown_minutes']} minuti.",
+            self.say(f"Circuit breaker: {streak} perdite di fila. Pausa di {L['cooldown_minutes']} minuti.",
                      "blocked", "circuit", level="WARN")
+        pause = self.store.get("telegram_pause_until") or 0            # pausa chiesta dal telefono (separata)
         return {"bankroll": value, "cash": br.cash, "open_stakes": br.open_stakes(), "open_risk": self.open_risk(),
-                "profits": br.profits,
-                "initial": br.initial_capital, "peak": peak, "drawdown": dd, "daily_pnl": daily,
+                "profits": br.profits, "initial": br.initial_capital, "peak": peak, "drawdown": dd, "daily_pnl": daily,
                 "kill_switch": kill, "cooldown_until": cooldown if cooldown > clock.now() else None,
-                "losing_streak": streak, "stake_base": br.stake_base(self.limits["reinvest_fraction"],
-                                                                      self.limits["floor_pct_of_initial"])}
+                "telegram_pause_until": pause if pause > clock.now() else None,
+                "small_bankroll": small, "loss_today": loss_today, "daily_budget": daily_budget,
+                "daily_stop": self.store.get("daily_stop_day") == today(),
+                "losing_streak": streak, "stake_base": br.stake_base(L["reinvest_fraction"], L["floor_pct_of_initial"])}
 
     def open_risk(self) -> float:
         """Somma delle perdite massime delle puntate aperte (trade: fino allo stop; puntate secche: tutta la puntata)."""
@@ -127,7 +138,8 @@ class RiskManager(Agent):
         return tot
 
     def _losing_streak(self) -> int:
-        rows = self.store.query("SELECT pnl FROM bets WHERE status!='OPEN' AND status!='VOID' ORDER BY settled_ts DESC, id DESC LIMIT 50")
+        rows = self.store.query("SELECT pnl FROM bets WHERE status!='OPEN' AND status!='VOID' AND mode!='shadow' "
+                                "ORDER BY settled_ts DESC, id DESC LIMIT 50")
         n = 0
         for r in rows:
             if (r["pnl"] or 0) < 0:
@@ -150,19 +162,27 @@ class RiskManager(Agent):
         check(file_sha256(LIMITS_FILE) == self.seal, "Limiti di rischio integri (file non modificato)")
         check(not state["kill_switch"], "Kill switch non attivo")
         check(not state["cooldown_until"], "Nessuna pausa per serie negativa")
-        check(state["daily_pnl"] > -L["max_daily_loss"], f"Perdita del giorno sotto il {L['max_daily_loss']:.0%}")
+        check(not state.get("daily_stop"), f"Stop giornaliero non attivo (persi oggi {state.get('loss_today', 0):.2f} €)")
+        check(not state.get("telegram_pause_until"), "Nessuna pausa chiesta da Telegram")
         check(p["strategy_status"] == "ATTIVA", "Strategia attiva (non in osservazione)")
         scale = snapshot.get("time_scale") or 1.0
         age = ((snapshot.get("sim_time") or snapshot["ts"]) - (p.get("odds_ts") or 0)) / scale
         check(age <= L["max_odds_age_seconds"], f"Quote fresche ({age:.0f} s ≤ {L['max_odds_age_seconds']} s)")
         if not p.get("exchange") and not p.get("legs"):
+            if p.get("ref_ts"):
+                ref_age = ((snapshot.get("sim_time") or snapshot["ts"]) - p["ref_ts"]) / scale
+                limit = L.get("max_reference_age_live_seconds", 300) if p.get("live") else L.get("max_reference_age_seconds", 9000)
+                check(ref_age <= limit, f"Quote di riferimento abbastanza recenti ({ref_age / 60:.0f} min ≤ {limit / 60:.0f} min)")
+            check(p["edge"] <= L.get("max_plausible_edge", 0.08),
+                  f"Vantaggio plausibile (EV {p['edge']:+.1%} oltre il {L.get('max_plausible_edge', 0.08):.0%}: "
+                  "probabile errore di dato, squadre abbinate male o riferimento vecchio)")
             check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker di riferimento ({p['n_books']})")
             check(p["dispersion"] <= L["max_odds_dispersion"], "Bookmaker di riferimento concordi sulla probabilità")
             check(p["edge"] >= L["min_edge"], f"EV netto ≥ {L['min_edge']:.1%} ({p['edge']:+.2%})")
 
         open_bets = self.office.bankroll.open_bets()
         is_exchange = bool(p.get("exchange"))
-        today_n = self.store.query("SELECT COUNT(*) n FROM bets WHERE ts >= ? AND market " + ("IN" if is_exchange else "NOT IN")
+        today_n = self.store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND ts >= ? AND market " + ("IN" if is_exchange else "NOT IN")
                                    + " ('exchange_win', 'exchange_trade')", (_day_start_iso(),))[0]["n"]
         day_cap = L["max_exchange_trades_per_day"] if is_exchange else L["max_bets_per_day"]
         check(len(open_bets) < L["max_open_bets"], f"Puntate aperte < {L['max_open_bets']}")
@@ -179,11 +199,26 @@ class RiskManager(Agent):
 
         base = state["stake_base"]
         min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
-        stake, k_full = stake_for(p, base, L, min_stake)
-        if verdict["level"] == "caution":
-            stake = float(int(stake * L.get("sentiment_caution_stake_factor", 0.5) * 100) / 100)
+        if verdict["level"] == "caution":                       # il dimezzamento va PRIMA dell'arrotondamento a 0,50 €
+            stake, k_full = stake_for(p, base * L.get("sentiment_caution_stake_factor", 0.5), L, min_stake)
+        else:
+            stake, k_full = stake_for(p, base, L, min_stake)
+        if p.get("exchange") and state.get("small_bankroll"):
+            stake = min_stake                                          # bankroll piccolo: trade sempre alla puntata minima
         stake = max(0.0, min(stake, state["cash"]))                  # l'exchange blocca subito la puntata sul conto
+        left_today = max(0.0, state.get("daily_budget", 1e9) - state.get("loss_today", 0.0))
+        if not p.get("exchange") and stake > left_today:
+            from ..execution import round_back_stake
+            stake = round_back_stake(left_today, min_stake)            # la puntata secca non supera il budget del giorno
         risk_now = worst_loss(p, stake)
+        check(risk_now <= max(0.0, state.get("daily_budget", 1e9) - state.get("loss_today", 0.0)) + 1e-9,
+              f"Perdita possibile ({risk_now:.2f} €) entro il budget rimasto oggi")
+        if p.get("exchange"):
+            open_trades = [b for b in open_bets if b["market"] in ("exchange_trade", "exchange_win")]
+            if state.get("small_bankroll"):
+                check(len(open_trades) < L.get("max_open_trades_small", 1), "Un solo trade aperto con bankroll piccolo")
+            check(sum(b["stake"] for b in open_trades) + stake <= L.get("max_open_trade_stake_pct", 1.0) * state["bankroll"] + 1e-9,
+                  "Puntate dei trade aperti entro il limite per i salti di prezzo")
         check(state.get("open_risk", 0.0) + risk_now <= L["max_open_risk_pct"] * state["bankroll"] + 1e-9,
               f"Rischio aperto ≤ {L['max_open_risk_pct']:.0%} del bankroll "
               f"({state.get('open_risk', 0.0) + risk_now:.2f} € con questa)")

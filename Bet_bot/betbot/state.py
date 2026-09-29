@@ -34,7 +34,7 @@ def _perf(bets: list[dict]) -> dict:
 
 def agent_stats(store: Store) -> dict:
     """Numeri da mostrare sopra ogni omino: win rate e ROI per chi punta, contatori per gli altri."""
-    bets = store.query("SELECT id, strategy_id, status, stake, pnl, settled_ts, label FROM bets")
+    bets = store.query("SELECT id, strategy_id, status, stake, pnl, settled_ts, label FROM bets WHERE mode!='shadow'")
     out = {"banco": _perf(bets)}
     for key in ("analista", "cavalli"):
         out[key] = _perf([b for b in bets if strategy_agent(b["strategy_id"]) == key])
@@ -89,8 +89,9 @@ def build_state(store: Store) -> dict:
         "limits": load_yaml("risk_limits.yaml"),
         "strategies": store.get("strategies") or [],
         "strategy_params": load_yaml("strategies.yaml"),
-        "open_bets": store.query("SELECT * FROM bets WHERE status='OPEN' ORDER BY id DESC"),
-        "bets": store.query("SELECT * FROM bets WHERE status!='OPEN' ORDER BY settled_ts DESC, id DESC LIMIT 80"),
+        "open_bets": store.query("SELECT * FROM bets WHERE status='OPEN' AND mode!='shadow' ORDER BY id DESC"),
+        "bets": store.query("SELECT * FROM bets WHERE status!='OPEN' AND mode!='shadow' ORDER BY settled_ts DESC, id DESC LIMIT 80"),
+        "shadow_trades": store.query("SELECT * FROM bets WHERE mode='shadow' ORDER BY id DESC LIMIT 40"),
         "bankroll_curve": curve,
         "board": store.get("board"),
         "sentiment_flags": store.get("sentiment_flags") or {},

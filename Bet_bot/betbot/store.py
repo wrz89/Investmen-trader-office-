@@ -50,6 +50,11 @@ CREATE TABLE IF NOT EXISTS bets (
     status TEXT DEFAULT 'OPEN', settled_ts TEXT, payout REAL, pnl REAL,
     closing_odds REAL, clv REAL, settle_reason TEXT, extra TEXT
 );
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT, ref TEXT UNIQUE, strategy_id TEXT, market_id TEXT, selection_id TEXT, side TEXT, price REAL, size REAL,
+    status TEXT, bet_id TEXT, matched REAL, avg_price REAL, error TEXT, updated TEXT
+);
 CREATE TABLE IF NOT EXISTS shadow_bets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts TEXT, strategy_id TEXT, match_id TEXT, label TEXT, selection TEXT, odds REAL,

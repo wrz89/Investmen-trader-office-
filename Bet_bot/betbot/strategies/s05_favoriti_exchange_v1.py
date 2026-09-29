@@ -58,7 +58,7 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
                         "label": f"{m['home']} - {m['away']} · {name}", "market": "h2h", "selection": sel,
                         "bookmaker": "Betfair", "odds": price, "fair_prob": v["fair_prob"], "edge": edge,
                         "commission": comm, "n_books": v["n_books"], "dispersion": v["dispersion"],
-                        "live": False, "odds_ts": m.get("odds_ts"),
+                        "live": False, "odds_ts": m.get("odds_ts"), "ref_ts": m.get("ref_ts"),
                         "reason": f"{name}: probabilità giusta {v['fair_prob']:.0%} (riferimento {v['n_books']} book), "
                                   f"Betfair {price:.2f} ({ex[sel].get('back_size') or 0:.0f} € disponibili), EV netto "
                                   f"commissione {edge:+.1%}, tra {hours:.1f} h"})

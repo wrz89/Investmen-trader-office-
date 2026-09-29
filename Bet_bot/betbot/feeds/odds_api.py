@@ -44,12 +44,51 @@ class OddsApiFeed(Feed):
         self.odds_ts = 0.0
         self.scores_ts = 0.0
         self.matches: dict[str, dict] = {}
+        self.budget_note = ""
+
+    # ── budget delle richieste (piano gratuito: 500 al mese) ────────────────────────
+    def _budget(self) -> dict:
+        import json
+        from ..config import RUNTIME_DIR
+        path = RUNTIME_DIR / "odds_api_budget.json"
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        if data.get("day") != today:
+            data = {"day": today, "used": 0, "remaining": data.get("remaining")}
+        data["_path"] = str(path)
+        return data
+
+    def _save_budget(self, data: dict) -> None:
+        import json
+        from pathlib import Path
+        p = Path(data.pop("_path"))
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data), encoding="utf-8")
+
+    def budget_ok(self, cost: int) -> tuple[bool, str]:
+        cfg = self.settings["feed"].get("odds_api") or {}
+        b = self._budget()
+        per_day = int(cfg.get("max_credits_per_day", 15))
+        floor = int(cfg.get("min_remaining", 50))
+        if b.get("remaining") is not None and int(b["remaining"]) - cost < floor:
+            return False, f"crediti The Odds API quasi finiti ({b['remaining']} rimasti)"
+        if b["used"] + cost > per_day:
+            return False, f"budget del giorno raggiunto ({b['used']}/{per_day} crediti)"
+        return True, ""
 
     def _get(self, path: str, **params) -> list | dict:
         self.calls += 1
         try:
             r = requests.get(f"{BASE}{path}", params={"apiKey": self.key, **params}, timeout=15)
             self.remaining = r.headers.get("x-requests-remaining")
+            b = self._budget()
+            b["used"] += int(float(r.headers.get("x-requests-last") or 0))
+            if self.remaining is not None:
+                b["remaining"] = int(float(self.remaining))
+            self._save_budget(b)
             if r.status_code == 401:
                 raise FeedError("The Odds API rifiuta la chiave (401).")
             if r.status_code == 429:
@@ -62,11 +101,21 @@ class OddsApiFeed(Feed):
 
     def _fetch_sync(self) -> dict:
         now = time.time()
+        self.budget_note = ""
+        n_sports = max(1, len(self._sport_keys(now)))
         if now - self.odds_ts >= self.odds_every:
-            self._refresh_odds(now)
+            ok, why = self.budget_ok(n_sports)
+            if ok:
+                self._refresh_odds(now)
+            else:
+                self.budget_note = why
             self.odds_ts = now
         if now - self.scores_ts >= self.scores_every:
-            self._refresh_scores(now)
+            ok, why = self.budget_ok(2 * n_sports)
+            if ok:
+                self._refresh_scores(now)
+            else:
+                self.budget_note = self.budget_note or why
             self.scores_ts = now
         for m in self.matches.values():               # il passare del tempo cambia lo stato anche senza download
             if m["status"] == "SCHEDULED" and datetime.fromisoformat(m["kickoff"]).timestamp() <= now:
@@ -78,7 +127,8 @@ class OddsApiFeed(Feed):
                 m["closing"] = self.closing.get(m["match_id"])
         return {"ts": now, "sim_time": now, "time_scale": 1.0,
                 "health": {"error_rate": self.errors / max(1, self.calls),
-                           "source": f"The Odds API (richieste rimaste: {self.remaining})"},
+                           "source": f"The Odds API (richieste rimaste: {self.remaining})"
+                                     + (f" · riferimento fermo: {self.budget_note}" if self.budget_note else "")},
                 "matches": {k: dict(v) for k, v in self.matches.items()}, "races": {}}
 
     def _sport_keys(self, now: float) -> list[str]:

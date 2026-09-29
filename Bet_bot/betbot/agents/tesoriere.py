@@ -13,7 +13,9 @@ class Tesoriere(Agent):
     def update(self, state: dict) -> dict:
         br = self.office.bankroll
         br.mark()
-        bets = self.store.query("SELECT * FROM bets")
+        all_rows = self.store.query("SELECT * FROM bets")
+        bets = [b for b in all_rows if b["mode"] != "shadow"]
+        shadow_rows = [b for b in all_rows if b["mode"] == "shadow"]
         m = summarize(bets, br.initial_capital)
         worst = max(float(self.store.get("max_drawdown_seen") or 0.0), state["drawdown"])
         self.store.set("max_drawdown_seen", worst)            # incrementale: niente rilettura dell'intera curva
@@ -21,11 +23,13 @@ class Tesoriere(Agent):
         by_strategy = {}
         for sid in sorted({b["strategy_id"] for b in bets}):
             by_strategy[sid] = summarize([b for b in bets if b["strategy_id"] == sid])
+        shadow = {sid: summarize([b for b in shadow_rows if b["strategy_id"] == sid])
+                  for sid in sorted({b["strategy_id"] for b in shadow_rows})}
         L = self.office.risk.limits
         next_cap = L["max_stake_pct"] * state["stake_base"]
         metrics = {**m, "bankroll": state["bankroll"], "cash": state["cash"], "initial": br.initial_capital,
                    "profits": state["profits"], "stake_base": state["stake_base"], "next_max_stake": next_cap,
-                   "drawdown_now": state["drawdown"], "by_strategy": by_strategy,
+                   "drawdown_now": state["drawdown"], "by_strategy": by_strategy, "shadow_by_strategy": shadow,
                    "reinvest_fraction": L["reinvest_fraction"]}
         self.store.set("metrics", metrics)
         self.status("ok", f"Bankroll {state['bankroll']:.2f} € = capitale {br.initial_capital:.2f} + profitti "

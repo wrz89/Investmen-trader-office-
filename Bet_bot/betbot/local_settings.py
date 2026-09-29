@@ -30,6 +30,17 @@ DEFAULTS = {
 }
 
 
+SECRET_PATHS = [("telegram", "token"), ("betfair", "password"), ("betfair", "app_key"), (None, "odds_api_key"),
+                (None, "api_football_key")]
+
+
+def _map_secrets(data: dict, fn) -> None:
+    for section, key in SECRET_PATHS:
+        holder = data.get(section) if section else data
+        if isinstance(holder, dict) and holder.get(key):
+            holder[key] = fn(holder[key])
+
+
 def load() -> dict:
     data = copy.deepcopy(DEFAULTS)
     if PATH.exists():
@@ -42,12 +53,18 @@ def load() -> dict:
                 data[key].update(value)
             else:
                 data[key] = value
+    from .secrets import unprotect
+    _map_secrets(data, unprotect)
     return data
 
 
 def save(data: dict) -> None:
+    """Salva le impostazioni; su Windows i segreti vengono cifrati con DPAPI (vedi secrets.py)."""
+    from .secrets import protect
+    out = copy.deepcopy(data)
+    _map_secrets(out, protect)
     PATH.parent.mkdir(parents=True, exist_ok=True)
-    PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    PATH.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _mask(v: str, head: int = 4, tail: int = 3) -> str:
