@@ -19,6 +19,22 @@ from .base import Feed, FeedError
 REFERENCE_EXCLUDE = ("betfair", "matchbook", "smarkets", "betdaq")     # exchange: non sono un "metro" esterno
 
 
+def _needs_fresh_reference(snap: dict, ref_ts: float, max_age_s: float = 1800, window_s: float = 7200,
+                           odds_min: float = 1.10, odds_max: float = 1.40) -> bool:
+    """True se una partita Betfair inizia entro 2 ore con un favorito in fascia e il riferimento ha più di 30 minuti."""
+    now = snap.get("sim_time") or snap["ts"]
+    if now - (ref_ts or 0) < max_age_s:
+        return False
+    for m in snap.get("matches", {}).values():
+        if m.get("status") != "SCHEDULED" or not m.get("exchange"):
+            continue
+        if not 0 <= datetime.fromisoformat(m["kickoff"]).timestamp() - now <= window_s:
+            continue
+        if any(odds_min <= (b.get("back") or 0) <= odds_max for b in m["exchange"].values()):
+            return True
+    return False
+
+
 def merge_reference(matches: dict, ref_matches: dict, max_kickoff_gap_h: float = 3.0) -> int:
     """Copia su ogni partita dell'exchange le quote dei bookmaker di riferimento della stessa partita."""
     from .api_football import same_team
@@ -60,6 +76,8 @@ class CompositeFeed(Feed):
         snap = await self.primary.fetch()
         notes = []
         if self.reference is not None:
+            if _needs_fresh_reference(snap, getattr(self.reference, "odds_ts", 0.0)):
+                self.reference.force = True                      # c'è un candidato vicino all'inizio: riferimento su richiesta
             try:
                 ref = await self.reference.fetch()
                 n = merge_reference(snap["matches"], ref["matches"])

@@ -103,7 +103,8 @@ class OddsApiFeed(Feed):
         now = time.time()
         self.budget_note = ""
         n_sports = max(1, len(self._sport_keys(now)))
-        if now - self.odds_ts >= self.odds_every:
+        if now - self.odds_ts >= self.odds_every or getattr(self, "force", False):
+            self.force = False
             ok, why = self.budget_ok(n_sports)
             if ok:
                 self._refresh_odds(now)

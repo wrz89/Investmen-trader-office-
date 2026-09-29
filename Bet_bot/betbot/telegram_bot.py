@@ -141,7 +141,10 @@ class TelegramCommands:
         if (self.store.get("cooldown_until") or 0) > clock.now():
             blocks.append("in pausa")
         wr = m.get("win_rate")
-        return (f"Bankroll {_eur(rs.get('bankroll'))} (capitale {_eur(rs.get('initial'))}, profitti {_eur(rs.get('profits'))})\n"
+        lb = self.store.get("live_balance") or {}
+        real = f"\nSaldo Betfair: {_eur(lb.get('total'))} (disponibile {_eur(lb.get('available'))})" if lb else ""
+        return (f"Modalità {self.office.settings.get('mode', 'paper').upper()}{real}\n"
+                f"Bankroll {_eur(rs.get('bankroll'))} (capitale {_eur(rs.get('initial'))}, profitti {_eur(rs.get('profits'))})\n"
                 f"Drawdown {rs.get('drawdown', 0):.1%} · aperte {len(self.office.bankroll.open_bets())}\n"
                 f"Chiuse {m.get('bets', 0)} · vinte {'—' if wr is None else f'{wr:.0%}'} · ROI {m.get('roi', 0):+.1%}\n"
                 + ("Blocchi: " + "; ".join(blocks) if blocks else "Nessun blocco attivo."))

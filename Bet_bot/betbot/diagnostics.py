@@ -81,6 +81,14 @@ def run_all() -> bool:
             _line(True, f"sport disponibili sul conto: {', '.join(sorted(types.values())[:12])}")
             _line(HORSE_RACING not in types or None, "ippica " + ("assente (normale su betfair.it)" if HORSE_RACING not in types
                                                                   else "presente: il conto non sembra italiano"))
+            from .feeds.betfair import SOCCER
+            cat = c.catalogue(SOCCER, "MATCH_ODDS", 48, None, 1, lookback_hours=0)
+            if cat:
+                book = c.books([cat[0]["marketId"]])[0]
+                delayed = bool(book.get("isMarketDataDelayed"))
+                _line(not delayed or None, "app key LIVE: prezzi in tempo reale" if not delayed else
+                      "app key DELAYED: prezzi in ritardo fino a 3 minuti. Va bene per il paper; per i soldi veri "
+                      "chiedi la app key live (gratuita per i conti italiani)")
         except Exception as exc:
             _line(False, f"Betfair: {exc}")
             all_ok = False

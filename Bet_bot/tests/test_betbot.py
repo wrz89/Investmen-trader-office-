@@ -433,3 +433,74 @@ def test_dixon_coles_prefers_stronger_team():
     r = fit(rows, t + 1)
     p = outcome_probs(r, "Forte", "Debole")
     assert p["home"] > 0.8 and abs(sum(p.values()) - 1) < 1e-9
+
+
+class FakeBetfair:
+    """Client Betfair finto: abbina tutto al prezzo chiesto; può "perdere" la risposta dopo aver abbinato."""
+    def __init__(self, lose_response=False):
+        self.lose_response = lose_response
+        self.orders, self.n = {}, 0
+
+    def place(self, market_id, selection_id, side, price, size, fill_or_kill=True, ref=None, order_ref=None,
+              strategy_ref=None):
+        self.n += 1
+        bet_id = f"B{self.n}"
+        self.orders[order_ref] = {"betId": bet_id, "sizeMatched": size, "averagePriceMatched": price, "status": "EXECUTION_COMPLETE"}
+        if self.lose_response:
+            raise TimeoutError("risposta persa")
+        return {"bet_id": bet_id, "matched": size, "avg_price": price, "status": "EXECUTION_COMPLETE"}
+
+    def current_orders(self, order_refs=None, market_ids=None):
+        return [self.orders[r] for r in (order_refs or []) if r in self.orders]
+
+    def cleared(self, bet_ids):
+        return {b: {"profit": 0.0, "outcome": None, "status": "VOIDED"} for b in bet_ids}
+
+
+def _live_executor(tmp_path, client, monkeypatch):
+    from betbot import local_settings
+    from betbot.execution import Executor
+    monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS, "betfair": {
+        **local_settings.DEFAULTS["betfair"], "verified": True, "test_done": True, "live_enabled": True}})
+    settings = {"mode": "live", "execution": {"provider": "betfair", "min_stake": 2.0, "commission": 0.045},
+                "live_strategies": ["S05_favoriti_exchange_v2"]}
+    return Executor(settings, client=client, store=Store(tmp_path / "live.db"))
+
+
+def test_live_order_recovered_after_lost_response(tmp_path, monkeypatch):
+    ex = _live_executor(tmp_path, FakeBetfair(lose_response=True), monkeypatch)
+    p = _proposal(market_id="1.234", selection="56789", strategy_id="S05_favoriti_exchange_v2")
+    snap = {"health": {"delayed": False}, "matches": {}, "races": {}}
+    r = ex.place(p, 2.0, snap)
+    assert r["ok"] and r["mode"] == "live" and r["ref"]["bet_id"] == "B1"        # ritrovato su Betfair
+    row = ex.store.query("SELECT * FROM orders")[0]
+    assert row["status"] == "MATCHED" and row["bet_id"] == "B1"                  # registrato prima dell'invio
+
+
+def test_no_live_orders_on_delayed_prices(tmp_path, monkeypatch):
+    ex = _live_executor(tmp_path, FakeBetfair(), monkeypatch)
+    p = _proposal(market_id="1.234", selection="56789", strategy_id="S05_favoriti_exchange_v2")
+    assert ex.route(p, {"health": {"delayed": True}}) == "shadow"
+    assert ex.route(p, {"health": {"delayed": False}}) == "live"
+    assert ex.route(_proposal(strategy_id="S07_scalping_prepartita_v1", market_id="1.2", selection="5"),
+                    {"health": {"delayed": False}}) == "shadow"                   # non ammessa ai soldi veri
+
+
+def test_shadow_trades_never_touch_bankroll(office):
+    from betbot.strategies.s07_scalping_prepartita_v1 import propose
+    m = {"match_id": "M7", "sport": "soccer_epl", "league": "EPL", "home": "A", "away": "B", "status": "SCHEDULED",
+         "kickoff": "2030-01-01T18:00:00+00:00", "odds_ts": 1.0,
+         "exchange": {"home": {"back": 2.0, "lay": 2.02, "back_size": 400, "lay_size": 100}}}
+    snap = {"ts": 0, "sim_time": 1893520800 - 3600, "time_scale": 1.0, "matches": {"M7": m}, "races": {},
+            "health": {"source": "mock"}}
+    props = propose(snap, {}, {})
+    assert props
+    before = office.bankroll.total
+    office.cache = snap
+    office.banco.shadow({**props[0], "strategy_status": "OSSERVAZIONE"}, snap)
+    assert office.bankroll.total == before and office.bankroll.open_shadow_trades()
+    t = office.bankroll.open_shadow_trades()[0]
+    m["exchange"]["home"] = {"back": 1.94, "lay": 1.96, "back_size": 400, "lay_size": 400}   # prezzo sceso: target
+    office.banco.apply([{"bet_id": t["id"], "action": "hedge", "price": 1.96, "reason": "target raggiunto"}])
+    row = office.store.query("SELECT * FROM bets WHERE id=?", (t["id"],))[0]
+    assert row["status"] == "HEDGED" and row["pnl"] > 0 and office.bankroll.total == before
