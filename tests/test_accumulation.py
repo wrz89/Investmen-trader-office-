@@ -49,7 +49,8 @@ def test_buys_once_per_month_and_log_is_immutable(office_):
     office_.accumulation.run(SNAP)
     office_.accumulation.run(SNAP)
     s = office_.accumulation.summary()
-    assert s["buys"] == 1 and s["eur_in"] == 50 and 0 < s["qty"] < 50 / 60_000
+    assert s["buys"] == 1 and s["eur_in"] == 85 and 0 < s["qty"] < 85 / 60_000     # 50 + rata 140/4
+    assert s["next_amount"] == 85
     with pytest.raises(sqlite3.DatabaseError):
         office_.store.execute("UPDATE accumulation_buys SET eur=1000")
 

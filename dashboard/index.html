@@ -732,7 +732,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <div class="metric"><small>Valore oggi</small><b class="${!A.qty ? "" : A.value >= A.eur_in ? "pos" : "neg"}">${!A.qty || A.value == null ? "—" : fmt(A.value, 2) + " €"}</b></div>
           <div class="metric"><small>Prezzo medio</small><b>${A.avg_price ? fmt(A.avg_price, 0) + " €" : "—"}</b></div>
         </div>
-        <div class="row"><span>Prossimo acquisto</span><span class="num">${esc(nextBuy())}</span></div>
+        <div class="row"><span>Prossimo acquisto</span><span class="num">${fmt(A.next_amount, 0)} € · ${esc(nextBuy())}</span></div>
+        ${A.initial_eur ? `<div class="row"><span>Capitale iniziale ${fmt(A.initial_eur, 0)} € a rate</span><span class="num">${Math.min(A.buys, A.initial_tranches)} / ${A.initial_tranches} rate da ${fmt(A.initial_eur / A.initial_tranches, 0)} €</span></div>` : ""}
         ${(A.last || []).map((b) => `<div class="row"><span>${esc(b.month)} · ${esc(b.route)}</span><span class="num">${fmt(b.qty, 8)} BTC @ ${fmt(b.price_eur, 0)} €</span></div>`).join("")}
         <div class="eyebrow">Scambio tra crypto: conviene?</div>
         <p>A ogni ciclo Paolo confronta la strada diretta (euro → BTC) con quella via USDC (euro → USDC → BTC), commissioni comprese, e all'acquisto usa la più economica.

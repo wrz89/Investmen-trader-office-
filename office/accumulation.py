@@ -120,7 +120,7 @@ class Accumulation:
             risk.say("Accumulo rimandato: nessun prezzo disponibile.", "blocked", "accumulation")
             return
         cost_per_btc = route["routes"][route["best"]]
-        eur = float(cfg["amount_eur"])
+        eur = self.next_amount()
         qty = eur / cost_per_btc
         fee_eur = eur - qty * (q["direct"] if route["best"] == "diretta" else cost_per_btc / (1 + fee) ** 2)
         mode = self.office.settings["mode"]
@@ -137,6 +137,13 @@ class Accumulation:
         aud.say(f"Registro accumulo: {s['buys']} acquisti, {s['eur_in']:.0f} € versati, {s['qty']:.8f} BTC.",
                 "ok", "accumulation")
 
+    def next_amount(self) -> float:
+        """Importo del prossimo acquisto: quota fissa + eventuale rata del capitale iniziale (calendario prefissato)."""
+        cfg = self.cfg
+        done = self.store.query("SELECT COUNT(*) AS n FROM accumulation_buys")[0]["n"]
+        n, initial = int(cfg.get("initial_tranches") or 0), float(cfg.get("initial_eur") or 0)
+        return float(cfg["amount_eur"]) + (initial / n if n and done < n else 0.0)
+
     def summary(self) -> dict:
         rows = self.store.query("SELECT * FROM accumulation_buys ORDER BY id")
         eur_in = sum(r["eur"] for r in rows)
@@ -149,6 +156,8 @@ class Accumulation:
         bought = {r["month"] for r in rows}
         return {
             "enabled": cfg.get("enabled"), "amount_eur": cfg["amount_eur"], "day_of_month": cfg["day_of_month"],
+            "initial_eur": cfg.get("initial_eur", 0), "initial_tranches": cfg.get("initial_tranches", 0),
+            "next_amount": self.next_amount(),
             "symbol": cfg["symbol"], "start_month": cfg["start_month"], "go_live": cfg.get("go_live"),
             "buys": len(rows), "eur_in": eur_in, "qty": qty, "price": price, "value": value,
             "avg_price": eur_in / qty if qty else None,

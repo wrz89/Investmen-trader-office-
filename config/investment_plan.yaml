@@ -7,7 +7,7 @@
 profile: Equilibrato
 platform: Bybit (spot, senza leva)
 currency: EUR
-start_capital: 200
+start_capital: 140
 monthly: 50
 
 # Come lavorano i soldi dentro Bybit. Le quote sono il MASSIMO investito:
@@ -16,7 +16,7 @@ sleeves:
   - name: Accumulo automatico BTC
     status: paper                 # scelta C del 29/09/2026 · primo acquisto paper dal 5 ottobre 2026
     max_share: 1.00
-    note: "50 € al mese in BTC dal giorno 5, strada più economica (diretta o via USDC). Nessuna promessa di vantaggio: è una scelta di lungo periodo su BTC. Mai vendite automatiche"
+    note: "50 € al mese in BTC dal giorno 5 (più 35 € di capitale iniziale nei primi 4 mesi), strada più economica (diretta o via USDC). Nessuna promessa di vantaggio: è una scelta di lungo periodo su BTC. Mai vendite automatiche"
   - name: Motore trend (STRATEGY_01_v5)
     status: bocciata              # 29/09/2026: riverificata con le commissioni reali di Bybit EU (0,25%)
     max_share: 0.0
@@ -28,7 +28,7 @@ sleeves:
   - name: Tesoriere · USDC in Earn flessibile
     status: rinviato              # verificato il 29/09/2026 sull'app Bybit EU
     max_share: 0.0
-    note: "Earn USDC flessibile all'1,02%: su 200 € sono circa 2 €/anno, e in Earn gli USDC passano di proprietà a Bybit EU (fuori dalle tutele MiCAR). Si riconsidera oltre ~2.000 € investiti o con rendimento flessibile ≥ 3%"
+    note: "Earn USDC flessibile all'1,02%: su 140 € sono circa 1,4 €/anno, e in Earn gli USDC passano di proprietà a Bybit EU (fuori dalle tutele MiCAR). Si riconsidera oltre ~2.000 € investiti o con rendimento flessibile ≥ 3%"
   - name: Rotazione settimanale (STRATEGY_04_v1)
     status: in osservazione       # solo in ombra, nessun capitale
     max_share: 0.0
@@ -60,13 +60,14 @@ phases:
 risks:
   - "Accumulo in BTC: nei crolli (in passato fino a -77%) il valore scende e il piano continua a comprare; non esce da solo"
   - "Tutto su crypto: nessuna diversificazione fuori da questo mondo"
+  - "Le proiezioni usano rendimenti costanti: BTC ha oscillazioni molto più ampie, gli scenari servono solo come ordine di grandezza"
   - "Rischio piattaforma: se Bybit ha problemi, i soldi sono lì (il kill switch non protegge da questo)"
   - "USDC è una stablecoin: rischio basso ma non zero di perdere la parità col dollaro"
   - "Cambio EUR/USD: il conto è in dollari digitali"
   - "Tasse: plusvalenze crypto al 33% dal 2026, da dichiarare"
   - "Commissioni Bybit EU 0,25% per ordine a mercato: le strategie con molti scambi faticano a coprirle"
 
-# Proiezione a 10 anni con 200 € + 50 €/mese (6.200 € versati). Lordo tasse.
+# Proiezione a 10 anni con 140 € + 50 €/mese (6.140 € versati). Lordo tasse.
 projection:
   years: 10
   scenarios:

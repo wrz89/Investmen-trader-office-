@@ -9,6 +9,11 @@ enabled: true
 symbol: BTC/EUR          # acquisto diretto in euro: una sola commissione (niente passaggio da USDC)
 amount_eur: 50           # importo FISSO: non aumenta mai dopo un calo (regole 3 e 4)
 day_of_month: 5          # dal 5 del mese (dopo lo stipendio e il bonifico periodico)
+# Capitale iniziale (deciso dall'utente il 29/09/2026): 140 € entrati a rate, non in un
+# giorno solo. Calendario fissato prima di iniziare: 35 € in più nei primi 4 acquisti
+# (85 € al mese per 4 mesi, poi 50 €). Non dipende dall'andamento del prezzo.
+initial_eur: 140
+initial_tranches: 4
 start_month: "2026-10"
 
 # Si RIMANDA (mai si salta) al ciclo successivo se Franco vede: dati vecchi o
