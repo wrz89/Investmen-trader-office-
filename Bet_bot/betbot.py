@@ -23,6 +23,7 @@
     python betbot.py esame                esame per il live: quali strategie hanno superato i criteri sui prezzi veri
     python betbot.py copertura            quante partite e quanti crediti servono a The Odds API (e se c'è Pinnacle)
     python betbot.py live on|off          soldi veri SÌ/NO (vai_live.bat / torna_paper.bat): chiede conferma scritta
+    python betbot.py bollettino           il bollettino di Leo adesso (ogni mattina arriva da solo su Telegram)
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
     python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
     python betbot.py dashboard [--simulazione | --replay]   apre solo la dashboard
@@ -72,7 +73,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -131,6 +132,14 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "bollettino":
+        from betbot import bollettino
+        from betbot.config import DB_LIVE_PATH, DB_PATH, load_settings
+        from betbot.store import Store
+        st = load_settings()
+        print(bollettino.save(bollettino.build(Store(DB_LIVE_PATH if st.get("mode") == "live" else DB_PATH), st)))
         return 0
 
     if a.comando == "live":

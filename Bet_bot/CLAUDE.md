@@ -54,6 +54,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   (→ `orizzonti.bat` sulle registrazioni), freno sul CLV mobile (Leo lo fa già per segmenti).
 - Sentiment (Giorgia): le notizie (Google News) sono spente, nessuna prova di valore. Il "mercato contro" ora si misura
   sul prezzo Betfair di ogni ciclo: col feed Betfair le quote di riferimento (ogni 2-6 ore) erano ferme e non scattava mai.
+- "90% di vinte": esiste (favoriti a 1,05-1,10 vincono il 90%) ma per andare in pari serve il 92-93%: −2,8% su 229
+  (chiusura Pinnacle, football-data). L'obiettivo è il CLV/ROI, non la percentuale di vinte.
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
   `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
@@ -64,6 +66,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 ## Dove guardare nel codice
 - orizzonti.py: CLV e liquidità di betfair.it a 72/48/24/12/6/3/1 ore dall'inizio, dalle registrazioni (le registrazioni
   hanno `ref_ts` dal 30/09/2026: prima l'età di Pinnacle si stima dal primo momento in cui la quota cambia).
+- bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
+  proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),
   execution.py (Betfair e paper), agents/coach.py (Leo: autopsie e regole che possono solo frenare),
   esame.py, test_rapido.py, palestra.py, backtest*.py, feeds/betfair.py, collega_betfair.py.

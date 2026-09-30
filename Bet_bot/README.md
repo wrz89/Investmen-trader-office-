@@ -64,6 +64,16 @@ La strategia **S10 Divertimento** punta ogni giorno su qualunque sport di betfai
 
 `torna_paper.bat` spegne tutto. Le puntate vere già aperte si chiudono da sole su Betfair. Le altre strategie restano in ombra, senza soldi.
 
+### Il bollettino di Leo (ogni mattina)
+
+Dalle 8 Leo manda su Telegram, e nel registro della dashboard, un riepilogo di tutto quello che conta:
+- i soldi veri degli ultimi 7 giorni e il totale;
+- la classifica delle strategie sui prezzi veri di betfair.it, comprese quelle in ombra, con CLV, margine d'errore e puntate mancanti all'esame;
+- l'ultimo test rapido, l'ultimo `orizzonti` e i giorni di prezzi registrati;
+- la proposta: quando una strategia supera l'esame, Leo suggerisce di metterla al posto del divertimento. Il bot non lo fa mai da solo.
+
+Per vederlo subito: `python betbot.py bollettino`.
+
 ### Quando conviene entrare (`orizzonti.bat`)
 
 Legge le registrazioni dei prezzi veri di betfair.it e, per ogni partita, guarda i prezzi a 72, 48, 24, 12, 6, 3 e 1 ora dall'inizio.

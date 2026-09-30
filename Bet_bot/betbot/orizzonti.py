@@ -226,5 +226,8 @@ def run(since: str | None = None, until: str | None = None, out=print) -> dict:
     md = report(res, days=len(files))
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     (REPORTS_DIR / "orizzonti.md").write_text(md, encoding="utf-8")
+    import time
+    (REPORTS_DIR / "orizzonti.json").write_text(json.dumps({"ts": time.time(), "giorni": len(files), "partite": res["partite"],
+                                                            "verdetto": res["verdetto"]}), encoding="utf-8")
     out(md)
     return res

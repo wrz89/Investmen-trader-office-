@@ -409,5 +409,8 @@ def run(hours: float = 6.0, credits: int = 150, out=print, subito: bool = False)
     md = report(res)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     (REPORTS_DIR / "test_rapido.md").write_text(md, encoding="utf-8")
+    # riassunto per il bollettino di Leo (senza le righe una per una)
+    (REPORTS_DIR / "test_rapido.json").write_text(json.dumps({"ts": time.time(), **{k: v for k, v in res.items() if k != "rows"}},
+                                                             default=str), encoding="utf-8")
     out("\n" + md)
     return res

@@ -448,12 +448,27 @@ class Coach(Agent, CoachBook):
         self.store.set("esame", res)
 
     # ── ciclo e riepilogo ──────────────────────────────────────────────────────
+    def _bulletin(self) -> None:
+        """Una volta al giorno, dalle 8: il bollettino (classifica sui prezzi veri, soldi veri, misure, proposta)."""
+        from .. import bollettino
+        from ..bankroll import TZ
+        if not bollettino.due(self.store):
+            return
+        self.store.set("bollettino_day", datetime.now(TZ).strftime("%Y-%m-%d"))
+        b = bollettino.build(self.store, self.settings)
+        self.store.set("bollettino", {k: v for k, v in b.items() if k != "esame"})
+        self.say(bollettino.save(b), "ok", "report", level="INFO", payload={"agent": "coach", "proposte": b["proposte"]})
+
     def run(self, snapshot: dict) -> None:
         self.observe(snapshot)
         n = self.review()
         if n:
             self.learn()
         self._exam()
+        try:
+            self._bulletin()
+        except Exception as exc:                      # il bollettino non deve mai fermare il ciclo
+            self.say(f"Bollettino non preparato: {exc}", "alert", "coach_error", level="WARN")
         s = self.summary()
         self.status("ok" if s["lessons"] else "idle",
                     f"{s['lessons']} autopsie, {s['rules']} regole attive. "
