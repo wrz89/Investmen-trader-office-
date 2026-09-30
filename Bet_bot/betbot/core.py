@@ -149,7 +149,8 @@ class SportOffice:
         for p in proposals:
             # in osservazione, oppure in live senza via libera ai soldi veri (o con prezzi ritardati): solo in ombra,
             # prima del Risk Manager, così il bankroll vero non viene mai toccato
-            if p["strategy_status"] != "ATTIVA" or self.executor.route(p, snap) == "shadow":
+            if (p["strategy_status"] != "ATTIVA" or p.get("side") == "LAY"      # lay d'apertura: solo in ombra
+                    or self.executor.route(p, snap) == "shadow"):
                 self.banco.shadow(p, snap)
                 continue
             decision = self.risk.evaluate(p, snap, state)

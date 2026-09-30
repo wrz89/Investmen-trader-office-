@@ -44,7 +44,7 @@ class Banco(Agent):
     def place(self, p: dict, decision: dict, cycle_id: str, snapshot: dict) -> int | None:
         if getattr(self.office, "shutting_down", False):  # spegnimento in corso: solo chiusure, nessuna puntata nuova
             return None
-        if self.office.executor.route(p, snapshot) == "shadow":
+        if p.get("side") == "LAY" or self.office.executor.route(p, snapshot) == "shadow":
             self.shadow(p, snapshot)                      # mai scalare il bankroll vero per una puntata in ombra
             return None
         if self.store.query("SELECT 1 FROM orders WHERE status IN ('PENDING', 'UNKNOWN', 'UNCONFIRMED') LIMIT 1"):
@@ -296,10 +296,15 @@ class Banco(Agent):
                 if m.get("void"):
                     self.store.execute("UPDATE shadow_bets SET status='VOID', settled_ts=?, pnl=0 WHERE id=?", (now_iso(), sb["id"]))
                     continue
-                won = m["result"] in sb["selection"].split("+")
-                net = (sb["odds"] - 1) * (1 - self.office.executor.commission)       # ombra: 1 € su exchange
+                comm = self.office.executor.commission
+                if sb["selection"].startswith("LAY:"):       # ombra lay: 1 € del backer, si vince se l'esito NON succede
+                    won = m["result"] not in sb["selection"][4:].split("+")
+                    pnl = (1 - comm) if won else -(sb["odds"] - 1)
+                else:
+                    won = m["result"] in sb["selection"].split("+")
+                    pnl = (sb["odds"] - 1) * (1 - comm) if won else -1.0              # ombra: 1 € su exchange
                 self.store.execute("UPDATE shadow_bets SET status=?, settled_ts=?, pnl=? WHERE id=?",
-                                   ("WON" if won else "LOST", now_iso(), net if won else -1.0, sb["id"]))
+                                   ("WON" if won else "LOST", now_iso(), pnl, sb["id"]))
         if not n:
             k = len(self.office.bankroll.open_bets())
             self.status("idle", f"{k} {'puntata' if k == 1 else 'puntate'} in gioco, nessuna da chiudere.")

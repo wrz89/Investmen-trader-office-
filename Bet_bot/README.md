@@ -74,6 +74,7 @@ Comandi dal telefono (solo dalla tua chat):
 | S06 Live finale | osservazione | squadra in vantaggio dal 70', quota 1,05–1,30, EV netto ≥ 1%; niente ingresso con un uomo in meno o se l'avversario assedia; serve un riferimento live (piano a pagamento di The Odds API) |
 | S07 Scalping pre-partita | osservazione | back→lay prima dell'inizio sul lato con più denaro in attesa; target −2 tick, stop +3 tick, uscita 5 minuti prima; misurata con trade ombra veri |
 | S08 Basket +15 nel 4° quarto | osservazione | chi conduce di 15+ punti vince il 96,5–99,5% delle volte, ma paga 1,01–1,04: si punta solo se Betfair paga più della probabilità storica |
+| S09 Lay di valore (calcio) | osservazione | si banca un esito (si punta CONTRO) quando il lay di Betfair costa meno della quota giusta di Pinnacle; quote lay 3-8, EV sul rischio ≥ 2%, 0,50 € di puntata del backer; ~80% di vinte nel backtest. Il lay d'apertura con soldi veri non è ancora abilitato: gira solo in ombra |
 | S04 Green-up cavalli | osservazione | solo mondo simulato: su betfair.it l'ippica non c'è |
 
 In **osservazione** una strategia lavora "in ombra": le puntate secche valgono 1 € virtuale, i trade sono trade veri dell'exchange simulato (2 €, stesse regole), ma il bankroll non si tocca. Si attiva spostandola in `active_strategies` (in `runtime/impostazioni.yaml`) quando i numeri in ombra la giustificano.
@@ -108,6 +109,16 @@ Backtest del 29/09/2026 su **11.400 partite di calcio con prezzi Betfair Exchang
 - **Basket.** NBA, 14.822 partite: i favoriti a 1,10–1,30 vincono l'81,8% contro l'81,4% previsto dalle quote. Dopo la commissione −0,4%. Chi conduce di 15+ punti nel quarto quarto vince il 98,5%, ma a quota 1,01–1,04.
 - **Altri sport.** Hockey: favoriti netti rari (1,5% delle partite). Rugby league NRL su prezzi Betfair: −7,1%. Da evitare: tennistavolo ed eSports (integrità), pallavolo (nessun riferimento affidabile).
 - **In sintesi.** In nessuno sport si vince spesso e si guadagna automaticamente: vincere l'80% è facile, guadagnare no. Il guadagno può venire solo dai momenti in cui Betfair paga più del giusto, ed è esattamente e solo quello che S05 cerca.
+
+**Lay di valore (30/09/2026, `python betbot.py lay`).** Stagioni 2024/25 e 2025/26, 16 campionati, Pinnacle e Betfair presi nello stesso momento, commissione 4,5%, lay stimato 2 tick sopra il back:
+
+| Quote lay 1X2 | Puntate | Vinte | ROI sul rischio |
+|---|---|---|---|
+| 1,5-3 | 599 | 64,4% | +18,1% ± 3,9% |
+| 3-8 | 393 | 80,4% | +7,2% ± 2,7% |
+| 8-15 | 40 | 95,0% | +4,3% ± 3,9% |
+
+È il primo segnale che sui dati storici resta positivo dopo la commissione e con una percentuale di vincita alta. **Non è ancora una prova**: il file contiene solo il prezzo back di Betfair internazionale, e se il lay vero era molto più largo (partite poco liquide, mercato italiano separato) il vantaggio sparisce. Per questo S09 gira in ombra: con `feed.record: true` il bot registra i prezzi lay veri di betfair.it e dopo 3-4 settimane `python betbot.py replay` dice se il vantaggio c'è anche lì.
 - **Limiti dei dati.** I prezzi di football-data e tennis-data sono del pool internazionale e rilevati giorni prima. Sul pool italiano la verità si misura solo registrando: passi 3 e 4.
 
 `python betbot.py rischio --quota 1.22 --vinte 0.80 --puntata 0.07` mostra con un Monte Carlo cosa succede a 1000 puntate con quella quota, quel win rate e quella puntata.

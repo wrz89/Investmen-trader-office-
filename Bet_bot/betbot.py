@@ -10,6 +10,7 @@
                                           fa girare TUTTE le strategie sui prezzi registrati (feed.record: true)
     python betbot.py diagnosi             controlla installazione, configurazione, Telegram, chiavi e Betfair
     python betbot.py mercurius            verifica il metodo "alla Mercurius" (modello dei gol proprio) sui prezzi Betfair
+    python betbot.py lay                  backtest del lay di valore (S09) sui prezzi Betfair
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
     python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
     python betbot.py dashboard [--simulazione | --replay]   apre solo la dashboard
@@ -59,7 +60,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -116,6 +117,16 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "lay":
+        from betbot import backtest_lay as bl
+        from betbot.config import REPORTS_DIR
+        print("Lay di valore: Betfair contro Pinnacle sui campionati di football-data (qualche minuto)…")
+        md = bl.report()
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        (REPORTS_DIR / "backtest_lay.md").write_text(md, encoding="utf-8")
+        print(md)
         return 0
 
     if a.comando == "mercurius":

@@ -37,6 +37,7 @@ observe_strategies:            # solo ombra, senza capitale: si attivano solo do
   - S07_scalping_prepartita_v1 # trade back→lay prima dell'inizio: da provare col registratore (feed.record)
   - S04_greenup_cavalli_v2     # su betfair.it l'ippica non c'è: gira solo nel mondo simulato
   - S08_basket_quarto_quarto_v1 # basket +15 nel 4° quarto: 96-99% di vittorie ma quote 1,01-1,04, da verificare
+  - S09_lay_valore_v1           # lay di valore sul calcio: contro gli esiti che Betfair prezza sotto Pinnacle (~80% vinte a quota 3-8)
 
 feed:
   # mock    = mondo simulato (exchange + bookmaker di riferimento), nessuna chiave. Per provare.
