@@ -1,10 +1,13 @@
 """AGENTE 9 — GIORGIA · ANALISTA SENTIMENT.
 
 Due fonti, con pesi diversi:
-  1. MERCATO: variazione della probabilità implicita (consenso dei bookmaker)
-     della selezione negli ultimi 90 minuti. Soldi informati che puntano contro
-     = quota della nostra squadra che sale. È il segnale più affidabile.
-  2. NOTIZIE: titoli pubblici (Google News RSS, IT+EN) sulle squadre delle
+  1. MERCATO: variazione della probabilità implicita della selezione negli ultimi 90 minuti. Soldi informati che
+     puntano contro = quota della nostra squadra che sale. È il segnale più affidabile.
+     Fonte: il prezzo di BETFAIR (medio tra back e lay, margine tolto), che cambia a ogni ciclo. Le quote dei
+     bookmaker di riferimento servono solo se il prezzo Betfair non c'è: col piano gratuito di The Odds API si
+     aggiornano ogni 2-6 ore, e in 90 minuti restano ferme (il segnale non scattava mai).
+  2. NOTIZIE (SPENTE di serie dal 30/09/2026, news.enabled in sentiment.yaml): nessuna prova che valgano qualcosa
+     (la palestra di Leo: assenze e notizie sono già nelle quote quando escono i titoli). titoli pubblici (Google News RSS, IT+EN) sulle squadre delle
      partite candidate. Classificazione con regole trasparenti, prima le frasi
      che smentiscono ("rientra", "recuperato"), poi quelle gravi e medie.
 
@@ -76,14 +79,44 @@ class Sentiment(Agent):
     def __init__(self, office):
         super().__init__(office)
         self.cfg = load_yaml("sentiment.yaml")
+        self.bf_history: dict[tuple[str, str], list[tuple[float, float]]] = {}   # (partita, esito) → [(t, prob)]
         with self.store._lock:
             self.store.conn.executescript(SCHEMA)
             self.store.conn.commit()
 
     # ── 1. sentiment di mercato ────────────────────────────────
+    def observe_exchange(self, snapshot: dict) -> None:
+        """A ogni ciclo: probabilità dal prezzo medio di Betfair per ogni esito pre-partita (libro completo e stretto)."""
+        t = clock.now()
+        keep = t - (self.cfg["market"]["lookback_minutes"] + 30) * 60
+        for m in snapshot.get("matches", {}).values():
+            ex = m.get("exchange") or {}
+            if m.get("status") != "SCHEDULED" or not ex:
+                continue
+            mids = {}
+            for sel, b in ex.items():
+                if b.get("back") and b.get("lay") and b["back"] <= b["lay"] <= b["back"] * 1.1:
+                    mids[sel] = (b["back"] + b["lay"]) / 2
+            if len(mids) != len(ex) or len(mids) < 2:
+                continue
+            tot = sum(1 / v for v in mids.values())
+            for sel, v in mids.items():
+                h = self.bf_history.setdefault((m["match_id"], sel), [])
+                h.append((t, (1 / v) / tot))
+                while h and h[0][0] < keep:
+                    h.pop(0)
+        live_ids = set(snapshot.get("matches", {}))
+        for k in [k for k in self.bf_history if k[0] not in live_ids]:
+            del self.bf_history[k]
+
     def market_move(self, match_id: str, selection: str) -> float | None:
-        """Variazione relativa della probabilità di consenso nel periodo (negativa = mercato contro)."""
+        """Variazione relativa della probabilità nel periodo (negativa = mercato contro): prima dal prezzo Betfair,
+        altrimenti dal consenso dei bookmaker registrato."""
         mc = self.cfg["market"]
+        h = [x for x in self.bf_history.get((match_id, selection), [])
+             if x[0] >= clock.now() - mc["lookback_minutes"] * 60]
+        if len(h) >= mc["min_points"] and h[-1][0] - h[0][0] >= 30 * 60 and h[0][1] > 0:
+            return h[-1][1] / h[0][1] - 1.0
         since = datetime.fromtimestamp(clock.now() - mc["lookback_minutes"] * 60, timezone.utc).isoformat(timespec="seconds")
         rows = self.store.query("SELECT ts, bookmaker, selection, price FROM odds WHERE match_id=? AND ts>=? AND live=0 "
                                 "ORDER BY ts", (match_id, since))
@@ -138,6 +171,10 @@ class Sentiment(Agent):
     # ── 2. notizie ──────────────────────────────────────────────
     def run(self, snapshot: dict) -> None:
         ncfg = self.cfg["news"]
+        self.observe_exchange(snapshot)
+        if not ncfg.get("enabled", False):
+            self._status("notizie spente: guardo il movimento del prezzo Betfair a ogni proposta")
+            return
         if snapshot["health"]["source"].startswith("mock") and not ncfg.get("enabled_with_mock_feed"):
             self._status("notizie spente col feed simulato; attivo il sentiment di mercato")
             return

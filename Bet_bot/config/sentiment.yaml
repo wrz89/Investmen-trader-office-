@@ -6,7 +6,7 @@
 
 # 1) SENTIMENT DI MERCATO (movimento delle quote) — il segnale più affidabile:
 #    se la probabilità implicita della nostra selezione sta scendendo, qualcuno
-#    informato sta puntando contro.
+#    informato sta puntando contro. Si misura sul prezzo di Betfair (aggiornato a ogni ciclo).
 market:
   lookback_minutes: 90        # confronto con le quote di 90 minuti fa (pre-partita)
   min_points: 2               # servono almeno 2 rilevazioni nel periodo
@@ -15,6 +15,8 @@ market:
 
 # 2) NOTIZIE — Google News RSS (pubblico, gratuito), titoli in italiano e inglese.
 news:
+  enabled: false                    # spente dal 30/09/2026: nessuna prova che servano (le notizie sono già nelle quote
+                                    # quando escono i titoli). true = di nuovo lette da Google News
   enabled_with_mock_feed: false     # col feed simulato le squadre sono "finte": notizie spente
   refresh_minutes: 20
   team_cache_minutes: 60            # ogni squadra riletta al massimo una volta l'ora

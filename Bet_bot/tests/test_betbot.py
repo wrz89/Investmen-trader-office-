@@ -504,3 +504,24 @@ def test_shadow_trades_never_touch_bankroll(office):
     office.banco.apply([{"bet_id": t["id"], "action": "hedge", "price": 1.96, "reason": "target raggiunto"}])
     row = office.store.query("SELECT * FROM bets WHERE id=?", (t["id"],))[0]
     assert row["status"] == "HEDGED" and row["pnl"] > 0 and office.bankroll.total == before
+
+
+def test_sentiment_reads_the_betfair_price_and_news_are_off(office):
+    from betbot import clock
+    t = {"now": 1_900_000_000.0}
+    clock.set_source(lambda: t["now"])
+    try:
+        def snap(home_back):
+            return {"health": {"source": "Betfair Exchange Italia"}, "matches": {"B1": {
+                "match_id": "B1", "status": "SCHEDULED", "home": "Inter", "away": "Lecce",
+                "exchange": {"home": {"back": home_back, "lay": round(home_back + 0.02, 2)},
+                             "draw": {"back": 5.0, "lay": 5.1}, "away": {"back": 9.0, "lay": 9.2}}}}}
+        office.sentiment.run(snap(1.30))
+        t["now"] += 45 * 60
+        office.sentiment.run(snap(1.70))                 # la casa scende nettamente: soldi contro
+        move = office.sentiment.market_move("B1", "home")
+        v = office.sentiment.verdict(_proposal(match_id="B1"))
+    finally:
+        clock.set_source(None)
+    assert move < -0.06 and v["level"] == "block"
+    assert office.store.query("SELECT COUNT(*) n FROM news")[0]["n"] == 0     # nessuna lettura di Google News

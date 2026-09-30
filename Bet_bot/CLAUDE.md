@@ -52,6 +52,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - r/AutomatedBettingBots (letto il 30/09/2026 via archivio Arctic Shift, 554 post): quasi tutto promozione, nessun CLV
   verificato su campioni ampi. Idee tenute: filtro sui movimenti di prezzo (→ S05 v3, in ombra), orizzonte d'ingresso
   (→ `orizzonti.bat` sulle registrazioni), freno sul CLV mobile (Leo lo fa già per segmenti).
+- Sentiment (Giorgia): le notizie (Google News) sono spente, nessuna prova di valore. Il "mercato contro" ora si misura
+  sul prezzo Betfair di ogni ciclo: col feed Betfair le quote di riferimento (ogni 2-6 ore) erano ferme e non scattava mai.
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
   `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
