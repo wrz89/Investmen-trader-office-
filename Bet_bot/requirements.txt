@@ -6,3 +6,4 @@ requests>=2.31,<3
 tzdata>=2024.1
 openpyxl>=3.1,<4
 pytest>=7.0,<10
+cryptography>=41,<60

@@ -12,6 +12,7 @@
     python betbot.py mercurius            verifica il metodo "alla Mercurius" (modello dei gol proprio) sui prezzi Betfair
     python betbot.py lay                  backtest del lay di valore (S09) sui prezzi Betfair
     python betbot.py palestra             Leo rivive gli ultimi anni senza sapere i risultati, scommette e impara
+    python betbot.py certificato          crea il certificato per il login Betfair (betfair.it) e lo collega al bot
     python betbot.py esame                esame per il live: quali strategie hanno superato i criteri sui prezzi veri
     python betbot.py copertura            quante partite e quanti crediti servono a The Odds API (e se c'è Pinnacle)
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
@@ -63,7 +64,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -122,6 +123,18 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "certificato":
+        from betbot import certificato as CT
+        r = CT.create()
+        print(("Certificato creato" if r["created"] else "Certificato già presente") + " e collegato al bot:")
+        print(f"  certificato (da caricare su Betfair): {r['crt']}")
+        print(f"  chiave privata (resta sul PC, non darla a nessuno): {r['key']}")
+        print("\nOra caricalo sul tuo conto: accedi a betfair.it, apri")
+        print("  https://myaccount.betfair.it/accountdetails/mysecurity?showAPI=1")
+        print("alla voce 'Automated Betting Program Access' (accesso API) premi Modifica, scegli il file .crt qui sopra e")
+        print("carica. Poi nella dashboard premi 'Verifica il conto'.")
         return 0
 
     if a.comando == "copertura":
