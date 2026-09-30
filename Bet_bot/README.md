@@ -36,10 +36,21 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 | Passo | File | Cosa ottieni |
 |---|---|---|
 | 1 | `simula.bat` | 3 giorni simulati in un minuto e l'ufficio 3D sulla simulazione: vedi come lavora |
-| 2 | `backtest.bat` | le strategie sui **prezzi veri di Betfair Exchange** 2024-2026 (calcio; tennis dal tuo PC) |
-| 3 | `avvia.bat` con `feed.provider: betfair` e `feed.record: true` in `runtime/impostazioni.yaml` | paper sui prezzi veri di betfair.it per 2-4 settimane, registrando tutto |
-| 4 | `python betbot.py replay` | tutte le strategie sui giorni registrati: quali funzionano davvero sul pool italiano |
-| 5 | soldi veri, una strategia sola | solo se il passo 4 dà CLV positivo e ROI positivo su almeno 200 operazioni |
+| 2 | `backtest.bat`, `python betbot.py lay`, `python betbot.py palestra` | le strategie sui **prezzi veri di Betfair Exchange** 2024-2026, il lay di valore, e Leo che rivive 5 anni di partite |
+| 3 | `python betbot.py copertura` | quante partite hanno Pinnacle su The Odds API e quanti crediti servono al giorno |
+| 4 | `avvia.bat` con `feed: {provider: betfair, reference: odds_api}` in `runtime/impostazioni.yaml` | paper sui prezzi veri di betfair.it per 4 settimane; la registrazione dei prezzi (`record`) è già accesa |
+| 5 | `python betbot.py replay` e `python betbot.py esame` | le strategie sui giorni registrati e l'**esame per il live** con i criteri decisi prima |
+| 6 | soldi veri, una strategia sola | solo se l'esame dice PRONTA; per S09 serve anche `execution.lay_apertura: true` |
+
+### L'esame per il live
+
+I criteri sono in `config/esame_live.yaml` e sono stati decisi **prima** di vedere i risultati. Cambiarli dopo averli visti invalida l'esame, ed è il modo più comune di illudersi.
+
+- **Quantità:** almeno 200 puntate chiuse sui prezzi veri di betfair.it, cioè feed Betfair o replay delle registrazioni. Il mondo simulato non conta.
+- **Bravura:** CLV positivo anche nel caso peggiore, al 95%.
+- **Soldi:** ROI sul rischio positivo, commissione compresa.
+
+Esiti: **PRONTA**, **IN ESAME** oppure **BOCCIATA** (CLV negativo anche nel caso migliore). Leo avvisa su Telegram quando l'esito cambia. Il bot non accende mai i soldi veri da solo: la decisione resta tua.
 
 ## Collegare Betfair Exchange Italia
 
@@ -73,10 +84,14 @@ Comandi dal telefono (solo dalla tua chat):
 |---|---|---|
 | S05 v2 Favoriti su exchange | attiva | calcio, tennis ATP/WTA, basket: probabilità giusta ≥ 75% (basket 77%), quota Betfair 1,10–1,40 (tennis 1,35, basket 1,30), **valore atteso al netto della commissione ≥ 2%**, spread ≤ 2 tick, almeno 3 € sul prezzo, da 2 ore a 15 minuti prima dell'inizio; esclusi Challenger, ITF e doppi |
 | S06 Live finale | osservazione | squadra in vantaggio dal 70', quota 1,05–1,30, EV netto ≥ 1%; niente ingresso con un uomo in meno o se l'avversario assedia; serve un riferimento live (piano a pagamento di The Odds API) |
-| S07 Scalping pre-partita | osservazione | back→lay prima dell'inizio sul lato con più denaro in attesa; target −2 tick, stop +3 tick, uscita 5 minuti prima; misurata con trade ombra veri |
-| S08 Basket +15 nel 4° quarto | osservazione | chi conduce di 15+ punti vince il 96,5–99,5% delle volte, ma paga 1,01–1,04: si punta solo se Betfair paga più della probabilità storica |
-| S09 Lay di valore (calcio) | osservazione | si banca un esito (si punta CONTRO) quando il lay di Betfair costa meno della quota giusta di Pinnacle; quote lay 3-8, EV sul rischio ≥ 2%, 0,50 € di puntata del backer; ~80% di vinte nel backtest. Il lay d'apertura con soldi veri non è ancora abilitato: gira solo in ombra |
-| S04 Green-up cavalli | osservazione | solo mondo simulato: su betfair.it l'ippica non c'è |
+| S09 Lay di valore (calcio) | osservazione | si banca un esito (si punta CONTRO) quando il lay di Betfair costa meno della quota giusta di Pinnacle; quote lay 3-8, EV sul rischio ≥ 2%, puntata del backer da 0,50 €; ~80% di vinte nel backtest. Il lay d'apertura con soldi veri è pronto ma spento (`execution.lay_apertura: false`) |
+
+**Ritirate il 30/09/2026:**
+- **S04 cavalli:** su betfair.it l'ippica non c'è.
+- **S07 scalping pre-partita:** negativo nelle prove e mercato italiano troppo sottile.
+- **S08 basket nel quarto quarto:** quote da 1,01 a 1,04 e servono dati live.
+
+I file restano nella libreria come archivio, ma non girano più.
 
 In **osservazione** una strategia lavora "in ombra": le puntate secche valgono 1 € virtuale, i trade sono trade veri dell'exchange simulato (2 €, stesse regole), ma il bankroll non si tocca. Si attiva spostandola in `active_strategies` (in `runtime/impostazioni.yaml`) quando i numeri in ombra la giustificano.
 
@@ -178,6 +193,21 @@ Leo fa l'autopsia di ogni puntata chiusa: vera, paper o in ombra.
 
 Impostazioni in `coach:` (`min_n`, `apply_rules`, `max_rules`). Con `apply_rules: false` Leo osserva e basta. Nella fase di test lavora soprattutto sulle strategie in ombra: le sue lezioni sono pronte prima di mettere soldi veri.
 
+## La palestra di Leo
+
+`python betbot.py palestra` fa rivivere a Leo gli ultimi 5 campionati, partita per partita, **senza fargli vedere il risultato**. La prima volta scarica da Understat xG e formazioni dei 5 grandi campionati, in circa un'ora; poi usa la copia sul PC.
+
+1. **Due giorni prima:** Leo vede le quote del momento e tutta la storia fino al giorno prima. Cioè:
+   - Elo, forma in casa e fuori, dominio nei tiri, xG;
+   - "fortuna recente" (gol meno xG), riposo, calendario fitto;
+   - classifica, lotta salvezza e fase della stagione.
+2. **Al fischio d'inizio:** vede in più le formazioni. Quanto valgono i titolari di oggi rispetto a quelli abituali, pesati con xG, xA e xGChain di ogni giocatore; quanti "big" mancano; se gioca il portiere di riserva.
+3. **Il modello:** parte dalle probabilità del mercato e impara solo correzioni, con un freno forte: senza prove resta uguale al mercato. Si riaddestra ogni 4 settimane sul passato.
+4. **Fiducia:** Leo punta solo se, nelle sue ultime 1.500 previsioni già verificate, è stato più preciso del mercato.
+5. **Dopo ogni partita:** autopsia, lezioni per segmento, e una tabella di "dove il mercato sbaglia" per ogni dinamica.
+
+Il resoconto finisce in `runtime/reports/palestra.md`.
+
 ## Comandi
 
 ```
@@ -186,7 +216,8 @@ python betbot.py replay [--da AAAA-MM-GG] [--a AAAA-MM-GG]
 python betbot.py dashboard [--simulazione | --replay]
 python betbot.py diagnosi | stato | report | prova-telegram | betfair-verifica | reset-kill-switch
 python betbot.py rischio --quota 1.22 --vinte 0.80 --puntata 0.07
-python betbot.py mercurius
+python betbot.py mercurius | lay | palestra [--anni 5] [--senza-giocatori]
+python betbot.py esame | copertura
 python betbot.py ferma | avvio-automatico on|off
 ```
 
