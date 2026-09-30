@@ -244,6 +244,12 @@ class RiskManager(Agent):
         check(not state.get("daily_stop"), f"Stop giornaliero non attivo (persi oggi {state.get('loss_today', 0):.2f} €)")
         check(not state.get("telegram_pause_until"), "Nessuna pausa chiesta da Telegram")
         check(p["strategy_status"] == "ATTIVA", "Strategia attiva (non in osservazione)")
+        coach = getattr(self.office, "coach", None)
+        coach_blocked = None
+        if coach is not None:
+            ok, label = coach.check(p, snapshot)
+            check(ok, label)
+            coach_blocked = None if ok else label
         scale = snapshot.get("time_scale") or 1.0
         age = ((snapshot.get("sim_time") or snapshot["ts"]) - (p.get("odds_ts") or 0)) / scale
         # più i secondi VERI passati dalla lettura alla valutazione: con il feed Betfair snapshot e quote hanno lo
@@ -337,7 +343,9 @@ class RiskManager(Agent):
         approved = not reasons
         decision = {"approved": approved, "stake": stake if approved else 0.0, "kelly_full": k_full, "risk": risk_now,
                     "sentiment": verdict,
-                    "reasons": reasons, "checks": [{"ok": ok, "label": lab} for ok, lab in checks]}
+                    "reasons": reasons, "checks": [{"ok": ok, "label": lab} for ok, lab in checks],
+                    # solo la lezione di Leo ha fermato la proposta: la si segue in ombra per misurarne l'effetto
+                    "coach_blocked": coach_blocked if coach_blocked and reasons == [coach_blocked] else None}
         if approved:
             how = (f"perdita massima {risk_now:.2f} € allo stop" if p.get("exchange")
                    else f"Kelly netto {k_full:.1%} × {L['kelly_fraction']:.2f}")

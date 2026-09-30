@@ -12,6 +12,7 @@ WHO = {
     "banco": "Pietro · Banco Scommesse",
     "tesoriere": "Anna · Tesoriera",
     "auditor": "Irene · Auditor",
+    "coach": "Leo · Allenatore",
 }
 
 

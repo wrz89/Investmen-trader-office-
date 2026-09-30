@@ -22,6 +22,7 @@ import uuid
 from .agents.analista import Analista, TraderCavalli
 from .agents.auditor import Auditor
 from .agents.banco import Banco
+from .agents.coach import Coach
 from .agents.direttore import Direttore
 from .agents.quote import Quote
 from .agents.risk import RiskManager
@@ -84,8 +85,9 @@ class SportOffice:
         self.banco = Banco(self)
         self.tesoriere = Tesoriere(self)
         self.auditor = Auditor(self)
+        self.coach = Coach(self)
         self.agents = [self.direttore, self.quote, self.analista, self.cavalli, self.sentiment,
-                       self.risk, self.banco, self.tesoriere, self.auditor]
+                       self.risk, self.banco, self.tesoriere, self.auditor, self.coach]
         self.store.set("office_meta", {
             "mode": self.settings["mode"], "feed": self.settings["feed"]["provider"],
             "execution": (self.settings.get("execution") or {}).get("provider", "paper"),
@@ -126,6 +128,10 @@ class SportOffice:
         open_bets = self.bankroll.open_bets() + self.bankroll.open_shadow_trades()   # anche i trade ombra vanno gestiti
         actions = self.analista.manage(snap, strategies, open_bets) + self.cavalli.manage(snap, strategies, open_bets)
         settled += self.banco.apply(actions)
+        try:
+            self.coach.run(snap)              # autopsie e lezioni: l'allenatore non deve mai fermare il ciclo
+        except Exception as exc:
+            self.coach.log(f"Errore dell'allenatore: {exc}. Nessun effetto sulle puntate.", "WARN", "error")
 
         # 3) stato e circuit breaker (in live anche il confronto col saldo vero di Betfair)
         self._sync_live_balance()
@@ -154,6 +160,10 @@ class SportOffice:
                 self.banco.shadow(p, snap)
                 continue
             decision = self.risk.evaluate(p, snap, state)
+            if decision.get("coach_blocked"):
+                p["_blocked_by"] = decision["coach_blocked"]     # bloccata da una lezione: la si segue in ombra per
+                self.banco.shadow(p, snap)                       # misurare se la regola ha davvero evitato perdite
+                continue
             if decision["approved"]:
                 if self.banco.place(p, decision, cycle_id, snap):
                     placed += 1

@@ -55,8 +55,24 @@ def agent_stats(store: Store) -> dict:
     out["tesoriere"] = {"bankroll": rs.get("bankroll"), "profits": rs.get("profits"),
                         "roi_on_capital": (rs.get("profits") or 0) / rs["initial"] if rs.get("initial") else None}
     out["direttore"] = {"bankroll": rs.get("bankroll"), "drawdown": rs.get("drawdown"), "kill_switch": store.get("kill_switch")}
+    try:
+        from .agents.coach import CoachBook
+        c = CoachBook(store).summary()
+        out["coach"] = {"lessons": c["lessons"], "rules": c["rules"], "clv": c["clv"]}
+    except Exception:
+        out["coach"] = {"lessons": 0, "rules": 0, "clv": None}
     out["auditor"] = {"bets": m.get("bets"), "roi": m.get("roi"), "clv_avg": m.get("clv_avg")}
     return out
+
+
+def _coach(store: Store) -> dict | None:
+    """La 'scuola degli errori' di Leo: autopsie, calibrazione, segmenti e regole apprese."""
+    try:
+        from .agents.coach import CoachBook
+        s = load_settings()
+        return CoachBook(store, int((s.get("coach") or {}).get("min_n", 30))).view()
+    except Exception:
+        return None
 
 
 def build_state(store: Store) -> dict:
@@ -109,6 +125,7 @@ def build_state(store: Store) -> dict:
         "reports": [{"day": r["day"], "data": _j(r["data"])} for r in
                     store.query("SELECT day, data FROM daily_reports ORDER BY day DESC LIMIT 14")],
         "backtest": backtest,
+        "coach": _coach(store),
         "promotion": load_yaml("promotion_criteria.yaml"),
         "live_gate": store.get("live_gate_text"),
         "settings_view": {"mode": settings.get("mode"), "feed": settings.get("feed", {}).get("provider"),

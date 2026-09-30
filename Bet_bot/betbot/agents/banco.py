@@ -87,6 +87,9 @@ class Banco(Agent):
                  f"({p['bookmaker']}), prob. stimata {p['fair_prob']:.0%}, EV {p['edge']:+.1%}{legs}{note}.",
                  "ok", "bet", payload={"bet_id": cur.lastrowid, "strategy": p["strategy_id"], "mode": mode,
                                             "agent": strategy_agent(p["strategy_id"], p.get("sport"))})
+        coach = getattr(self.office, "coach", None)
+        if coach is not None:
+            coach.note_entry(p, snapshot, "bets", cur.lastrowid)
         return cur.lastrowid
 
     def shadow(self, p: dict, snapshot: dict | None = None) -> None:
@@ -104,21 +107,25 @@ class Banco(Agent):
             if not r["ok"]:
                 return
             extra = {k: p[k] for k in ("exchange", "commission", "sport") if p.get(k)}
-            self.store.execute(
+            cur = self.store.execute(
                 "INSERT INTO bets(ts, cycle_id, mode, strategy_id, match_id, league, label, market, selection, bookmaker, "
                 "odds, fair_prob, edge, stake, kelly_full, live, reason, extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (now_iso(), "ombra", "shadow", p["strategy_id"], p["match_id"], p.get("league"), p["label"], p["market"],
                  p["selection"], p["bookmaker"], r["price"], p["fair_prob"], p["edge"], stake, 0.0, int(p["live"]),
                  p["reason"], json.dumps(extra)))
+            if getattr(self.office, "coach", None) is not None:
+                self.office.coach.note_entry(p, snapshot, "bets", cur.lastrowid, p.get("_blocked_by"))
             self.log(f"Ombra · {p['strategy_id']}: trade virtuale {p['label']} a {r['price']:.2f} (nessun capitale).",
                      "INFO", "shadow")
             return
         if self.store.query("SELECT 1 FROM shadow_bets WHERE status='OPEN' AND strategy_id=? AND match_id=?",
                             (p["strategy_id"], p["match_id"])):
             return
-        self.store.execute("INSERT INTO shadow_bets(ts, strategy_id, match_id, label, selection, odds, fair_prob, edge, stake) "
+        cur = self.store.execute("INSERT INTO shadow_bets(ts, strategy_id, match_id, label, selection, odds, fair_prob, edge, stake) "
                            "VALUES(?,?,?,?,?,?,?,?,1)", (now_iso(), p["strategy_id"], p["match_id"], p["label"],
                                                          p["selection"], p["odds"], p["fair_prob"], p["edge"]))
+        if getattr(self.office, "coach", None) is not None:
+            self.office.coach.note_entry(p, snapshot, "shadow_bets", cur.lastrowid, p.get("_blocked_by"))
 
     def _close(self, bet: dict, status: str, payout: float, reason: str, closing: float | None = None) -> float:
         pnl = round(payout - bet["stake"], 4)
