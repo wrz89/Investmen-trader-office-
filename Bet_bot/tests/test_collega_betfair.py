@@ -34,6 +34,12 @@ def test_guided_connection_creates_key_and_saves(tmp_path, monkeypatch):
                 return []
             return {"appVersions": [{"applicationKey": "NEWDELAYED", "delayData": True, "active": True}]}
 
+        def developer_app_keys(self):
+            return self.rpc("getDeveloperAppKeys", {}, None, None)
+
+        def create_developer_app_keys(self, name):
+            return self.rpc("createDeveloperAppKeys", {"appName": name}, None, None)
+
         def account_funds(self):
             return {"availableToBetBalance": 30.0}
 

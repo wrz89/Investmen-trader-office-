@@ -29,17 +29,36 @@ def _pick_delayed(apps: list[dict]) -> str | None:
 
 
 def app_key_for(client) -> tuple[str, bool]:
-    """(chiave delayed, creata adesso?) usando la sessione del client già autenticato."""
-    from .feeds.betfair import ACCOUNT
-    apps = client.rpc("getDeveloperAppKeys", {}, ACCOUNT, "AccountAPING/v1.0")
-    key = _pick_delayed(apps)
+    """(chiave delayed, creata adesso?) usando la sessione del client già autenticato. Le due chiamate partono SENZA
+    X-Application: Betfair non la richiede e rifiuterebbe il segnaposto usato per il login (AANGX-0004)."""
+    key = _pick_delayed(client.developer_app_keys())
     if key:
         return key, False
-    app = client.rpc("createDeveloperAppKeys", {"appName": f"BetBot{uuid.uuid4().hex[:8]}"}, ACCOUNT, "AccountAPING/v1.0")
+    app = client.create_developer_app_keys(f"BetBot{uuid.uuid4().hex[:8]}")
     key = _pick_delayed([app] if isinstance(app, dict) else app)
     if not key:
         raise RuntimeError("Betfair non ha restituito una app key")
     return key, True
+
+
+def verify_funds(client, created: bool, out, sleep, wait_s: float = 180, every_s: float = 20) -> dict | None:
+    """Saldo del conto con la chiave nuova. Una chiave APPENA creata viene rifiutata per 1-3 minuti: si riprova solo
+    getAccountFunds, con la stessa sessione e senza rifare il login (che ha un blocco di 60 s tra un tentativo e l'altro)."""
+    from .feeds.betfair import INVALID_APP_KEY_MSG, BetfairError, is_invalid_app_key
+    waited, told = 0.0, False
+    while True:
+        try:
+            return client.account_funds()
+        except BetfairError as exc:
+            not_active = is_invalid_app_key(str(exc)) or INVALID_APP_KEY_MSG in str(exc)
+            if not (created and not_active) or waited >= wait_s:
+                out(f"   Verifica del saldo non riuscita: {exc}")
+                return None
+            if not told:
+                out("   Betfair sta attivando la chiave appena creata, attendo (di solito 1-3 minuti)…")
+                told = True
+            sleep(every_s)
+            waited += every_s
 
 
 def use_betfair_feed() -> str:
@@ -57,7 +76,9 @@ def use_betfair_feed() -> str:
     return str(LOCAL_OVERRIDE)
 
 
-def run(ask=input, ask_secret=getpass.getpass, open_url=webbrowser.open, out=print) -> bool:
+def run(ask=input, ask_secret=getpass.getpass, open_url=webbrowser.open, out=print, sleep=None) -> bool:
+    import time
+    sleep = sleep or time.sleep
     from . import certificato, local_settings
     from .feeds.betfair import BetfairClient, BetfairError
     out("=== Collegamento a Betfair Exchange Italia ===\n")
@@ -101,15 +122,12 @@ def run(ask=input, ask_secret=getpass.getpass, open_url=webbrowser.open, out=pri
     client.app_key = key
     s["betfair"].update(username=user, password=pwd, cert_file=c["crt"], key_file=c["key"], app_key=key,
                         verified=False, test_done=False, live_enabled=False)
-    try:
-        client.token = None
-        client.last_login_try = 0.0
-        client.login()
-        funds = client.account_funds()
+    funds = verify_funds(client, created, out, sleep)
+    if funds is not None:
         s["betfair"]["verified"] = True
         out(f"5) Conto verificato: saldo disponibile {float(funds.get('availableToBetBalance') or 0):.2f} €.")
-    except Exception as exc:
-        out(f"5) Chiave salvata, ma la verifica del conto non è riuscita ({exc}): riprova dalla dashboard.")
+    else:
+        out("5) Chiave salvata. Tra qualche minuto, nella dashboard, premi Impostazioni → Betfair → 'Verifica il conto'.")
     local_settings.save(s)
     path = use_betfair_feed()
     out(f"6) Impostazioni scritte in {path}: prezzi veri di Betfair, modalità paper (niente soldi veri).")

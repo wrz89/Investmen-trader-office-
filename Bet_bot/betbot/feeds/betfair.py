@@ -64,6 +64,14 @@ class BetfairError(Exception):
     pass
 
 
+INVALID_APP_KEY_MSG = "app key non valida o non ancora attiva (se l'hai appena creata, Betfair impiega 1-3 minuti)"
+
+
+def is_invalid_app_key(detail) -> bool:
+    d = str(detail or "")
+    return "AANGX-0004" in d or "INVALID_APP_KEY" in d
+
+
 class RequestNotSent(BetfairError):
     """La richiesta NON è partita (login rimandato, credenziali mancanti, sessione assente): per un ordine
     vuol dire "sicuramente non piazzato", non "esito sconosciuto"."""
@@ -82,7 +90,7 @@ class BetfairClient:
         "ACCOUNT_NOW_LOCKED": "conto Betfair bloccato per troppi tentativi: sbloccalo dal sito.",
         "TEMPORARY_BAN_TOO_MANY_REQUESTS": "troppi login in poco tempo: Betfair blocca per 20 minuti.",
         "CERT_AUTH_REQUIRED": "serve il login con certificato: imposta cert_file e key_file.",
-        "INVALID_APP_KEY": "app key non valida o disattivata.",
+        "INVALID_APP_KEY": "app key non valida o non ancora attiva (se l'hai appena creata, Betfair impiega 1-3 minuti).",
     }
 
     def __init__(self, creds: dict):
@@ -142,23 +150,27 @@ class BetfairClient:
                 pass
             self.login()
 
-    def _headers(self) -> dict:
-        return {"X-Application": self.app_key, "X-Authentication": self.token or "",
-                "Content-Type": "application/json", "Accept": "application/json"}
+    def _headers(self, with_app_key: bool = True) -> dict:
+        """with_app_key=False solo per getDeveloperAppKeys/createDeveloperAppKeys: Betfair non la richiede e, con una
+        chiave segnaposto o non ancora attiva, la rifiuterebbe (AANGX-0004)."""
+        h = {"X-Authentication": self.token or "", "Content-Type": "application/json", "Accept": "application/json"}
+        if with_app_key:
+            h["X-Application"] = self.app_key
+        return h
 
     READ_METHODS = {"listMarketCatalogue", "listMarketBook", "listEventTypes", "listCurrentOrders", "listClearedOrders",
                     "getAccountFunds"}
 
     def rpc(self, method: str, params: dict, url: str = BETTING, service: str = "SportsAPING/v1.0",
-            _retry: bool = True) -> dict | list:
+            _retry: bool = True, with_app_key: bool = True) -> dict | list:
         """Chiamata JSON-RPC. Le LETTURE si ripetono una volta dopo un nuovo login se la sessione è scaduta;
         gli ORDINI mai alla cieca: chi li manda verifica con listCurrentOrders."""
         try:
-            return self._rpc(method, params, url, service)
+            return self._rpc(method, params, url, service, with_app_key)
         except BetfairError as exc:
             if _retry and method in self.READ_METHODS and "SESSION" in str(exc):
                 self.token = None
-                return self._rpc(method, params, url, service)
+                return self._rpc(method, params, url, service, with_app_key)
             raise
 
     def start_keepalive(self) -> None:
@@ -178,7 +190,7 @@ class BetfairClient:
         self._ka = threading.Thread(target=loop, name="betfair-keepalive", daemon=True)
         self._ka.start()
 
-    def _rpc(self, method: str, params: dict, url: str, service: str) -> dict | list:
+    def _rpc(self, method: str, params: dict, url: str, service: str, with_app_key: bool = True) -> dict | list:
         try:
             self.ensure_session()
         except BetfairError as exc:                         # nessuna chiamata è ancora partita verso Betfair
@@ -188,7 +200,7 @@ class BetfairClient:
         self.calls += 1
         payload = {"jsonrpc": "2.0", "method": f"{service}/{method}", "params": params, "id": 1}
         try:
-            r = self.http.post(url, data=json.dumps(payload), headers=self._headers(), timeout=15)
+            r = self.http.post(url, data=json.dumps(payload), headers=self._headers(with_app_key), timeout=15)
             body = r.json()
         except (requests.RequestException, ValueError) as exc:
             self.errors += 1
@@ -196,11 +208,22 @@ class BetfairClient:
         if "error" in body:
             self.errors += 1
             err = body["error"]
-            detail = (err.get("data") or {}).get("APINGException", {}).get("errorCode") or err.get("message")
+            data = err.get("data") or {}
+            detail = ((data.get("APINGException") or data.get("AccountAPINGException") or {}).get("errorCode")
+                      or err.get("message"))
             if detail in ("INVALID_SESSION_INFORMATION", "NO_SESSION"):
                 self.token = None
+            if is_invalid_app_key(detail):
+                raise BetfairError(f"Betfair {method}: {INVALID_APP_KEY_MSG}")
             raise BetfairError(f"Betfair {method}: {detail}")
         return body["result"]
+
+    # ── chiavi dell'applicazione (senza X-Application, come da documentazione Betfair) ────────
+    def developer_app_keys(self) -> list:
+        return self.rpc("getDeveloperAppKeys", {}, ACCOUNT, "AccountAPING/v1.0", with_app_key=False)
+
+    def create_developer_app_keys(self, app_name: str) -> dict:
+        return self.rpc("createDeveloperAppKeys", {"appName": app_name}, ACCOUNT, "AccountAPING/v1.0", with_app_key=False)
 
     # ── lettura ─────────────────────────────────────────────────
     def account_funds(self) -> dict:
