@@ -126,6 +126,7 @@ def build_state(store: Store) -> dict:
                     store.query("SELECT day, data FROM daily_reports ORDER BY day DESC LIMIT 14")],
         "backtest": backtest,
         "coach": _coach(store),
+        "esame": store.get("esame") or [],
         "promotion": load_yaml("promotion_criteria.yaml"),
         "live_gate": store.get("live_gate_text"),
         "settings_view": {"mode": settings.get("mode"), "feed": settings.get("feed", {}).get("provider"),

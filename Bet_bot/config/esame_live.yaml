@@ -1,0 +1,16 @@
+# ESAME PER IL LIVE — criteri decisi PRIMA di vedere i risultati (30/09/2026).
+# Una strategia è "PRONTA" solo se li supera tutti sui prezzi VERI di betfair.it (feed betfair o replay delle
+# registrazioni). Il bot non accende mai il live da solo: l'esame lo dice, la decisione resta tua.
+# Cambiare questi numeri dopo aver visto i risultati invalida l'esame (è il modo più comune di illudersi).
+default:
+  min_puntate: 200          # puntate chiuse (vinte/perse) sui prezzi veri
+  clv_minimo: 0.0           # CLV medio > 0 anche nel caso peggiore dell'intervallo …
+  confidenza: 0.95          # … al 95% (unilaterale): media − 1,645 × errore > 0
+  roi_minimo: 0.0           # ROI sul rischio, commissione compresa, > 0
+  bocciatura_clv: 0.0       # con min_puntate raggiunte e CLV < 0 anche nel caso migliore → BOCCIATA
+S09_lay_valore_v1:
+  min_puntate: 200
+S05_favoriti_exchange_v2:
+  min_puntate: 200
+S06_live_exchange_v1:
+  min_puntate: 200

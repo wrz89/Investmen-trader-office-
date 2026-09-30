@@ -235,13 +235,20 @@ class Coach(Agent, CoachBook):
                  "odds": p.get("odds"), "fair_prob": p.get("fair_prob"), "edge": p.get("edge"), "side": side,
                  "minutes_before": mins, "ref_age_min": ref_age, "n_books": p.get("n_books") or len(books),
                  "source": "Pinnacle" if "Pinnacle" in books else (f"consenso {len(books)} book" if books else "nessuna"),
-                 "liquidity": liq, "live": bool(p.get("live")), "market": p.get("market")}
+                 "liquidity": liq, "live": bool(p.get("live")), "market": p.get("market"), "feed": self._feed_name()}
             self.store.execute("INSERT INTO coach_entries(ts, src, row_id, strategy_id, match_id, selection, side, odds, "
                                "fair_prob, edge, features, track, blocked_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                (now_iso(), src, row_id, p["strategy_id"], p["match_id"], sel, side, p.get("odds"),
                                 p.get("fair_prob"), p.get("edge"), json.dumps(f, default=str), json.dumps({}), blocked_by))
         except Exception as exc:                               # l'allenatore non deve mai fermare una puntata
             self.log(f"Non riesco a registrare l'ingresso ({exc}).", "WARN", "error")
+
+    def _feed_name(self) -> str:
+        """Da dove arrivano i prezzi: betfair (veri), replay (veri registrati) o mock (simulati). L'esame per il live
+        conta solo i primi due."""
+        f = getattr(self.office, "feed", None)
+        f = getattr(f, "primary", None) or f
+        return getattr(f, "name", "sconosciuto")
 
     # ── 2. prezzo fino all'inizio ──────────────────────────────────────────────
     def observe(self, snapshot: dict) -> None:
@@ -410,12 +417,31 @@ class Coach(Agent, CoachBook):
                                    f"(la strategia è troppo ottimista) il valore sparisce")
         return True, "Nessuna lezione dell'allenatore contraria"
 
+    def _exam(self) -> None:
+        """Esame per il live: avvisa (anche su Telegram) quando l'esito di una strategia cambia."""
+        from ..esame import evaluate_all
+        ids = list(dict.fromkeys((self.settings.get("active_strategies") or []) + (self.settings.get("observe_strategies") or [])))
+        res = evaluate_all(self.store, ids)
+        last = self.store.get("esame_last") or {}
+        for r in res:
+            if last.get(r["strategy_id"]) not in (None, r["verdict"]) or (r["verdict"] != "IN ESAME" and last.get(r["strategy_id"]) is None):
+                txt = {"PRONTA": "ha SUPERATO l'esame per il live sui prezzi veri di betfair.it",
+                       "BOCCIATA": "è BOCCIATA: sui prezzi veri il mercato le dà torto",
+                       "IN ESAME": "è tornata in esame"}[r["verdict"]]
+                self.say(f"Esame per il live · {r['strategy_id']} {txt} ({r['n']} puntate, CLV "
+                         f"{'n.d.' if r['clv'] is None else format(r['clv'], '+.1%')}, ROI "
+                         f"{'n.d.' if r['roi'] is None else format(r['roi'], '+.1%')}). La decisione resta tua.",
+                         "ok", "esame", level="WARN", payload={"agent": "coach", **{k: r[k] for k in ("strategy_id", "verdict", "n")}})
+        self.store.set("esame_last", {r["strategy_id"]: r["verdict"] for r in res})
+        self.store.set("esame", res)
+
     # ── ciclo e riepilogo ──────────────────────────────────────────────────────
     def run(self, snapshot: dict) -> None:
         self.observe(snapshot)
         n = self.review()
         if n:
             self.learn()
+        self._exam()
         s = self.summary()
         self.status("ok" if s["lessons"] else "idle",
                     f"{s['lessons']} autopsie, {s['rules']} regole attive. "
