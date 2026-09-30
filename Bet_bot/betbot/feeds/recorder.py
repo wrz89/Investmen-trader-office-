@@ -82,3 +82,10 @@ class ReplayFeed(Feed):
 def recorded_files(since: str | None = None, until: str | None = None) -> list[Path]:
     files = sorted(REC_DIR.glob("*.jsonl.gz")) if REC_DIR.exists() else []
     return [f for f in files if (not since or f.name[:10] >= since) and (not until or f.name[:10] <= until)]
+
+
+def recording_status() -> dict:
+    """Quanti giorni di prezzi veri ci sono per il replay (la prova su betfair.it)."""
+    files = sorted(REC_DIR.glob("*.jsonl.gz")) if REC_DIR.exists() else []
+    return {"days": len(files), "first": files[0].name[:10] if files else None, "last": files[-1].name[:10] if files else None,
+            "mb": round(sum(f.stat().st_size for f in files) / 1e6, 1), "target_days": 28}

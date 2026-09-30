@@ -94,5 +94,28 @@ def run_all() -> bool:
             all_ok = False
     else:
         _line(None, "Betfair non usato (feed simulato ed esecuzione paper)")
+    # la prova sui prezzi veri: registrazione, esame per il live, lay d'apertura
+    from .feeds.recorder import recording_status
+    rs = recording_status()
+    if feed.get("record") and feed["provider"] == "betfair":
+        _line(True if rs["days"] >= rs["target_days"] else None,
+              f"registrazione dei prezzi veri accesa: {rs['days']} giorni su {rs['target_days']} consigliati"
+              + (f" (dal {rs['first']}, {rs['mb']} MB)" if rs["days"] else ""))
+    else:
+        _line(None, "registrazione dei prezzi veri non attiva: serve feed.provider: betfair (e feed.record: true)")
+    try:
+        from .config import DB_PATH
+        from .esame import evaluate_all
+        from .store import Store
+        if DB_PATH.exists():
+            ids = list(dict.fromkeys((s.get("active_strategies") or []) + (s.get("observe_strategies") or [])))
+            for r in evaluate_all(Store(DB_PATH), ids):
+                _line(True if r["verdict"] == "PRONTA" else False if r["verdict"] == "BOCCIATA" else None,
+                      f"esame per il live {r['strategy_id']}: {r['verdict']} ({r['n']}/{r['need']} puntate sui prezzi veri)")
+    except Exception as exc:
+        _line(None, f"esame per il live non leggibile ({exc})")
+    lay_on = bool((s.get("execution") or {}).get("lay_apertura"))
+    _line(None, "lay d'apertura " + ("ACCESO: S09 può fare lay veri se è in live_strategies" if lay_on else
+                                     "spento: S09 lavora solo in ombra (si accende dopo l'esame)"))
     print("\nTutto a posto." if all_ok else "\nCi sono punti da sistemare: leggi le righe NO qui sopra.")
     return all_ok

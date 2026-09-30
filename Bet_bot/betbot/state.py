@@ -65,6 +65,16 @@ def agent_stats(store: Store) -> dict:
     return out
 
 
+def _recording() -> dict:
+    try:
+        from .feeds.recorder import recording_status
+        st = load_settings()
+        return {**recording_status(), "on": bool(st["feed"].get("record")) and st["feed"].get("provider") == "betfair",
+                "provider": st["feed"].get("provider")}
+    except Exception:
+        return {}
+
+
 def _coach(store: Store) -> dict | None:
     """La 'scuola degli errori' di Leo: autopsie, calibrazione, segmenti e regole apprese."""
     try:
@@ -127,6 +137,7 @@ def build_state(store: Store) -> dict:
         "backtest": backtest,
         "coach": _coach(store),
         "esame": store.get("esame") or [],
+        "registrazione": _recording(),
         "promotion": load_yaml("promotion_criteria.yaml"),
         "live_gate": store.get("live_gate_text"),
         "settings_view": {"mode": settings.get("mode"), "feed": settings.get("feed", {}).get("provider"),
