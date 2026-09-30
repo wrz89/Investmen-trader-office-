@@ -42,6 +42,14 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 | 5 | `python betbot.py replay` e `python betbot.py esame` | le strategie sui giorni registrati e l'**esame per il live** con i criteri decisi prima |
 | 6 | soldi veri, una strategia sola | solo se l'esame dice PRONTA; per S09 serve anche `execution.lay_apertura: true` |
 
+### Il test rapido (6 ore)
+
+`test_rapido.bat` risponde in un pomeriggio alla domanda su cui si regge S09: quando su betfair.it un lay costa meno della quota giusta di Pinnacle, il mercato poi ci dà ragione?
+- Per 6 ore segue le partite di calcio che iniziano in quella finestra: Betfair ogni 15 minuti, Pinnacle ogni ora (circa 150 crediti di The Odds API).
+- Misura il CLV di ogni esito contro la chiusura di Pinnacle, senza bisogno del risultato. Non punta nulla, nemmeno in simulazione.
+- Il verdetto è una di tre possibilità: *segnale presente*, *segnale assente* o *non ancora chiaro*.
+- È un'indicazione, non una prova. Ripetuto in giorni diversi, i numeri si sommano.
+
 ### L'esame per il live
 
 I criteri sono in `config/esame_live.yaml` e sono stati decisi **prima** di vedere i risultati. Cambiarli dopo averli visti invalida l'esame, ed è il modo più comune di illudersi.
