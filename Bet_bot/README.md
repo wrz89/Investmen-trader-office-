@@ -18,6 +18,7 @@ I soldi veri si accendono solo aprendo cinque cancelli, uno per uno, quando i nu
 | Pietro · Banco | piazza gli ordini (fill-or-kill), chiude i trade, registra gli esiti, ti avvisa su Telegram |
 | Anna · Tesoriera | bankroll = capitale + profitti, base di puntata con reinvestimento, ROI, drawdown |
 | Irene · Auditor | registro immutabile e report giornaliero |
+| Leo · Allenatore | autopsia di ogni puntata chiusa (fortuna o bravura), lezioni dagli errori, regole che possono solo frenare |
 
 ## Installazione in D:\claude\Bet_bot
 
@@ -153,6 +154,29 @@ Il rendimento medio dichiarato è di circa +2% per puntata, con una commissione 
 - **Il modello non aggiunge niente al mercato.** Da solo è peggiore, e il peso migliore da dargli è zero.
 - **Resta solo lo scarto tra Betfair e il mercato.** Con EV netto ≥ 2% sono 67 puntate: ROI +5,6% ± 17,5%, cioè nessuna prova. È lo stesso segnale che già usa S05.
 - **Cosa si può tenere.** Esecuzione vicino all'inizio, puntate piccole, CLV come metrica principale: in Bet_bot ci sono già.
+
+## Leo, l'allenatore: imparare dagli errori
+
+Leo fa l'autopsia di ogni puntata chiusa: vera, paper o in ombra.
+
+1. **Ingresso.** Salva la fotografia della decisione: probabilità, valore atteso, quota, da dove veniva il riferimento e quanto era vecchio, liquidità, anticipo sull'inizio, sport, campionato, lato (a favore o contro).
+2. **Fino all'inizio.** Segue il prezzo. L'ultima probabilità prima del fischio d'inizio è la *chiusura*: il giudizio del mercato quando sa tutto (formazioni, notizie).
+3. **Autopsia.** Separa la fortuna dalla bravura con il **CLV**: la probabilità di vincere alla chiusura meno quella all'ingresso. Positivo vuol dire che il mercato ci ha dato ragione.
+
+| Causa | Quando | Cosa significa |
+|---|---|---|
+| Vinta con merito | vinta, mercato dalla nostra parte | decisione e risultato giusti |
+| Vinta per fortuna | vinta, mercato contro | errore che ha pagato: va studiato come una perdita |
+| Persa per varianza | persa, mercato dalla nostra parte | decisione giusta, nessuna correzione |
+| Smentita dal mercato | persa, mercato contro | il vantaggio non c'era |
+| Riferimento vecchio | mercato contro e riferimento di oltre un'ora | il "valore" era un prezzo superato |
+| Movimento forte | la probabilità si è mossa di 5-6 punti | quasi sempre una notizia arrivata dopo |
+| Esecuzione | trade chiusi dalla gestione | conta come è stato eseguito |
+
+4. **Lezioni.** Per ogni strategia e caratteristica (campionato, fascia di quota, anticipo, fonte del riferimento, vantaggio, sport, lato, liquidità) Leo misura il CLV medio con il suo margine d'errore. Con almeno 30 puntate e CLV negativo anche nel caso migliore (limite al 90%), nasce una **regola**. Controlla anche la **calibrazione**: se una strategia vince meno di quanto stima, Leo abbassa le sue probabilità di quella differenza (al massimo 5 punti).
+5. **Le regole possono solo frenare.** Il Risk Manager le usa come veto in più, mai per allargare i limiti, e il file dei limiti sigillato non viene toccato. Le proposte bloccate vengono seguite in ombra. Così si vede se la regola ha evitato perdite, e Leo la ritira da solo quando i dati nuovi la smentiscono.
+
+Impostazioni in `coach:` (`min_n`, `apply_rules`, `max_rules`). Con `apply_rules: false` Leo osserva e basta. Nella fase di test lavora soprattutto sulle strategie in ombra: le sue lezioni sono pronte prima di mettere soldi veri.
 
 ## Comandi
 
