@@ -193,8 +193,13 @@ class CoachBook:
         return {**s, "cause_labels": CAUSES, "calibration": self.calibration(),
                 "segments": [x for x in self.segments() if x["n"] >= 5][:80],
                 "rules": self.store.query("SELECT * FROM coach_rules ORDER BY active DESC, updated DESC LIMIT 30"),
+                # prima le autopsie con un giudizio (fortuna/bravura), poi qualche trade chiuso dalla gestione
                 "lessons": self.store.query("SELECT id, ts, strategy_id, label, outcome, pnl, p_entry, p_close, clv, cause, "
-                                            "explanation, blocked_by FROM coach_lessons ORDER BY id DESC LIMIT 40"),
+                                            "explanation, blocked_by FROM coach_lessons WHERE cause NOT IN "
+                                            "('esecuzione', 'non_valutabile') ORDER BY id DESC LIMIT 35")
+                           + self.store.query("SELECT id, ts, strategy_id, label, outcome, pnl, p_entry, p_close, clv, cause, "
+                                              "explanation, blocked_by FROM coach_lessons WHERE cause IN "
+                                              "('esecuzione', 'non_valutabile') ORDER BY id DESC LIMIT 5"),
                 "min_n": self.min_n}
 
 

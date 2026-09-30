@@ -315,7 +315,8 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 .ticket.coach { background: #c43f7c; color: #fff; }
 
 /* ── scuola degli errori (Leo) ─────────────────────────── */
-.school { display: grid; gap: 18px; }
+.school { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+.school > * { min-width: 0; }
 .school .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 760px) { .school .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .school-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
@@ -342,8 +343,10 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 .pill.c-good { background: var(--ok-soft); color: var(--ok); } .pill.c-luck { background: var(--warn-soft); color: var(--warn); }
 .pill.c-err { background: var(--bad-soft); color: var(--bad); } .pill.c-na { background: var(--idle-soft); color: var(--muted); }
 .seg td .sub, .rules .sub, .lessons .sub { display: block; font-size: 11.5px; color: var(--muted); }
+.seg .nw { white-space: nowrap; }
+.seg td:first-child { min-width: 8.5em; }
 .seg .grp td { font: 600 11px/1.3 var(--f-data); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--paper); }
-@media (max-width: 560px) { .seg .opt { display: none; } }
+@media (max-width: 560px) { .seg .opt { display: none; } .seg td, .seg th { padding: 6px 4px; } .seg td:first-child { min-width: 6.4em; } .seg .sub { font-size: 10.5px; } }
 .rules, .lessons { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .rules li { border: 1px solid var(--wall); border-radius: var(--r); padding: 8px 10px; display: grid; gap: 3px; font-size: 13px; }
 .rules li.off { opacity: .68; }
@@ -915,15 +918,17 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const ruleOf = x => active.find(r => r.kind === "blocca" && r.strategy_id === x.strategy_id && r.feature === x.feature && r.value === x.value);
     const state = x => ruleOf(x) ? ["bad", "regola attiva"]
       : x.clv < 0 && x.clv_hi != null && ((x.clv_hi < 0 && x.n < minN) || (x.n >= minN * 0.6 && x.clv_hi < 0.005)) ? ["warn", "vicino alla soglia"] : ["", "osservato"];
-    const worst = segs.filter(x => x.clv < 0).sort((a, b) => (a.clv_hi ?? a.clv) - (b.clv_hi ?? b.clv)).slice(0, 6);
-    const best = segs.filter(x => x.clv > 0).sort((a, b) => (b.clv_lo ?? b.clv) - (a.clv_lo ?? a.clv)).slice(0, 4);
+    // prima le regole attive, poi il CLV medio peggiore (e migliore); l'intervallo accanto dice quanto è sicuro
+    const worst = segs.filter(x => x.clv < 0).sort((a, b) => !!ruleOf(b) - !!ruleOf(a) || a.clv - b.clv).slice(0, 6);
+    const best = segs.filter(x => x.clv > 0).sort((a, b) => b.clv - a.clv).slice(0, 4);
+    const clvS = v => v == null ? "—" : Math.abs(v) < 0.0005 ? "0,0%" : pctS(v, 1);
     const row = x => { const [sc, st] = state(x);
       return `<tr><td><b title="${esc(x.strategy_id)}">${esc(sCode(x.strategy_id))}</b> · ${esc(featTxt(x.feature))} <span class="mono">${esc(x.value)}</span></td>
         <td class="r mono">${x.n}<span class="sub">su ${minN}</span></td>
-        <td class="r mono ${tone(x.clv)}">${pctS(x.clv, 1)}${x.clv_lo != null ? `<span class="sub">da ${pctS(x.clv_lo, 1)} a ${pctS(x.clv_hi, 1)}</span>` : ""}</td>
+        <td class="r mono ${tone(x.clv)}">${clvS(x.clv)}${x.clv_lo != null ? `<span class="sub nw" title="intervallo al 90%">${clvS(x.clv_lo)} … ${clvS(x.clv_hi)}</span>` : ""}</td>
         <td class="r mono opt">${x.win_rate == null ? "—" : `${pct(x.win_rate, 0)}<span class="sub">attese ${pct(x.expected_win, 0)}</span>`}</td>
         <td><span class="pill ${sc}">${st}</span></td></tr>`; };
-    $("school-seg-hint").textContent = segs.length ? `Ogni riga è una strategia in una situazione (campionato, fascia di quota, anticipo…). Tra parentesi l'intervallo in cui cade il CLV vero con il 90% di probabilità: se tutto l'intervallo resta sotto zero su almeno ${minN} puntate, Leo scrive una regola.` : "";
+    $("school-seg-hint").textContent = segs.length ? `Ogni riga è una strategia in una situazione (campionato, fascia di quota, anticipo…). Sotto il CLV, l'intervallo in cui cade il CLV vero con il 90% di probabilità: se tutto l'intervallo resta sotto zero su almeno ${minN} puntate, Leo scrive una regola.` : "";
     $("school-seg").innerHTML = segs.length ? `<thead><tr><th>Segmento</th><th class="r">Puntate</th><th class="r">CLV</th><th class="r opt">Vinte</th><th>Stato</th></tr></thead><tbody>
       ${worst.length ? `<tr class="grp"><td colspan="5">Dove sbagliamo</td></tr>${worst.map(row).join("")}` : ""}
       ${best.length ? `<tr class="grp"><td colspan="5">Dove siamo bravi</td></tr>${best.map(row).join("")}` : ""}</tbody>`
@@ -941,13 +946,14 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     }).join("") : `<li class="empty" style="border:0;padding:0">Nessuna regola per ora: una regola nasce solo quando un errore si ripete in almeno ${minN} puntate dello stesso segmento.</li>`;
     // ultime autopsie
     // prima le autopsie con un giudizio (merito, fortuna, errori…); i trade chiusi dalla gestione solo se non c'è altro
-    const L0 = coachLessons(), judged = L0.filter(l => CAUSE_CLS[l.cause] && CAUSE_CLS[l.cause] !== "c-na"), L = judged.length ? judged : L0;
-    const hidden = L0.length - L.length;
+    const L0 = coachLessons(), judged = L0.filter(l => CAUSE_CLS[l.cause] && CAUSE_CLS[l.cause] !== "c-na");
+    const L = judged.length >= 4 ? judged : judged.concat(L0.filter(l => !judged.includes(l)).slice(0, 4 - judged.length));
+    const hidden = L0.length - Math.min(L.length, 8);
     $("school-lessons").innerHTML = L.length ? L.slice(0, 8).map(l => `<li><div class="row"><span class="pill ${CAUSE_CLS[l.cause] || "c-na"}">${esc(causeTxt(l.cause))}</span>
         <span class="lbl">${esc(l.label)}</span><span class="mono ${tone(l.pnl)}">${signEur(l.pnl)}</span>${l.clv != null ? `<span class="mono ${tone(l.clv)}">CLV ${pctS(l.clv, 1)}</span>` : ""}</div>
         <span class="sub">${esc(sCode(l.strategy_id))} · ${esc(shortDate(l.ts))}${l.blocked_by ? " · bloccata da una regola, seguita in ombra" : ""}</span>
         <div class="why">${esc(String(l.explanation || "").replace(/^[^.]+\.\s*/, ""))}</div></li>`).join("")
-      + (hidden ? `<li class="sub" style="border:0">Tra le ultime ${L0.length} ci sono anche ${pl(hidden, "trade chiuso", "trade chiusi")} dalla gestione o senza chiusura: non si giudicano.</li>` : "")
+      + (hidden ? `<li class="sub" style="border:0">Tra le ultime ${L0.length} ci sono altri ${pl(hidden, "trade chiuso", "trade chiusi")} dalla gestione o senza chiusura: non si giudicano, contano solo nelle cause.</li>` : "")
       : `<li class="empty">${wait}</li>`;
   }
   // calibrazione: stima contro realtà per fascia, con la diagonale "perfetto" e quante puntate ci sono in ogni punto
@@ -964,12 +970,13 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       ${ticks.map(v => `<line class="ax" x1="${pl0}" x2="${Wd - pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl0 - 6}" y="${y(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}%</text>
         <line class="ax" x1="${x(v)}" x2="${x(v)}" y1="${pt}" y2="${Hd - pb}"/><text x="${x(v)}" y="${Hd - pb + 14}" text-anchor="middle">${Math.round(v * 100)}%</text>`).join("")}
       <line x1="${x(lo)}" y1="${y(lo)}" x2="${x(hi)}" y2="${y(hi)}" stroke="var(--muted)" stroke-dasharray="5 4" stroke-width="1.5"/>
-      <text x="${x(hi) - 4}" y="${y(hi) + 14}" text-anchor="end">perfetto</text>
-      <text x="${x(lo) + 6}" y="${y(lo) - 8}" style="fill:var(--bad)">sotto: troppo ottimisti</text>
+      <text x="${x(hi) - 10}" y="${y(hi) + 4}" text-anchor="end">perfetto</text>
+      <text x="${Wd - pr - 6}" y="${Hd - pb - 8}" text-anchor="end" style="fill:var(--bad)">sotto la diagonale: troppo ottimisti</text>
+      <text x="${pl0 + 6}" y="${pt + 14}" style="fill:var(--ok)">sopra: prudenti</text>
       <polyline points="${pts.map(p => `${p.cx.toFixed(1)},${p.cy.toFixed(1)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity=".6"/>
       ${pts.map(p => `<g><title>Fascia ${esc(p.b.band)}: stimavamo ${pct(p.b.expected, 1)}, vinte ${pct(p.b.actual, 1)} su ${p.b.n} puntate</title>
         <circle cx="${p.cx.toFixed(1)}" cy="${p.cy.toFixed(1)}" r="${p.r.toFixed(1)}" fill="${p.bad ? "var(--bad)" : "var(--ok)"}" fill-opacity=".85" stroke="var(--room)" stroke-width="1.5"/>
-        <text class="lab-n" x="${(p.cx + p.r + 4).toFixed(1)}" y="${(p.cy + 4).toFixed(1)}">n ${p.b.n}</text></g>`).join("")}
+        <text class="lab-n" x="${(p.cx + (p.cx + p.r + 44 > Wd ? -p.r - 4 : p.r + 4)).toFixed(1)}" y="${(p.cy + 4).toFixed(1)}" text-anchor="${p.cx + p.r + 44 > Wd ? "end" : "start"}">n ${p.b.n}</text></g>`).join("")}
       <text x="${(pl0 + Wd - pr) / 2}" y="${Hd - 6}" text-anchor="middle">probabilità stimata all'ingresso</text>
       <text transform="translate(11 ${(pt + Hd - pb) / 2}) rotate(-90)" text-anchor="middle">vinte davvero</text></svg>`;
   }
@@ -1264,7 +1271,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   const COURTPOS = { node: "sse", x: 3.3, z: 7.6, pose: "stand", face: W_FWD };
   const PITCHPOS = { node: "sw", x: -2.7, z: 2.3, pose: "stand", face: E_FWD };
   // davanti alla lavagna tattica di Leo (parete nord, tra la finestra e la parete schermo)
-  const BOARD = { x: -9.2, y: 1.6, z: -9.84, w: 1.6, h: 1.2 };
+  const BOARD = { x: -9.2, y: 1.66, z: -9.84, w: 1.84, h: 1.43 };
   const BOARDPOS = { node: "lb", x: BOARD.x + 0.25, z: -9.2, pose: "stand", face: Math.PI };
   const visitPos = (k, fromX) => {
     const h = HOME[k], [nx, nz] = N[h.node], x = nx + (fromX < nx ? -0.8 : 0.8);
@@ -1458,7 +1465,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     drawClock();
     // lavagna tattica di Leo sulla parete nord, sotto l'orologio: cornice di legno, ardesia verde e vaschetta dei pennarelli
     box(BOARD.w + 0.12, BOARD.h + 0.12, 0.06, cmat("#6b4a2b"), BOARD.x, BOARD.y, -9.88);
-    const bd = canvasTex(640, 480, () => {}); boardCanvas = bd.canvas; boardTex = bd.tex;
+    const bd = canvasTex(640, 500, () => {}); boardCanvas = bd.canvas; boardTex = bd.tex;
     plane(BOARD.w, BOARD.h, new T.MeshBasicMaterial({ map: boardTex }), BOARD.x, BOARD.y, BOARD.z);
     box(BOARD.w * 0.8, 0.04, 0.12, cmat("#6b4a2b"), BOARD.x, BOARD.y - BOARD.h / 2 - 0.06, -9.8);
     [["#2f5bd3", -0.3], ["#d33c32", -0.18], ["#f4f1ea", 0.25]].forEach(([c, dx]) => { const m = cyl(0.018, 0.018, 0.13, cmat(c), BOARD.x + dx, BOARD.y - BOARD.h / 2 - 0.02, -9.8, null, 6); m.rotation.z = Math.PI / 2; });
@@ -1986,7 +1993,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const sig = JSON.stringify([CN.lessons, CN.clv, lines, cal.map(b => [b.n, b.expected, b.actual]), boardWrite ? Math.round(prog * 60) : -1, C.min_n]);
     if (sig === boardSig) return;
     boardSig = sig;
-    const g = boardCanvas.getContext("2d"), w = 640, h = 480, chalk = "rgba(238,243,234,.93)", dim = "rgba(238,243,234,.55)", yel = "#f5d76e";
+    const g = boardCanvas.getContext("2d"), w = 640, h = 500, chalk = "rgba(238,243,234,.93)", dim = "rgba(238,243,234,.55)", yel = "#f5d76e";
     g.fillStyle = "#24402f"; g.fillRect(0, 0, w, h);
     // aloni di gesso cancellato
     [[120, 360, 150, 40], [470, 120, 130, 50], [330, 420, 170, 30]].forEach(([x, y, rx, ry]) => { g.fillStyle = "rgba(255,255,255,.035)"; g.beginPath(); g.ellipse(x, y, rx, ry, 0.2, 0, 7); g.fill(); });
@@ -2335,7 +2342,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     c.claim(); o.claim();
     if (REDUCED) { await c.say(line, 3200); await o.say(LESSON_REPLY[p.cause] || "Ricevuto, coach.", 2000); return; }
     c.setProp(null);
-    if (!(await c.go(visitPos(ok, c.x)))) return;
+    // si ferma di lato alla scrivania del collega (non alle sue spalle: le due etichette non si coprono)
+    const h = HOME[ok], v = visitPos(ok, c.x), sx = h.x + 1.3, sz = h.z - 0.2;
+    if (!(await c.go({ node: h.node, x: sx, z: sz, via: [{ x: sx, z: v.z }], pose: "stand", face: faceTo(sx, sz, h.x, h.z) }))) return;
     if (p.clv != null) addFx(c, `hq-num ${p.clv > 0 ? "" : p.clv < 0 ? "neg" : "zero"}`, `CLV ${esc(pctS(p.clv, 1))}`, 3000, 30);
     await c.say(line, 3600);
     if (o.atHome() && !o.path) await o.say(LESSON_REPLY[p.cause] || "Ricevuto, coach.", 2200);
