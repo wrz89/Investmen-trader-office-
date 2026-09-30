@@ -11,6 +11,7 @@
     python betbot.py diagnosi             controlla installazione, configurazione, Telegram, chiavi e Betfair
     python betbot.py mercurius            verifica il metodo "alla Mercurius" (modello dei gol proprio) sui prezzi Betfair
     python betbot.py lay                  backtest del lay di valore (S09) sui prezzi Betfair
+    python betbot.py palestra             Leo rivive gli ultimi anni senza sapere i risultati, scommette e impara
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
     python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
     python betbot.py dashboard [--simulazione | --replay]   apre solo la dashboard
@@ -60,7 +61,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -76,6 +77,8 @@ def main() -> int:
     p.add_argument("--simulazione", action="store_true", help="dashboard: mostra i dati dell'ultima simulazione")
     p.add_argument("--giorno", help="report: AAAA-MM-GG")
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--anni", type=int, default=5, help="palestra: stagioni passate da rivivere (più quella in corso)")
+    p.add_argument("--senza-giocatori", action="store_true", help="palestra: niente xG e formazioni (Understat)")
     a = p.parse_args()
 
     from betbot.config import RUNTIME_DIR, load_settings
@@ -117,6 +120,22 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "palestra":
+        from betbot import palestra as P
+        from betbot.config import REPORTS_DIR
+        if not a.senza_giocatori:
+            from betbot import understat as U
+            y = P.seasons_back(a.anni)
+            print("Scarico (una volta sola) xG e formazioni da Understat per i 5 grandi campionati…")
+            print(U.download_all([2000 + int(s[:2]) for s in y]))
+        print("Leo entra in palestra: rivive le partite in ordine di data senza conoscere i risultati…")
+        res = P.run(years=a.anni, with_understat=not a.senza_giocatori)
+        md = P.report(res)
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        (REPORTS_DIR / "palestra.md").write_text(md, encoding="utf-8")
+        print(md)
         return 0
 
     if a.comando == "lay":

@@ -140,7 +140,8 @@ class CoachBook:
                 "vantaggio": _band(f.get("edge"), [0.02, 0.03, 0.05, 0.08], "{:.0%}"),
                 "sport": f.get("sport") or "n.d.",
                 "lato": f.get("side") or "BACK",
-                "liquidita": _band(f.get("liquidity"), [5, 20, 100, 500], "{:.0f}") + " €"}
+                "liquidita": _band(f.get("liquidity"), [5, 20, 100, 500], "{:.0f}") + " €",
+                **{k: str(v) for k, v in (f.get("dyn") or {}).items()}}      # dinamiche della palestra (forma, assenze…)
 
     def segments(self) -> list[dict]:
         out: dict[tuple, list] = {}
