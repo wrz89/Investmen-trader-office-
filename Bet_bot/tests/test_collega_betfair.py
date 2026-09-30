@@ -38,6 +38,8 @@ def test_guided_connection_creates_key_and_saves(tmp_path, monkeypatch):
             return {"availableToBetBalance": 30.0}
 
     monkeypatch.setattr(betfair, "BetfairClient", FakeClient)
+    from betbot import config
+    monkeypatch.setattr(config, "LOCAL_OVERRIDE", tmp_path / "impostazioni.yaml")
     answers = iter(["", "antony"])
     out = []
     ok = collega_betfair.run(ask=lambda _: next(answers), ask_secret=lambda _: "segreta", open_url=lambda u: None,
@@ -48,3 +50,6 @@ def test_guided_connection_creates_key_and_saves(tmp_path, monkeypatch):
     bf = store["betfair"]
     assert bf["app_key"] == "NEWDELAYED" and bf["username"] == "antony" and bf["verified"] is True
     assert "segreta" not in "\n".join(out)                                   # la password non viene mai stampata
+    import yaml
+    imp = yaml.safe_load((tmp_path / "impostazioni.yaml").read_text(encoding="utf-8"))
+    assert imp["mode"] == "paper" and imp["feed"]["provider"] == "betfair"

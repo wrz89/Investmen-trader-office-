@@ -42,6 +42,21 @@ def app_key_for(client) -> tuple[str, bool]:
     return key, True
 
 
+def use_betfair_feed() -> str:
+    """Scrive (o aggiorna) runtime/impostazioni.yaml: prezzi veri di Betfair, sempre in paper (niente soldi veri)."""
+    import yaml
+    from .config import LOCAL_OVERRIDE
+    data = {}
+    if LOCAL_OVERRIDE.exists():
+        data = yaml.safe_load(LOCAL_OVERRIDE.read_text(encoding="utf-8")) or {}
+    data.setdefault("mode", "paper")
+    data["feed"] = {**(data.get("feed") or {}), "provider": "betfair"}
+    LOCAL_OVERRIDE.parent.mkdir(parents=True, exist_ok=True)
+    LOCAL_OVERRIDE.write_text("# Impostazioni personali di Bet_bot (gli aggiornamenti non le toccano)\n"
+                              + yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return str(LOCAL_OVERRIDE)
+
+
 def run(ask=input, ask_secret=getpass.getpass, open_url=webbrowser.open, out=print) -> bool:
     from . import certificato, local_settings
     from .feeds.betfair import BetfairClient, BetfairError
@@ -96,7 +111,8 @@ def run(ask=input, ask_secret=getpass.getpass, open_url=webbrowser.open, out=pri
     except Exception as exc:
         out(f"5) Chiave salvata, ma la verifica del conto non è riuscita ({exc}): riprova dalla dashboard.")
     local_settings.save(s)
-    out("\nFatto. Tutto è salvato sul tuo PC (password cifrata). Ora:")
-    out("  • in runtime\\impostazioni.yaml metti:  feed: {provider: betfair}   (mode resta paper: niente soldi veri)")
-    out("  • avvia.bat, poi nella dashboard Impostazioni → Betfair → 'Ordine di prova' (costa zero).")
+    path = use_betfair_feed()
+    out(f"6) Impostazioni scritte in {path}: prezzi veri di Betfair, modalità paper (niente soldi veri).")
+    out("\nFatto. Tutto è salvato sul tuo PC (password cifrata). Ora avvia.bat, poi nella dashboard")
+    out("Impostazioni → Betfair → 'Ordine di prova' (costa zero).")
     return True
