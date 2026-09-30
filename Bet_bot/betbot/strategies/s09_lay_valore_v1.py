@@ -38,15 +38,18 @@ def lay_ev(p: float, lay: float, commission: float) -> float:
     return (1 - p) * (1 - commission) - p * (lay - 1)
 
 
-def fair_probs(m: dict, q: dict) -> tuple[dict, str] | tuple[None, None]:
+def fair_probs(m: dict, q: dict) -> tuple[dict | None, str | None, dict]:
+    """(probabilità giuste, fonte, dispersione per selezione)."""
     books = m.get("books") or {}
     ref = books.get(q["reference"])
     if ref and len(ref) >= 3:
-        return remove_margin(ref), q["reference"]
+        return remove_margin(ref), q["reference"], {}
     if len(books) >= q["min_books"]:
         c = consensus(books)
-        return {s: v["fair_prob"] for s, v in c.items() if not s.startswith("_")}, f"consenso di {len(books)} book"
-    return None, None
+        sels = {s: v for s, v in c.items() if not s.startswith("_")}
+        return ({s: v["fair_prob"] for s, v in sels.items()}, f"consenso di {len(books)} book",
+                {s: v.get("dispersion") for s, v in sels.items()})
+    return None, None, {}
 
 
 def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
@@ -62,7 +65,7 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
         mins = (datetime.fromisoformat(m["kickoff"]).timestamp() - now) / 60
         if not (q["min_minutes_before"] <= mins <= q["max_minutes_before"]):
             continue
-        probs, source = fair_probs(m, q)
+        probs, source, disp = fair_probs(m, q)
         if not probs or len(probs) != 3:
             continue
         comm = m.get("commission") or q["commission"]
@@ -87,7 +90,8 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
                     "league": m["league"], "sport": m.get("sport"), "home": m["home"], "away": m["away"],
                     "label": f"{m['home']} - {m['away']} · CONTRO {name}", "market": "lay_h2h", "selection": f"LAY:{sel}",
                     "bookmaker": "Betfair", "odds": lay, "fair_prob": p, "edge": edge, "commission": comm,
-                    "n_books": len(m.get("books") or {}), "dispersion": None, "live": False,
+                    "n_books": len(m.get("books") or {}), "dispersion": 0.0 if source == q["reference"] else disp.get(sel),
+                    "ref_source": source, "live": False,
                     "odds_ts": m.get("odds_ts"), "ref_ts": m.get("ref_ts"),
                     "reason": f"Contro {name}: probabilità giusta {p:.0%} ({source}), lay Betfair {lay:.2f}; "
                               f"vince il {1 - p:.0%} delle volte, rischio {(lay - 1) * q['backer_stake']:.2f} € "

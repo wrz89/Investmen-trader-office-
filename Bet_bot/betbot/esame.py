@@ -28,14 +28,16 @@ def criteria(strategy_id: str) -> dict:
 
 def evaluate(store, strategy_id: str) -> dict:
     c = criteria(strategy_id)
-    rows = store.query("SELECT l.outcome, l.pnl, l.stake, l.clv, e.features, e.odds, e.side FROM coach_lessons l "
+    rows = store.query("SELECT l.outcome, l.pnl, l.stake, l.clv, e.features, e.odds, e.side, e.src FROM coach_lessons l "
                        "JOIN coach_entries e ON e.id = l.entry_id WHERE l.strategy_id=? AND l.outcome IN ('WON','LOST')",
                        (strategy_id,))
     real = []
     for r in rows:
         f = json.loads(r["features"] or "{}")
         if f.get("feed") in REAL_FEEDS:
-            risk = (r["stake"] or 1.0) * ((r["odds"] or 2.0) - 1) if r["side"] == "LAY" else (r["stake"] or 1.0)
+            # ombre lay: stake = puntata del backer; libro delle puntate: stake = responsabilità (già il rischio)
+            lay_shadow = r["side"] == "LAY" and r["src"] == "shadow_bets"
+            risk = (r["stake"] or 1.0) * ((r["odds"] or 2.0) - 1) if lay_shadow else (r["stake"] or 1.0)
             real.append({**r, "risk": risk})
     n = len(real)
     clvs = [r["clv"] for r in real if r["clv"] is not None]

@@ -31,6 +31,21 @@ def round_back_stake(stake: float, min_stake: float = 2.0, step: float = BACK_ST
     return round(s, 2) if s >= min_stake - 1e-9 else 0.0
 
 
+def round_lay_liability(liability: float, lay_price: float, min_backer: float = LAY_MIN) -> float:
+    """Lay d'apertura: dalla responsabilità (perdita massima) alla puntata del backer arrotondata per difetto al
+    centesimo; sotto il minimo di betfair.it (0,50 €) restituisce 0. Il risultato è di nuovo una responsabilità."""
+    if lay_price <= 1.0:
+        return 0.0
+    backer = int(liability / (lay_price - 1.0) * 100 + 1e-9) / 100
+    return round(backer * (lay_price - 1.0), 2) if backer >= min_backer - 1e-9 else 0.0
+
+
+def _plain(p: dict) -> dict:
+    """La selezione vera di una proposta lay ('LAY:home' → 'home')."""
+    sel = str(p.get("selection", ""))
+    return {**p, "selection": sel[4:]} if sel.startswith("LAY:") else p
+
+
 class Gates:
     """Controlla i cancelli per i soldi veri. Restituisce (aperto, motivo)."""
 
@@ -55,6 +70,7 @@ class Gates:
 def book_for(p: dict, snapshot: dict) -> dict | None:
     """Miglior prezzo e denaro disponibile per la selezione della proposta/puntata:
     {"back", "lay", "back_size", "lay_size"} oppure None se il mercato non è nel feed."""
+    p = _plain(p)
     mid, sel = p.get("market_id") or p.get("match_id"), p.get("selection")
     race = (snapshot.get("races") or {}).get(mid)
     if race:
@@ -67,6 +83,7 @@ def book_for(p: dict, snapshot: dict) -> dict | None:
 
 def exchange_target(p: dict, snapshot: dict) -> tuple[str, int] | None:
     """Mercato e selezione Betfair reali (id numerici) oppure None (feed simulato)."""
+    p = _plain(p)
     mid = p.get("market_id") or ""
     if mid.startswith("1.") and str(p.get("selection", "")).isdigit():
         return mid, int(p["selection"])
@@ -136,17 +153,19 @@ class Executor:
 
     # ── ordini veri: registrati PRIMA dell'invio, ritrovati dopo un errore ──────────────
     def _send(self, strategy_id: str, market_id: str, sel_id: int, side: str, price: float, size: float,
-              bet_row_id: int | None = None) -> dict:
-        """bet_row_id: per un LAY di chiusura, la puntata del libro che chiude (serve a riconoscerlo dopo un crash)."""
+              bet_row_id: int | None = None, role: str | None = None) -> dict:
+        """bet_row_id: per un LAY di chiusura, la puntata del libro che chiude (serve a riconoscerlo dopo un crash).
+        role: 'open' apre una posizione (BACK, o LAY d'apertura), 'close' chiude un trade (LAY di chiusura)."""
+        role = role or ("close" if side == "LAY" else "open")
         import uuid
         from .feeds.betfair import RequestNotSent
         from .store import now_iso
         ref = f"bb{uuid.uuid4().hex[:20]}"
         if self.store is not None:
             self.store.execute("INSERT INTO orders(ts, ref, strategy_id, market_id, selection_id, side, price, size, status, "
-                               "updated, bet_row_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                               "updated, bet_row_id, role) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                                (now_iso(), ref, strategy_id, market_id, str(sel_id), side, price, size, "PENDING", now_iso(),
-                                bet_row_id))
+                                bet_row_id, role))
         try:
             r = self.client.place(market_id, sel_id, side, price, size, fill_or_kill=True, order_ref=ref,
                                   strategy_ref=strategy_id.split("_")[0] + strategy_id.split("_")[-1])
@@ -180,7 +199,10 @@ class Executor:
                             r.get("avg_price"), r.get("error"), now_iso(), ref))
 
     def place(self, p: dict, stake: float, snapshot: dict) -> dict:
-        """Ordine BACK fill-or-kill. → {"ok", "mode", "odds", "stake", "ref", "error"}"""
+        """Ordine BACK fill-or-kill (o LAY d'apertura). → {"ok", "mode", "odds", "stake", "ref", "error"}
+        Per un lay `stake` è la RESPONSABILITÀ (perdita massima) e anche la risposta la restituisce così."""
+        if p.get("side") == "LAY":
+            return self._place_lay(p, stake, snapshot)
         mode = self.route(p, snapshot)
         stake = round_back_stake(stake, self.min_stake)
         if not stake:
@@ -201,6 +223,33 @@ class Executor:
         if r["matched"] <= 0:
             return {"ok": False, "mode": mode, "error": r.get("error") or f"non abbinata a {p['odds']:.2f} (fill-or-kill annullato)"}
         return {"ok": True, "mode": mode, "odds": r["avg_price"] or p["odds"], "stake": r["matched"],
+                "ref": {"bet_id": r["bet_id"], "market_id": market_id, "selection_id": sel_id, "order_ref": r["order_ref"]}}
+
+    def _place_lay(self, p: dict, liability: float, snapshot: dict) -> dict:
+        """Lay d'apertura fill-or-kill al prezzo della proposta: la puntata del backer è responsabilità / (quota − 1)."""
+        mode = self.route(p, snapshot)
+        price = p["odds"]
+        backer = int(liability / max(price - 1.0, 1e-9) * 100 + 1e-9) / 100
+        if backer < LAY_MIN - 1e-9:
+            return {"ok": False, "mode": mode, "error": f"lay sotto il minimo di betfair.it ({LAY_MIN:.2f} € del backer)"}
+        if mode in ("paper", "shadow"):
+            r = self.paper.place("LAY", price, backer, book_for(p, snapshot))
+            if not r["ok"]:
+                return {"ok": False, "mode": mode, "error": r["error"]}
+            return {"ok": True, "mode": mode, "odds": price, "stake": round(backer * (price - 1.0), 2), "backer": backer,
+                    "ref": None}
+        market_id, sel_id = exchange_target(p, snapshot)
+        r = self._send(p["strategy_id"], market_id, sel_id, "LAY", price, backer, role="open")
+        if r.get("status") == "UNCONFIRMED":
+            return {"ok": False, "mode": mode, "unconfirmed": True, "order_ref": r["order_ref"],
+                    "error": f"risposta di Betfair persa, lay non ancora visibile ({r.get('error')}): lo ricontrollo tra 2 minuti"}
+        if r.get("status") == "UNKNOWN":
+            return {"ok": False, "mode": mode, "unknown": True, "order_ref": r["order_ref"],
+                    "error": f"esito del lay sconosciuto ({r.get('error')}): controllo manuale richiesto"}
+        if r["matched"] <= 0:
+            return {"ok": False, "mode": mode, "error": r.get("error") or f"lay non abbinato a {price:.2f} (fill-or-kill annullato)"}
+        avg = r["avg_price"] or price
+        return {"ok": True, "mode": mode, "odds": avg, "stake": round(r["matched"] * (avg - 1.0), 2), "backer": r["matched"],
                 "ref": {"bet_id": r["bet_id"], "market_id": market_id, "selection_id": sel_id, "order_ref": r["order_ref"]}}
 
     def hedge(self, bet: dict, lay_price: float, urgent: bool, snapshot: dict | None = None) -> dict:

@@ -44,7 +44,8 @@ class Banco(Agent):
     def place(self, p: dict, decision: dict, cycle_id: str, snapshot: dict) -> int | None:
         if getattr(self.office, "shutting_down", False):  # spegnimento in corso: solo chiusure, nessuna puntata nuova
             return None
-        if p.get("side") == "LAY" or self.office.executor.route(p, snapshot) == "shadow":
+        lay_off = p.get("side") == "LAY" and not (self.settings.get("execution") or {}).get("lay_apertura")
+        if lay_off or self.office.executor.route(p, snapshot) == "shadow":
             self.shadow(p, snapshot)                      # mai scalare il bankroll vero per una puntata in ombra
             return None
         if self.store.query("SELECT 1 FROM orders WHERE status IN ('PENDING', 'UNKNOWN', 'UNCONFIRMED') LIMIT 1"):
@@ -67,6 +68,8 @@ class Banco(Agent):
         stake, odds, mode = res["stake"], res["odds"], res["mode"]
         br.cash = br.cash - stake
         extra = {k: p[k] for k in ("legs", "exchange", "commission", "sport") if p.get(k)}
+        if p.get("side") == "LAY":                        # stake = responsabilità; il backer serve per i conti
+            extra.update(side="LAY", backer_stake=res.get("backer"))
         if res.get("ref"):
             extra["betfair"] = res["ref"]
         cur = self.store.execute(
@@ -157,7 +160,8 @@ class Banco(Agent):
 
     def _lay_orders(self, bet_id: int, statuses: tuple = ("MATCHED", "PENDING", "UNKNOWN", "UNCONFIRMED")) -> list[dict]:
         marks = ",".join("?" * len(statuses))
-        return self.store.query(f"SELECT * FROM orders WHERE bet_row_id=? AND side='LAY' AND status IN ({marks}) ORDER BY id",
+        return self.store.query(f"SELECT * FROM orders WHERE bet_row_id=? AND side='LAY' AND COALESCE(role, 'close')='close' "
+                                f"AND status IN ({marks}) ORDER BY id",
                                 (bet_id, *statuses))
 
     def _close_from_lays(self, bet: dict, reason: str) -> float:
@@ -175,7 +179,8 @@ class Banco(Agent):
         chiusura nel registro, oppure esito ritrovato dopo una risposta persa): si chiudono con puntata e prezzo
         medio di quel lay, SENZA mandare un nuovo ordine."""
         rows = self.store.query("SELECT DISTINCT o.bet_row_id AS id FROM orders o JOIN bets b ON b.id = o.bet_row_id "
-                                "WHERE o.side='LAY' AND o.status='MATCHED' AND o.matched > 0 AND b.status='OPEN' "
+                                "WHERE o.side='LAY' AND COALESCE(o.role, 'close')='close' AND o.status='MATCHED' AND o.matched > 0 "
+                                "AND b.status='OPEN' "
                                 "AND b.mode='live'")
         for r in rows:
             bet = self.store.query("SELECT * FROM bets WHERE id=?", (r["id"],))[0]
@@ -290,9 +295,14 @@ class Banco(Agent):
                 result = m["result"]
                 closing = (m.get("closing") or {}).get(bet["selection"]) if isinstance(m.get("closing"), dict) else None
                 score = f"{m.get('home_score')}-{m.get('away_score')}"
-            won = result in bet["selection"].split("+")
             comm = self._commission(bet) if bet["bookmaker"] in ("Betfair", "Exchange") else 0.0
-            payout = bet["stake"] + bet["stake"] * (bet["odds"] - 1) * (1 - comm) if won else 0.0
+            if bet["selection"].startswith("LAY:"):      # lay d'apertura: si vince se l'esito NON succede
+                won = result not in bet["selection"][4:].split("+")
+                backer = bet["stake"] / max(bet["odds"] - 1, 1e-9)
+                payout = bet["stake"] + backer * (1 - comm) if won else 0.0
+            else:
+                won = result in bet["selection"].split("+")
+                payout = bet["stake"] + bet["stake"] * (bet["odds"] - 1) * (1 - comm) if won else 0.0
             why = f"risultato {score}" + (", trade non chiuso in tempo: vale il risultato" if bet["market"] in TRADE_MARKETS else "")
             self._close(bet, "WON" if won else "LOST", payout,
                         why + (f", commissione {comm:.1%} sulla vincita" if won and comm else ""), closing)

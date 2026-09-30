@@ -303,7 +303,9 @@ class Coach(Agent, CoachBook):
                 move = max(abs(t["p_max"] - e["fair_prob"]), abs(t["p_min"] - e["fair_prob"]))
             luck = None if won is None or pe is None else (1.0 if won else 0.0) - pe
             stake = s.get("stake") or 1.0
-            expected = (e["edge"] or 0) * (stake * ((e["odds"] or 1) - 1) if side == "LAY" else stake)
+            # rischio: nelle ombre lay lo stake è la puntata del backer; nel libro delle puntate è già la responsabilità
+            risk = stake * ((e["odds"] or 1) - 1) if side == "LAY" and e["src"] == "shadow_bets" else stake
+            expected = (e["edge"] or 0) * risk
             cause = classify(won, clv, f, move)
             label = s.get("label") or f"{e['match_id']} · {e['selection']}"
             text = explain(cause, won, pe, pc, f, s["pnl"] or 0.0)

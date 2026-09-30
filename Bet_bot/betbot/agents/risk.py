@@ -32,14 +32,33 @@ def worst_loss(p: dict, stake: float) -> float:
     return stake * ex["risk_per_unit"] if ex.get("risk_per_unit") else stake
 
 
+def _rounder(p: dict):
+    """Arrotondamento della puntata: back a multipli di 0,50 €; lay d'apertura sulla responsabilità, con la puntata
+    del backer al centesimo e minimo 0,50 €."""
+    from ..execution import round_back_stake, round_lay_liability
+    if p.get("side") == "LAY":
+        return lambda stake, _min: round_lay_liability(stake, p["odds"])
+    return round_back_stake
+
+
+def lay_min_liability(p: dict) -> float:
+    from ..execution import LAY_MIN
+    return round(LAY_MIN * (p["odds"] - 1.0), 2)
+
+
 def stake_for(proposal: dict, base: float, limits: dict, min_stake: float = 0.0) -> tuple[float, float]:
     """(puntata, kelly pieno).
 
     • Trade su exchange (back→lay con stop): puntata tale che la PERDITA MASSIMA resti sotto
       max_risk_per_trade_pct della base; tetto max_trade_stake_pct; se il minimo dell'exchange
       rispetta comunque il limite di rischio, si usa il minimo.
-    • Puntata secca: Kelly frazionario sulla quota netta di commissione, tetto max_stake_pct."""
-    from ..execution import round_back_stake
+    • Puntata secca: Kelly frazionario sulla quota netta di commissione, tetto max_stake_pct.
+    • Lay d'apertura: stessa regola sulla RESPONSABILITÀ (vince con probabilità 1 − p e incassa (1 − c)/(quota − 1)
+      per ogni euro di responsabilità)."""
+    round_back_stake = _rounder(proposal)
+    if proposal.get("side") == "LAY":
+        proposal = {**proposal, "fair_prob": 1.0 - proposal["fair_prob"], "odds": 1.0 + 1.0 / (proposal["odds"] - 1.0),
+                    "side": "LAY_EQ"}
     ex = proposal.get("exchange") or {}
     if ex.get("risk_per_unit"):
         budget = limits["max_risk_per_trade_pct"] * base
@@ -106,8 +125,8 @@ def fit_stake(p: dict, stake: float, *, bankroll: float, open_risk: float, open_
     """Taglia la puntata sullo spazio che resta (budget di perdita del giorno, rischio aperto, puntate dei trade aperti)
     invece di mettere il veto: se non ci sta nemmeno la puntata minima restituisce 0. La stessa funzione serve al
     Risk Manager, al backtest e alla Tesoriera, così i tre mostrano la stessa puntata."""
-    from ..execution import round_back_stake
-    rpu = (p.get("exchange") or {}).get("risk_per_unit") or 1.0   # puntata secca: si perde tutta la puntata
+    round_back_stake = _rounder(p)
+    rpu = (p.get("exchange") or {}).get("risk_per_unit") or 1.0   # puntata secca o lay (sulla responsabilità): si perde tutto
     risk_cap, trade_cap = exposure_caps(bankroll, limits, min_stake, small, nothing_open)
     room = min(risk_cap - open_risk, left_today) / rpu
     if p.get("exchange"):
@@ -273,9 +292,13 @@ class RiskManager(Agent):
                       f"Quota ≤ {L.get('max_table_odds', 1.10):.2f} per le probabilità da tabella storica ({p['odds']:.2f})")
                 check(p["edge"] <= L.get("max_table_edge", 0.05),
                       f"EV ≤ {L.get('max_table_edge', 0.05):.0%} per le probabilità da tabella storica ({p['edge']:+.1%})")
+            elif p.get("ref_source") == "Pinnacle":
+                # riferimento sharp unico (S09): il consenso tra bookmaker non serve, conta che Pinnacle ci sia
+                check(p["n_books"] >= 1, "Riferimento sharp: Pinnacle senza margine")
             else:
                 check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker di riferimento ({p['n_books']})")
-                check(p["dispersion"] <= L["max_odds_dispersion"], "Bookmaker di riferimento concordi sulla probabilità")
+                check(p["dispersion"] is not None and p["dispersion"] <= L["max_odds_dispersion"],
+                      "Bookmaker di riferimento concordi sulla probabilità")
             check(p["edge"] >= L["min_edge"], f"EV netto ≥ {L['min_edge']:.1%} ({p['edge']:+.2%})")
 
         open_bets = self.office.bankroll.open_bets()
@@ -297,6 +320,8 @@ class RiskManager(Agent):
 
         base = state["stake_base"]
         min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
+        if p.get("side") == "LAY":                               # lay d'apertura: minimo 0,50 € del backer
+            min_stake = lay_min_liability(p)
         if verdict["level"] == "caution":                       # il dimezzamento va PRIMA dell'arrotondamento a 0,50 €
             stake, k_full = stake_for(p, base * L.get("sentiment_caution_stake_factor", 0.5), L, min_stake)
         else:

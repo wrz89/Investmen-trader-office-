@@ -155,7 +155,8 @@ class SportOffice:
         for p in proposals:
             # in osservazione, oppure in live senza via libera ai soldi veri (o con prezzi ritardati): solo in ombra,
             # prima del Risk Manager, così il bankroll vero non viene mai toccato
-            if (p["strategy_status"] != "ATTIVA" or p.get("side") == "LAY"      # lay d'apertura: solo in ombra
+            lay_off = p.get("side") == "LAY" and not (self.settings.get("execution") or {}).get("lay_apertura")
+            if (p["strategy_status"] != "ATTIVA" or lay_off              # lay d'apertura spento: solo in ombra
                     or self.executor.route(p, snap) == "shadow"):
                 self.banco.shadow(p, snap)
                 continue
@@ -254,14 +255,14 @@ class SportOffice:
                                "WHERE ref=?", (f.get("betId"), matched, avg, "verificato su Betfair: abbinato", now_iso(),
                                               o["ref"]))
             done += 1
-            if o["side"] == "LAY":
+            if o["side"] == "LAY" and (o.get("role") or "close") == "close":
                 closed = self.banco.close_matched_lays("lay di chiusura ritrovato abbinato su Betfair")
                 self.risk.say(f"Il lay di chiusura {what} risulta ABBINATO su Betfair (bet {f.get('betId')})"
                               + (": puntata chiusa con quel lay, senza nuovi ordini" if closed else "")
                               + ". Il kill switch resta: controlla su betfair.it e resetta dal PC.",
                               "alert", "reconcile", level="WARN")
                 continue
-            reason = (f"ordine BACK {o['ref']} abbinato su Betfair (bet {f.get('betId')}, {matched:.2f} € a {avg:.2f}) "
+            reason = (f"ordine {o['side']} {o['ref']} abbinato su Betfair (bet {f.get('betId')}, {matched:.2f} € a {avg:.2f}) "
                       "ma assente dal registro delle puntate")
             self.store.set("kill_switch", reason)
             self._remember_reported([f"ref:{o['ref']}"])
@@ -304,9 +305,10 @@ class SportOffice:
         booked = set()
         for b in self.store.query("SELECT extra FROM bets WHERE mode='live' AND extra IS NOT NULL"):
             booked.add(((json.loads(b["extra"]) or {}).get("betfair") or {}).get("bet_id"))
-        for o in self.store.query("SELECT * FROM orders WHERE side='BACK' AND status='MATCHED' AND bet_id IS NOT NULL"):
+        for o in self.store.query("SELECT * FROM orders WHERE (side='BACK' OR role='open') AND status='MATCHED' "
+                                  "AND bet_id IS NOT NULL"):
             if o["bet_id"] not in booked:
-                problems[f"ref:{o['ref']}"] = (f"BACK abbinato su Betfair (bet {o['bet_id']}, {o['matched'] or 0:.2f} € a "
+                problems[f"ref:{o['ref']}"] = (f"{o['side']} d'apertura abbinato su Betfair (bet {o['bet_id']}, {o['matched'] or 0:.2f} € a "
                                                f"{o['avg_price'] or o['price']:.2f}) senza puntata nel registro")
         pending = self.store.query("SELECT ref FROM orders WHERE status IN ('PENDING', 'UNKNOWN', 'UNCONFIRMED')")
         reported = set(self.store.get("reconcile_reported") or [])

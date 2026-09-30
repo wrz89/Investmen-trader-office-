@@ -25,6 +25,8 @@ execution:
   min_stake: 2.0          # betfair.it: back da 2 € in su, a multipli di 0,50 €; lay da 0,50 €
   commission: 0.045       # betfair.it: 4,5% sulla vincita netta di mercato (con feed betfair si legge dal mercato)
   paper_liquidity_factor: 1.5   # in paper si abbina solo se nel book c'è 1,5 × la puntata
+  lay_apertura: false     # lay d'apertura (S09): false = solo in ombra. Accendilo solo se S09 supera l'esame per il live
+                          # (python betbot.py esame). Per i soldi veri serve anche S09 in live_strategies.
 live_strategies: []       # es. [S05_favoriti_exchange_v2] — vuota = nessuna strategia con soldi veri
 
 # Strategie che lavorano (le altre nella libreria sono ritirate e non girano).

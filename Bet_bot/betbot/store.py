@@ -105,6 +105,8 @@ class Store:
         cols = {r[1] for r in self.conn.execute("PRAGMA table_info(orders)").fetchall()}
         if "bet_row_id" not in cols:
             self.conn.execute("ALTER TABLE orders ADD COLUMN bet_row_id INTEGER")
+        if "role" not in cols:                     # 'open' = apre una posizione, 'close' = LAY di chiusura di un trade
+            self.conn.execute("ALTER TABLE orders ADD COLUMN role TEXT")
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         with self._lock:
