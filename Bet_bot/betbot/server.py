@@ -120,6 +120,20 @@ def handle_action(path: str, body: dict) -> dict:
         local_settings.save(s)
         return {"message": f"Ordine di prova (2 € a quota 1000 su {event}) accettato e annullato. "
                            "Il collegamento per le puntate funziona."}
+    if path == "/api/live/on":
+        from . import live_switch
+        said: list[str] = []
+        if not live_switch.enable(ask=lambda q: str(body.get("confirm") or ""), out=said.append):
+            raise ValueError(next((x for x in reversed(said) if x.strip()), "Live non acceso."))
+        live_switch.request_restart()
+        return {"message": "PUNTATE REALI ACCESE (" + ", ".join(live_switch.LIVE_STRATEGIES) + "). Il bot si riavvia da "
+                           "solo in modalità LIVE: tra un minuto ricarica la pagina."}
+    if path == "/api/live/off":
+        from . import live_switch
+        live_switch.disable(out=lambda *a: None)
+        live_switch.request_restart()
+        return {"message": "Puntate reali spente. Il bot si riavvia da solo in PAPER: tra un minuto ricarica la pagina. "
+                           "Le puntate vere già aperte si chiudono da sole su Betfair."}
     if path == "/api/settings/betfair_live":
         on = bool(body.get("enabled"))
         bf = s["betfair"]

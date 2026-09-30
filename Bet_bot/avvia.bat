@@ -13,6 +13,8 @@ set "ARGS=%*"
 ".venv\Scripts\python.exe" betbot.py avvia %ARGS%
 set "CODE=%errorlevel%"
 if exist "runtime\ferma.richiesta" (del "runtime\ferma.richiesta" & goto fine)
+REM codice 3 = live acceso/spento dalla dashboard: si riparte subito con le nuove impostazioni
+if "%CODE%"=="3" (set "ARGS=--no-browser" & goto loop)
 if "%CODE%"=="0" goto fine
 echo.
 echo Bet_bot si e' chiuso in modo inatteso (codice %CODE%). Riparto tra 30 secondi (CTRL+C per annullare)...

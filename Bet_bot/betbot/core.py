@@ -31,7 +31,7 @@ from .agents.tesoriere import Tesoriere
 from . import clock
 from .bankroll import Bankroll, today
 from .execution import Executor, Gates
-from .config import DB_LIVE_PATH, DB_PATH, STOP_FILE, ensure_dirs, load_settings
+from .config import DB_LIVE_PATH, DB_PATH, RESTART_FILE, STOP_FILE, ensure_dirs, load_settings
 from .feeds import make_feed
 from .feeds.base import FeedError
 from . import local_settings
@@ -486,7 +486,7 @@ class SportOffice:
                                    "error", level="ERROR", payload={"traceback": traceback.format_exc()[-2000:]})
                 self._end_cycle()
             while time.monotonic() - started < self.settings["cycle_seconds"]:
-                if STOP_FILE.exists():
+                if STOP_FILE.exists() or RESTART_FILE.exists():     # riavvio: avvia.bat riparte con le nuove impostazioni
                     await self.shutdown()
                     return
                 await asyncio.sleep(fast)

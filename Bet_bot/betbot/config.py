@@ -23,6 +23,7 @@ REPORTS_DIR = RUNTIME_DIR / "reports"
 DB_PATH = RUNTIME_DIR / "betbot.db"            # paper: soldi finti
 DB_LIVE_PATH = RUNTIME_DIR / "betbot_live.db"  # live: SOLO soldi veri, bankroll dal saldo Betfair
 STOP_FILE = RUNTIME_DIR / "ferma.richiesta"    # `betbot.py ferma` lo crea: il ciclo chiude i trade ed esce
+RESTART_FILE = RUNTIME_DIR / "riavvio.richiesta"   # la dashboard lo crea (live sì/no): il bot si spegne e riparte da solo
 LOCAL_SETTINGS = RUNTIME_DIR / "local_settings.json"
 
 

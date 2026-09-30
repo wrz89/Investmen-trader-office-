@@ -98,7 +98,8 @@ class Banco(Agent):
         sent = decision.get("sentiment") or {}
         note = f" · sentiment: {sent['reason']}" if sent.get("level") == "caution" else ""
         self.say(f"[{MODE_LABEL[mode]}] Puntata #{cur.lastrowid}: {stake:.2f} € su {p['label']} a {odds:.2f} "
-                 f"({p['bookmaker']}), prob. stimata {p['fair_prob']:.0%}, EV {p['edge']:+.1%}{legs}{note}.",
+                 f"({p['bookmaker']}), prob. stimata {p['fair_prob']:.0%}, EV {p['edge']:+.1%}{legs}{note}.\n"
+                 f"Perché: {p.get('reason') or 'n.d.'}",
                  "ok", "bet", payload={"bet_id": cur.lastrowid, "strategy": p["strategy_id"], "mode": mode,
                                             "agent": strategy_agent(p["strategy_id"], p.get("sport"))})
         coach = getattr(self.office, "coach", None)

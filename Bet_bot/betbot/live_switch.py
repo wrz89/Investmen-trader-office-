@@ -12,7 +12,7 @@ import shutil
 import yaml
 
 from . import local_settings
-from .config import LOCAL_OVERRIDE, load_yaml
+from .config import LOCAL_OVERRIDE, RESTART_FILE, load_yaml
 
 LIVE_STRATEGIES = ["S10_divertimento_v1"]
 
@@ -104,3 +104,9 @@ def disable(out=print) -> bool:
     out("Le puntate vere già aperte restano su Betfair e si chiudono da sole a fine partita.")
     out("Riavvia il bot: chiudi la finestra nera del bot e lancia di nuovo avvia.bat.")
     return True
+
+
+def request_restart() -> None:
+    """Il bot acceso da avvia.bat si spegne in modo ordinato e riparte subito con le nuove impostazioni."""
+    RESTART_FILE.parent.mkdir(parents=True, exist_ok=True)
+    RESTART_FILE.write_text("live", encoding="utf-8")

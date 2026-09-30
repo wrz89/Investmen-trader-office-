@@ -24,6 +24,7 @@
     python betbot.py copertura            quante partite e quanti crediti servono a The Odds API (e se c'è Pinnacle)
     python betbot.py live on|off          soldi veri SÌ/NO (vai_live.bat / torna_paper.bat): chiede conferma scritta
     python betbot.py anteprima            su cosa punterebbe adesso il Divertimento (prezzi veri, nessuna puntata)
+    python betbot.py allenamento          le strategie rigiocano 5 anni senza vedere il risultato, Leo fa l'autopsia
     python betbot.py bollettino           il bollettino di Leo adesso (ogni mattina arriva da solo su Telegram)
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
     python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
@@ -74,7 +75,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -115,6 +116,13 @@ def main() -> int:
         print(f"Dashboard su http://localhost:{port}  (CTRL+C per chiudere)")
         if not a.no_browser:
             webbrowser.open(f"http://localhost:{port}")
+        try:                                              # test automatici in sottofondo (quelli in scadenza)
+            from betbot import autotest
+            launched = autotest.start(office)
+            if launched:
+                print("Test automatici in sottofondo: " + ", ".join(launched) + " (risultati nella dashboard e nel bollettino).")
+        except Exception as exc:
+            print(f"Test automatici non avviati: {exc}")
         try:
             import time as _t
             while True:
@@ -133,6 +141,11 @@ def main() -> int:
         print(f"  probabilità di finire sotto  {r['prob_loss']:.0%}")
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
+        return 0
+
+    if a.comando == "allenamento":
+        from betbot import allenamento
+        allenamento.main(5)
         return 0
 
     if a.comando == "anteprima":
@@ -357,6 +370,13 @@ def main() -> int:
         print("L'ufficio sportivo è già acceso: apro la dashboard.")
         if not a.no_browser:
             webbrowser.open(f"http://localhost:{port}")
+        try:                                              # test automatici in sottofondo (quelli in scadenza)
+            from betbot import autotest
+            launched = autotest.start(office)
+            if launched:
+                print("Test automatici in sottofondo: " + ", ".join(launched) + " (risultati nella dashboard e nel bollettino).")
+        except Exception as exc:
+            print(f"Test automatici non avviati: {exc}")
         return 0
 
     from betbot.core import SportOffice
@@ -382,6 +402,13 @@ def main() -> int:
         print(f"Dashboard: http://localhost:{port}   (CTRL+C per fermare)")
         if not a.no_browser:
             webbrowser.open(f"http://localhost:{port}")
+        try:                                              # test automatici in sottofondo (quelli in scadenza)
+            from betbot import autotest
+            launched = autotest.start(office)
+            if launched:
+                print("Test automatici in sottofondo: " + ", ".join(launched) + " (risultati nella dashboard e nel bollettino).")
+        except Exception as exc:
+            print(f"Test automatici non avviati: {exc}")
         try:
             asyncio.run(office.run_forever())
         except KeyboardInterrupt:
@@ -392,6 +419,11 @@ def main() -> int:
             except KeyboardInterrupt:
                 print("Uscita immediata: eventuali trade aperti si riprendono al prossimo avvio.")
             office.auditor.daily_report()
+            from betbot.config import RESTART_FILE
+            if RESTART_FILE.exists():                        # live acceso/spento dalla dashboard: si riparte subito
+                RESTART_FILE.unlink(missing_ok=True)
+                print("\nRiavvio con le nuove impostazioni…")
+                return 3
             print("\nBet_bot fermato. Report del giorno in runtime/reports/.")
     elif a.comando == "report":
         from betbot.agents.auditor import render_markdown

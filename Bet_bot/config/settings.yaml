@@ -98,6 +98,13 @@ dashboard_port: 8766
 dashboard_lan: false     # true = la dashboard si vede anche dal telefono sulla rete di casa (solo lettura:
                          # impostazioni e azioni restano sul PC). Poi apri http://<IP del PC>:8766 dal telefono.
 
+autotest:                  # test che partono da soli con avvia.bat, in sottofondo (betbot/autotest.py)
+  enabled: true
+  orizzonti_ore: 24        # quando conviene entrare, dalle registrazioni (gratis)
+  allenamento_giorni: 7    # le strategie rigiocano 5 anni di storico (gratis)
+  test_rapido_giorni: 7    # 6 ore contro Pinnacle: ~150 crediti di The Odds API, quindi una volta a settimana
+  test_rapido_min_crediti: 250
+
 coach:                     # Leo, l'allenatore: autopsia di ogni puntata e regole imparate dagli errori
   min_n: 30                # puntate minime in un segmento prima di trarre una lezione
   apply_rules: true        # le regole possono SOLO bloccare (mai allargare i limiti); false = solo osservazione

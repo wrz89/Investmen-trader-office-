@@ -60,9 +60,27 @@ La strategia **S10 Divertimento** punta ogni giorno su qualunque sport di betfai
 - **Cosa aspettarsi:** non cerca un vantaggio. In media perde l'1-3% di ogni puntata (commissione e spread): 3-6 € al mese se punta tutti i giorni. Il resto è fortuna.
 - **Quando si ferma da solo:** se il saldo scende sotto 20 €, e per il resto del giorno dopo 4 € persi.
 
-`vai_live.bat` fa tutto: login, mostra il saldo, chiede di scrivere **SI**, fa l'ordine di prova (2 € a quota 1000, annullato subito), accende le puntate reali e scrive `runtime/impostazioni.yaml`. Poi si riavvia il bot con `avvia.bat`.
+Si accende dalla dashboard: pulsante **Passa ai soldi veri** in alto, scrivi SI e conferma. Il bot fa login, ordine di prova e si riavvia da solo in LIVE. Lo stesso pulsante (diventato **LIVE · soldi veri**) riporta ai soldi finti. Ogni puntata mostra il suo **Perché** nella dashboard e nel messaggio Telegram.
+
+In alternativa `vai_live.bat` fa tutto: login, mostra il saldo, chiede di scrivere **SI**, fa l'ordine di prova (2 € a quota 1000, annullato subito), accende le puntate reali e scrive `runtime/impostazioni.yaml`. Poi si riavvia il bot con `avvia.bat`.
 
 `torna_paper.bat` spegne tutto. Le puntate vere già aperte si chiudono da sole su Betfair. Le altre strategie restano in ombra, senza soldi.
+
+### Test automatici all'avvio
+
+Con `avvia.bat` partono da soli, in sottofondo e senza fermare il bot, i test in scadenza:
+- `orizzonti`: una volta al giorno, dalle registrazioni, gratis;
+- allenamento dei ragazzi: una volta a settimana;
+- test rapido: una volta a settimana, con il feed Betfair e almeno 250 crediti di The Odds API. Aspetta da solo la finestra migliore.
+
+I risultati arrivano nel registro della dashboard e nel bollettino. I ritmi si cambiano in `autotest` (runtime/impostazioni.yaml).
+
+### Allenamento dei ragazzi (`allenamento.bat`)
+
+Le strategie rigiocano gli ultimi 5 anni senza vedere il risultato, poi Leo fa l'autopsia di ogni puntata.
+- **Azzeccano il risultato?** Scegliendo sempre l'esito più probabile per Pinnacle si azzecca il 51,5% (atteso 51,3%). Le quote sono tarate: quello che danno al 70% vince 7 volte su 10.
+- **Sui prezzi veri di Betfair (2024-26):** S10 fa 1.239 puntate, ROI +0,2% ± 5,5%, CLV +0,2% ± 0,4%: né vantaggio né svantaggio misurabile. S09 fa 95 lay, ROI +4,8% ± 11,3%, CLV positivo: promettente ma pochi dati. S05 fa solo 7 puntate.
+- Per ogni perdita dice se è stata varianza (decisione giusta) o un prezzo che non valeva, e quali campionati o fasce evitare.
 
 ### Il bollettino di Leo (ogni mattina)
 

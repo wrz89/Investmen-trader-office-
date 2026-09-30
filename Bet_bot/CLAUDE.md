@@ -56,6 +56,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   sul prezzo Betfair di ogni ciclo: col feed Betfair le quote di riferimento (ogni 2-6 ore) erano ferme e non scattava mai.
 - "90% di vinte": esiste (favoriti a 1,05-1,10 vincono il 90%) ma per andare in pari serve il 92-93%: −2,8% su 229
   (chiusura Pinnacle, football-data). L'obiettivo è il CLV/ROI, non la percentuale di vinte.
+- Allenamento (`allenamento.py`, 30/09/2026): Pinnacle azzecca il favorito 51,5% (atteso 51,3%), calibrazione ok.
+  Sui BFE 2024-26 puliti: S10 1.239 puntate ROI +0,2% ± 5,5%, CLV +0,2% ± 0,4%; S09 95 lay ROI +4,8% ± 11,3%,
+  CLV +15% (prezzi del venerdì: i movimenti fino alla chiusura sono grandi, la causa "notizia" scatta spesso);
+  S05 7 puntate.
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
   `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
@@ -66,6 +70,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 ## Dove guardare nel codice
 - orizzonti.py: CLV e liquidità di betfair.it a 72/48/24/12/6/3/1 ore dall'inizio, dalle registrazioni (le registrazioni
   hanno `ref_ts` dal 30/09/2026: prima l'età di Pinnacle si stima dal primo momento in cui la quota cambia).
+- autotest.py: con `avvia` lancia in sottofondo orizzonti (1/giorno), allenamento (1/settimana), test rapido
+  (1/settimana, ≥250 crediti). Live dalla dashboard: /api/live/on|off → live_switch + riavvio (runtime/riavvio.richiesta,
+  `avvia` esce con 3, avvia.bat riparte subito).
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
   proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),
