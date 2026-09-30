@@ -93,7 +93,7 @@ Comandi dal telefono (solo dalla tua chat):
 |---|---|---|
 | S05 v2 Favoriti su exchange | attiva | calcio, tennis ATP/WTA, basket: probabilità giusta ≥ 75% (basket 77%), quota Betfair 1,10–1,40 (tennis 1,35, basket 1,30), **valore atteso al netto della commissione ≥ 2%**, spread ≤ 2 tick, almeno 3 € sul prezzo, da 2 ore a 15 minuti prima dell'inizio; esclusi Challenger, ITF e doppi |
 | S06 Live finale | osservazione | squadra in vantaggio dal 70', quota 1,05–1,30, EV netto ≥ 1%; niente ingresso con un uomo in meno o se l'avversario assedia; serve un riferimento live (piano a pagamento di The Odds API) |
-| S09 Lay di valore (calcio) | osservazione | si banca un esito (si punta CONTRO) quando il lay di Betfair costa meno della quota giusta di Pinnacle; quote lay 3-8, EV sul rischio ≥ 2%, puntata del backer da 0,50 €; ~80% di vinte nel backtest. Il lay d'apertura con soldi veri è pronto ma spento (`execution.lay_apertura: false`) |
+| S09 Lay di valore (calcio) | osservazione | si banca un esito (si punta CONTRO) quando il lay di Betfair costa meno della quota giusta di Pinnacle; quote lay 3-8, EV sul rischio ≥ 2%, puntata del backer da 0,50 €; ~79% di vinte nel backtest, guadagno non ancora significativo. Il lay d'apertura con soldi veri è pronto ma spento (`execution.lay_apertura: false`) |
 
 **Ritirate il 30/09/2026:**
 - **S04 cavalli:** su betfair.it l'ippica non c'è.
@@ -135,18 +135,23 @@ Backtest del 29/09/2026 su **11.400 partite di calcio con prezzi Betfair Exchang
 - **Altri sport.** Hockey: favoriti netti rari (1,5% delle partite). Rugby league NRL su prezzi Betfair: −7,1%. Da evitare: tennistavolo ed eSports (integrità), pallavolo (nessun riferimento affidabile).
 - **In sintesi.** In nessuno sport si vince spesso e si guadagna automaticamente: vincere l'80% è facile, guadagnare no. Il guadagno può venire solo dai momenti in cui Betfair paga più del giusto, ed è esattamente e solo quello che S05 cerca.
 
-**Lay di valore (30/09/2026, `python betbot.py lay`).** Stagioni 2024/25 e 2025/26, 16 campionati, Pinnacle e Betfair presi nello stesso momento, commissione 4,5%, lay stimato 2 tick sopra il back:
+**Lay di valore (30/09/2026, `python betbot.py lay`).** Stagioni 2024/25 e 2025/26, 16 campionati, Pinnacle e Betfair presi nello stesso momento, commissione 4,5%, lay stimato 2 tick sopra il back. Il 10,8% delle partite ha prezzi Betfair incoerenti con Pinnacle ed è stato **scartato**: erano record rotti del file (per esempio un outsider "a 2,0" che vale 8) e da soli gonfiavano il risultato.
 
 | Quote lay 1X2 | Puntate | Vinte | ROI sul rischio |
 |---|---|---|---|
-| 1,5-3 | 599 | 64,4% | +18,1% ± 3,9% |
-| 3-8 | 393 | 80,4% | +7,2% ± 2,7% |
-| 8-15 | 40 | 95,0% | +4,3% ± 3,9% |
+| 1,5-3 | 127 | 61,4% | +12,7% ± 8,3% |
+| 3-8 | 95 | 78,9% | +5,8% ± 5,7% |
+| 8-15 | 17 | 88,2% | −4,2% ± 9,0% |
 
-È il primo segnale che sui dati storici resta positivo dopo la commissione e con una percentuale di vincita alta. **Non è ancora una prova**: il file contiene solo il prezzo back di Betfair internazionale, e se il lay vero era molto più largo (partite poco liquide, mercato italiano separato) il vantaggio sparisce. Per questo S09 gira in ombra: con `feed.record: true` il bot registra i prezzi lay veri di betfair.it e dopo 3-4 settimane `python betbot.py replay` dice se il vantaggio c'è anche lì.
-- **Limiti dei dati.** I prezzi di football-data e tennis-data sono del pool internazionale e rilevati giorni prima. Sul pool italiano la verità si misura solo registrando: passi 3 e 4.
+Con i dati puliti il segnale resta positivo ma **non è più statisticamente solido**: le occasioni sono poche e il margine d'errore è grande quanto il guadagno. La prima versione del backtest, fatta senza filtro, dava +7,2% su 393 puntate. Per questo S09 resta in ombra e decide l'esame sui prezzi veri di betfair.it.
 
-`python betbot.py rischio --quota 1.22 --vinte 0.80 --puntata 0.07` mostra con un Monte Carlo cosa succede a 1000 puntate con quella quota, quel win rate e quella puntata.
+**Palestra di Leo (30/09/2026, `python betbot.py palestra`).** 28.752 partite dal 2021 al 2026, 9.125 con xG e formazioni. Leo si è riaddestrato 52 volte senza mai vedere i risultati in anticipo.
+- **Previsioni:** Leo e il mercato sono alla pari, sia due giorni prima sia con le formazioni. Forma, Elo, tiri, xG, riposo, classifica e assenze pesate sono già dentro le quote di Pinnacle.
+- **Dove il mercato sbaglia:** nessuna dinamica batte il mercato in modo solido. La più forte, le squadre che "subiscono" negli xG, ha uno scarto di −1,3% con z = 2,2 su 18 prove: compatibile con il caso.
+- **Autopsie:** i back scelti da Leo non battono la chiusura (CLV −0,1%). I lay sì (CLV +4,8%, mediana +2,6%), ma dopo la commissione il guadagno è quasi zero (+0,6% ± 2,0%).
+- **Lezioni:** 9 regole, per esempio non puntare a favore due giorni prima nei campionati dove il mercato corregge sempre. Più una correzione: con le formazioni Leo era troppo ottimista dell'1,9%.
+
+La conclusione onesta: con i dati pubblici nessun modello batte stabilmente la chiusura di Pinnacle nel calcio. L'unico spazio rimasto è nei prezzi di betfair.it che restano indietro rispetto a Pinnacle, ed è quello che misura la registrazione.
 
 ## L'algoritmo "Mercurius"
 

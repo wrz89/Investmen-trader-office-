@@ -25,7 +25,7 @@ import pandas as pd
 from .backtest import EXCHANGE_DIVS, HISTORY_DIR, download
 from .config import REPORTS_DIR, RUNTIME_DIR
 from .feeds.mock import tick_up
-from .odds import remove_margin
+from .odds import exchange_prices_sane, remove_margin
 
 PALESTRA_DB = RUNTIME_DIR / "palestra.db"
 SUMMARY_FILE = RUNTIME_DIR / "palestra.json"
@@ -359,7 +359,7 @@ def dynamics_bands(f: dict, sel: str) -> dict:
 
 
 def run(years: int = 5, min_edge: float = 0.02, retrain_days: int = 28, log=print, with_understat: bool = True) -> dict:
-    from .agents.coach import classify, explain
+    from .agents.coach import classify, explain, price_clv_of
     from .core import SportOffice
     log(f"Carico le partite degli ultimi {years + 1} campionati (stagione in corso compresa)…")
     matches = load_matches(years)
@@ -380,7 +380,13 @@ def run(years: int = 5, min_edge: float = 0.02, retrain_days: int = 28, log=prin
     market_view = []
     n_fit = 0
     trust = {"A": deque(maxlen=1500), "B": deque(maxlen=1500)}     # (log-loss Leo, log-loss mercato) delle ultime previsioni
+    dropped = 0
     for m in matches:
+        # prezzi Betfair del file incoerenti con Pinnacle: record rotto, non si usa (né per puntare né per imparare)
+        if m["bfe"] and not exchange_prices_sane(m["bfe"], m["ps"]):
+            m["bfe"], dropped = None, dropped + 1
+        if m["bfec"] and not exchange_prices_sane(m["bfec"], m["psc"]):
+            m["bfec"] = None
         fA, fB = world.features(m, False), world.features(m, True)
         pre = remove_margin(dict(zip(SEL, m["ps"]))) if m["ps"] else None
         close = remove_margin(dict(zip(SEL, m["psc"]))) if m["psc"] else None
@@ -419,13 +425,14 @@ def run(years: int = 5, min_edge: float = 0.02, retrain_days: int = 28, log=prin
                         risk = 1.0 if side == "BACK" else price - 1
                         pe = pm if side == "BACK" else 1 - pm
                         pc = None
+                        clv = None
                         if moment == "A" and close:
                             pc = close[sel] if side == "BACK" else 1 - close[sel]
-                        clv = None if pc is None else pc - pe
+                            clv = price_clv_of(side, price, close[sel])      # quota presa contro chiusura giusta
                         bets.append({"date": m["date"], "season": m["season"], "div": m["div"], "moment": moment, "trusted": trusted,
                                      "match": f"{m['home']} - {m['away']}", "sel": sel, "side": side, "price": price,
                                      "p": pe, "p_market": (mk[sel] if side == "BACK" else 1 - mk[sel]), "ev": ev,
-                                     "won": won, "pnl": pnl, "risk": risk, "clv": clv, "exchange": exchange,
+                                     "won": won, "pnl": pnl, "risk": risk, "clv": clv, "pc": pc, "exchange": exchange,
                                      "dyn": dynamics_bands(f, sel)})
             if moment == "B" and close:
                 for i, sel in enumerate(SEL):
@@ -438,7 +445,7 @@ def run(years: int = 5, min_edge: float = 0.02, retrain_days: int = 28, log=prin
     # ── risultati e lezioni ──
     B = pd.DataFrame(bets)
     out = {"matches": len(matches), "first": matches[0]["date"].strftime("%d/%m/%Y"),
-           "last": matches[-1]["date"].strftime("%d/%m/%Y"), "retrains": n_fit, "with_understat": sum(1 for m in matches if m.get("xg"))}
+           "last": matches[-1]["date"].strftime("%d/%m/%Y"), "retrains": n_fit, "bfe_scartati": dropped, "with_understat": sum(1 for m in matches if m.get("xg"))}
     for k in ("A", "B"):
         if preds[k]:
             P = np.array([x[0] for x in preds[k]])
@@ -455,8 +462,8 @@ def run(years: int = 5, min_edge: float = 0.02, retrain_days: int = 28, log=prin
             "luck, expected, cause, explanation, features) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (b["date"].isoformat(), i, f"Leo_{b['moment']}_{b['side']}", f"{b['match']} · {b['side']} {b['sel']}",
              "palestra", "WON" if b["won"] else "LOST", b["pnl"], 1.0, b["p"],
-             None if b["clv"] is None else b["p"] + b["clv"], b["clv"], (1.0 if b["won"] else 0.0) - b["p"], b["ev"] * b["risk"],
-             cause, explain(cause, b["won"], b["p"], None if b["clv"] is None else b["p"] + b["clv"], f, b["pnl"]),
+             b.get("pc"), b["clv"], (1.0 if b["won"] else 0.0) - b["p"], b["ev"] * b["risk"],
+             cause, explain(cause, b["won"], b["p"], b.get("pc"), f, b["pnl"]),
              json.dumps(f, default=str)))
     coach.learn()
     if len(B):
@@ -518,13 +525,14 @@ def report(res: dict) -> str:
     L = ["# La palestra di Leo", "",
          f"{res['matches']} partite dal {res['first']} al {res['last']}; {res['with_understat']} con xG e formazioni "
          f"(Understat). Leo le ha rivissute in ordine di data senza conoscere il risultato e si è riaddestrato "
-         f"{res['retrains']} volte.", ""]
+         f"{res['retrains']} volte. Prezzi Betfair scartati perché incoerenti con Pinnacle: {res.get('bfe_scartati', 0)} partite.", ""]
     for k, name in (("A", "2 giorni prima (quote del venerdì/martedì)"), ("B", "al fischio d'inizio (con le formazioni)")):
         if f"logloss_{k}" in res:
             x = res[f"logloss_{k}"]
-            better = x["leo"] < x["mercato"]
-            L.append(f"- **{name}**: log-loss mercato {x['mercato']:.4f}, Leo {x['leo']:.4f} su {x['n']} partite → "
-                     + ("Leo prevede **meglio** del mercato." if better else "il mercato resta più preciso di Leo."))
+            d = x["mercato"] - x["leo"]
+            verdict = ("Leo prevede **meglio** del mercato." if d > 0.0005 else
+                       "il mercato resta più preciso di Leo." if d < -0.0005 else "Leo e mercato sono **alla pari**.")
+            L.append(f"- **{name}**: log-loss mercato {x['mercato']:.4f}, Leo {x['leo']:.4f} su {x['n']} partite → " + verdict)
     L += ["", "## Le puntate che avrebbe fatto (EV netto ≥ 2%, commissione 4,5%)", "",
           "| Momento | Lato | Puntate | Vinte | ROI sul rischio | Errore | CLV | Solo prezzi Betfair | Solo quando Leo si fida |",
           "|---|---|---|---|---|---|---|---|---|"]
@@ -549,7 +557,7 @@ def report(res: dict) -> str:
         L.append(f"| {w['momento']} | {w['dinamica']} | {w['peso_casa'] - w['peso_ospite']:+.3f} | {'sì' if w['stabile'] else 'no'} |")
     lz = res.get("lezioni") or {}
     L += ["", "## Autopsie e regole", "", f"Autopsie: {sum((lz.get('causes') or {}).values())}; CLV medio {pct(lz.get('clv'))}; "
-          f"regole nate: {lz.get('rules', 0)}.", ""]
+          f"regole nate: {sum(1 for r in (lz.get('rules') or []) if r.get('active'))}.", ""]
     for c, n in sorted((lz.get("causes") or {}).items(), key=lambda kv: -kv[1]):
         L.append(f"- {(lz.get('cause_labels') or {}).get(c, c)}: {n}")
     for r in (lz.get("rules") or [])[:12]:

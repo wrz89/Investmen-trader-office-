@@ -86,6 +86,14 @@ def our_prob(side: str, p: float | None) -> float | None:
     return None if p is None else (1 - p if side == "LAY" else p)
 
 
+def price_clv_of(side: str, odds: float | None, p_close_sel: float | None) -> float | None:
+    """CLV sul prezzo. Back: quota presa × probabilità giusta alla chiusura − 1 (>0 = abbiamo battuto la chiusura).
+    Lay: quota giusta alla chiusura / quota di lay − 1 (>0 = abbiamo bancato più basso del giusto)."""
+    if not odds or not p_close_sel or p_close_sel <= 0 or odds <= 1:
+        return None
+    return odds * p_close_sel - 1 if side != "LAY" else 1 / (odds * p_close_sel) - 1
+
+
 def classify(won: bool | None, clv: float | None, f: dict, move: float | None, thr: float = 0.01) -> str:
     if won is None:
         return "esecuzione"
@@ -104,7 +112,7 @@ def classify(won: bool | None, clv: float | None, f: dict, move: float | None, t
 def explain(cause: str, won: bool | None, pe: float | None, pc: float | None, f: dict, pnl: float) -> str:
     pct = lambda x: "n.d." if x is None else f"{x:.0%}"
     base = (f"Risultato {pnl:+.2f} €." if cause == "esecuzione" else
-            f"Probabilità di vincere all'ingresso {pct(pe)}, alla chiusura {pct(pc)}; risultato {pnl:+.2f} €.")
+            f"Probabilità di vincere stimata {pct(pe)}, giusta alla chiusura {pct(pc)}; risultato {pnl:+.2f} €.")
     why = {
         "merito": "Il mercato alla chiusura ci ha dato ragione: la decisione era buona e il risultato l'ha confermata.",
         "fortuna": "Abbiamo vinto, ma alla chiusura il mercato ci dava torto: il prezzo preso non aveva valore. "
@@ -292,7 +300,9 @@ class Coach(Agent, CoachBook):
                 continue
             pe = our_prob(side, e["fair_prob"])
             pc = our_prob(side, t.get("p_close"))
-            clv = None if pe is None or pc is None or trade else pc - pe   # un trade si giudica sull'esecuzione
+            # CLV "da professionisti": la quota PRESA contro la quota giusta alla chiusura (non contro la nostra stima,
+            # che è ottimista per costruzione: si punta proprio quando la stima supera il prezzo)
+            clv = None if trade else price_clv_of(side, e["odds"], t.get("p_close"))
             price_clv = None
             if side == "LAY" and t.get("lay_close"):
                 price_clv = t["lay_close"] / e["odds"] - 1

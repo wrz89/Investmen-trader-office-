@@ -101,3 +101,14 @@ def surebet(best: dict[str, tuple[float, str]]) -> dict | None:
         return None
     weights = {sel: implied(o) / total for sel, (o, _) in best.items()}
     return {"margin": 1.0 / total - 1.0, "weights": weights, "books": {s: b for s, (_, b) in best.items()}}
+
+def exchange_prices_sane(back: list | None, ref: list | None, max_dev: float = 0.25) -> bool:
+    """Prezzi Betfair del file credibili? Scarta i record rotti (colonne scambiate, prezzi fermi o inventati):
+    somma delle probabilità implicite tra 0,97 e 1,08 e nessuna quota lontana più del 25% da quella di Pinnacle.
+    Senza questo filtro pochi prezzi assurdi (un outsider "a 2,0" che vale 8) gonfiano qualunque backtest di lay."""
+    if not back or not ref or len(back) != len(ref):
+        return False
+    s = sum(1 / q for q in back)
+    if not 0.97 <= s <= 1.08:
+        return False
+    return all(abs(b / r - 1) <= max_dev for b, r in zip(back, ref))

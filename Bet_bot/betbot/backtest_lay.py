@@ -12,7 +12,7 @@ import pandas as pd
 
 from .backtest import EXCHANGE_DIVS, download, exchange_seasons
 from .feeds.mock import tick_up
-from .odds import remove_margin
+from .odds import exchange_prices_sane, remove_margin
 
 MARKETS = {"1X2": (("PSH", "PSD", "PSA"), ("BFEH", "BFED", "BFEA"), ("PSCH", "PSCD", "PSCA")),
            "Over/Under 2,5": (("P>2.5", "P<2.5"), ("BFE>2.5", "BFE<2.5"), ("PC>2.5", "PC<2.5"))}
@@ -39,8 +39,8 @@ def selections(divs: list[str] | None = None, ticks: int = 2) -> pd.DataFrame:
             goals = int(r["FTHG"]) + int(r["FTAG"])
             for market, (ps, bf, psc) in MARKETS.items():
                 ref, back, close = ([_num(r.get(c)) for c in cols] for cols in (ps, bf, psc))
-                if not all(ref) or not all(back):
-                    continue
+                if not all(ref) or not all(back) or not exchange_prices_sane(back, ref):
+                    continue                                   # record mancanti o prezzi Betfair non credibili
                 keys = list(range(len(ref)))
                 fair = remove_margin(dict(zip(keys, ref)))
                 fair_c = remove_margin(dict(zip(keys, close))) if all(close) else None

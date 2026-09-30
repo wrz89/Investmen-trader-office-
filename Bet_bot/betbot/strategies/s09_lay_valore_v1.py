@@ -2,8 +2,9 @@
 
 Idea (backtest del 30/09/2026 su 16 campionati, stagioni 2024/25 e 2025/26, prezzi Betfair Exchange):
 quando il prezzo lay di Betfair è PIÙ BASSO della quota giusta di Pinnacle (senza margine, presa nello
-stesso momento), bancare quell'esito ha valore atteso positivo. Con la commissione del 4,5% e il lay stimato
-2-3 tick sopra il back: ROI +6-8% sul rischio, vinte 55% a quota 1,5-3, ~78% a quota 3-6, ~93% a quota 6-15.
+stesso momento), bancare quell'esito ha valore atteso positivo. Con la commissione del 4,5%, il lay stimato 2 tick
+sopra il back e SCARTATI i record con prezzi Betfair incoerenti (10,8%): quote 3-8 → 95 lay, 79% vinte,
+ROI +5,8% ± 5,7% sul rischio. Positivo ma non significativo: la prima stima (+7%) era gonfiata dai record rotti.
 Il lay vince quando l'esito NON succede: per questo la percentuale di vincita è alta con le quote alte.
 
 Rischio: si perde (quota lay − 1) × puntata del backer se l'esito succede. La fascia di quota predefinita

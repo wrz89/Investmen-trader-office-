@@ -82,3 +82,11 @@ def test_coach_rule_veto_is_followed_in_shadow_not_placed(office):
                          "VALUES('t','t','S05_favoriti_exchange_v2','blocca','campionato','Serie B',40,-0.02,-0.01,1)")
     ok, why = office.coach.check(_prop("Serie B"), {"ts": 0, "matches": {}})
     assert not ok and why.startswith("Lezione di Leo")
+
+
+def test_clv_is_measured_on_the_price_taken():
+    from betbot.agents.coach import price_clv_of
+    assert price_clv_of("BACK", 2.10, 0.50) == pytest.approx(0.05)        # presa a 2,10, giusta alla chiusura 2,00
+    assert price_clv_of("BACK", 1.90, 0.50) == pytest.approx(-0.05)
+    assert price_clv_of("LAY", 3.80, 0.25) == pytest.approx(4.0 / 3.8 - 1)  # bancata a 3,80, giusta 4,00: buono
+    assert price_clv_of("LAY", 4.20, 0.25) < 0
