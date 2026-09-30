@@ -15,6 +15,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 ## Betfair.it (verificato sul conto vero, 30/09/2026)
 - Back minimo 2 € a multipli di 0,50; lay: puntata del backer ≥ 0,50 €. Commissione 4,5% sulla vincita netta di mercato.
 - Niente ippica su .it. Liquidità separata dal mercato internazionale (spread più larghi).
+- Football americano: eventTypeId 6423, Match Odds a due esiti (supplementari compresi). Pari dopo i supplementari =
+  dead heat (due WINNER): metà puntata pagata a quota piena → result "tie" (feeds/betfair.py, banco.dead_heat_net).
+  Nel bot l'NFL si legge, si registra e si misura (test rapido); nessuna strategia ci punta finché i dati non lo dicono
+  (S05 v2 e S09 non lo includono: per aggiungerlo si crea una versione nuova della strategia).
 - Login con certificato (`identitysso-cert.betfair.it`): quello con utente e password richiede una chiave abilitata.
 - `getDeveloperAppKeys`/`createDeveloperAppKeys` vanno chiamate **senza** X-Application. Una chiave appena creata
   risponde AANGX-0004 per 1-3 minuti. La chiave "delayed" (gratuita) ha prezzi in ritardo fino a 3 minuti.
@@ -37,9 +41,14 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   riposo, classifica, assenze pesate sono già nelle quote. Nessuna dinamica batte la chiusura in modo solido.
 - S09 lay di valore (1X2, quote 3-8, EV ≥ 2%): dati puliti +5,8% ± 5,7% su 95 lay → non significativo. In ombra.
 - Under/Over 2,5 su Betfair contro Pinnacle: nessun vantaggio (lay EV≥2%: −0,6% ± 3,1% su 1.094; back: pochi e negativi).
+- NFL 2012-2025 (nflverse, 3.828 partite, 27 prove decise prima, `python betbot.py nfl`): testa a testa, handicap e
+  totale punti contro la chiusura con exchange simulato (giusto −1%, commissione 4,5%): nessuna prova solida. Le più
+  "promettenti" (under con vento ≥ 15 mph +8,9% ± 11,1% su 296; ospite sfavorita all'handicap +0,2%) non sono
+  significative. È il mercato più efficiente al mondo: vale solo l'ipotesi "betfair.it in ritardo su Pinnacle".
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
-  `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata) e con le registrazioni + `replay` + `esame`.
+  `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
+  registrazioni + `replay` + `esame`. Finestra migliore: domenica dalle 16 (Serie A + NFL delle 19:00 e 22:05).
 
 ## Dove guardare nel codice
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),

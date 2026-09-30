@@ -36,6 +36,17 @@ def lay_close_outcomes(stake: float, back: float, lay_size: float, lay_avg: floa
     return net(win), net(lose)
 
 
+
+def dead_heat_net(stake: float, odds: float, lay: bool, comm: float) -> float:
+    """Guadagno netto con il dead heat di Betfair (due vincitori): metà della puntata del backer vince a quota piena,
+    l'altra metà perde. Back: stake = puntata. Lay: stake = responsabilità, puntata del backer = stake / (quota - 1).
+    La commissione si paga solo se il netto è positivo."""
+    backer = stake / max(odds - 1, 1e-9) if lay else stake
+    net = backer / 2 * (odds - 1) - backer / 2          # lato back: metà vince, metà perde
+    if lay:
+        net = -net
+    return net * (1 - comm) if net > 0 else net
+
 class Banco(Agent):
     key = "banco"
     name = "Pietro"
@@ -296,6 +307,12 @@ class Banco(Agent):
                 closing = (m.get("closing") or {}).get(bet["selection"]) if isinstance(m.get("closing"), dict) else None
                 score = f"{m.get('home_score')}-{m.get('away_score')}"
             comm = self._commission(bet) if bet["bookmaker"] in ("Betfair", "Exchange") else 0.0
+            if result == "tie":                          # football americano pari dopo i supplementari: dead heat
+                payout = bet["stake"] + dead_heat_net(bet["stake"], bet["odds"], bet["selection"].startswith("LAY:"), comm)
+                self._close(bet, "WON" if payout > bet["stake"] else "LOST", payout,
+                            f"risultato {score}, pari: dead heat (metà puntata a quota piena)", closing)
+                n += 1
+                continue
             if bet["selection"].startswith("LAY:"):      # lay d'apertura: si vince se l'esito NON succede
                 won = result not in bet["selection"][4:].split("+")
                 backer = bet["stake"] / max(bet["odds"] - 1, 1e-9)
@@ -314,7 +331,11 @@ class Banco(Agent):
                     self.store.execute("UPDATE shadow_bets SET status='VOID', settled_ts=?, pnl=0 WHERE id=?", (now_iso(), sb["id"]))
                     continue
                 comm = self.office.executor.commission
-                if sb["selection"].startswith("LAY:"):       # ombra lay: 1 € del backer, si vince se l'esito NON succede
+                if m["result"] == "tie":                    # dead heat (ombra: 1 € di puntata o del backer)
+                    lay = sb["selection"].startswith("LAY:")
+                    pnl = dead_heat_net(sb["odds"] - 1 if lay else 1.0, sb["odds"], lay, comm)
+                    won = pnl > 0
+                elif sb["selection"].startswith("LAY:"):       # ombra lay: 1 € del backer, si vince se l'esito NON succede
                     won = m["result"] not in sb["selection"][4:].split("+")
                     pnl = (1 - comm) if won else -(sb["odds"] - 1)
                 else:

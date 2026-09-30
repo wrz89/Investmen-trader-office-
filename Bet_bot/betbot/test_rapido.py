@@ -5,9 +5,11 @@ Per saperlo basta il CLV: si confronta il prezzo di ingresso con la quota giusta
 lettura prima del fischio d'inizio). Il risultato della partita non serve, quindi bastano le partite che iniziano
 nelle prossime ore.
 
-  • ogni `bf_every` minuti: prezzi back/lay di betfair.it per le partite di calcio che iniziano entro la finestra;
+  • ogni `bf_every` minuti: prezzi back/lay di betfair.it per le partite di calcio (1X2) e di football americano
+    (NFL e college, testa a testa) che iniziano entro la finestra;
   • ogni `pin_every` minuti: quote di Pinnacle (The Odds API, 1 credito per campionato, budget massimo `credits`);
   • alla fine: per ogni selezione, prezzo di ingresso (almeno 45 minuti prima dell'inizio) contro chiusura di Pinnacle.
+    Il verdetto su S09 riguarda solo il calcio; il football americano ha un verdetto suo (lay e back con EV ≥ 2%).
 Nessuna puntata, nemmeno simulata. Tutto finisce in runtime/test_rapido/ e runtime/reports/test_rapido.md.
 """
 from __future__ import annotations
@@ -27,11 +29,19 @@ from .odds import remove_margin
 OUT_DIR = RUNTIME_DIR / "test_rapido"
 COMM = 0.045
 PREFERRED = ["soccer_uefa_champs_league", "soccer_uefa_europa_league", "soccer_uefa_europa_conference_league",
-             "soccer_italy_serie_a", "soccer_italy_serie_b", "soccer_epl", "soccer_efl_champ", "soccer_england_league1",
+             "soccer_italy_serie_a", "americanfootball_nfl", "americanfootball_ncaaf", "soccer_italy_serie_b", "soccer_epl", "soccer_efl_champ", "soccer_england_league1",
              "soccer_spain_la_liga", "soccer_spain_segunda_division", "soccer_germany_bundesliga",
              "soccer_germany_bundesliga2", "soccer_france_ligue_one", "soccer_france_ligue_two",
              "soccer_netherlands_eredivisie", "soccer_portugal_primeira_liga", "soccer_belgium_first_div",
              "soccer_turkey_super_league", "soccer_spl", "soccer_greece_super_league"]
+
+
+SPORT_PREFIXES = ("soccer", "americanfootball")
+
+
+def family(sport: str | None) -> str:
+    """"americanfootball_nfl" → "americanfootball"; tutto il resto (anche le misure vecchie senza sport) → "soccer"."""
+    return "americanfootball" if (sport or "").startswith("americanfootball") else "soccer"
 
 
 def _ts(iso: str) -> float:
@@ -47,11 +57,13 @@ def odds_api_events(key: str, sport: str) -> list[dict]:
 
 def odds_api_sports(key: str) -> list[str]:
     r = requests.get(f"{BASE}/sports", params={"apiKey": key}, timeout=20)
-    return [s["key"] for s in r.json() if s.get("active") and s["key"].startswith("soccer")] if r.status_code == 200 else []
+    return [s["key"] for s in r.json() if s.get("active") and not s.get("has_outrights")
+            and s["key"].startswith(SPORT_PREFIXES)] if r.status_code == 200 else []
 
 
 def pinnacle_odds(key: str, sport: str) -> tuple[list[dict], str | None]:
-    """Quote 1X2 di Pinnacle (1 credito). → ([{home, away, start, fair: {home, draw, away}}], crediti rimasti)"""
+    """Quote testa a testa di Pinnacle (1 credito): 1X2 nel calcio, due esiti nel football americano.
+    → ([{home, away, start, fair: {home, (draw), away}}], crediti rimasti)"""
     r = requests.get(f"{BASE}/sports/{sport}/odds", params={"apiKey": key, "bookmakers": "pinnacle", "markets": "h2h"},
                      timeout=20)
     left = r.headers.get("x-requests-remaining")
@@ -64,16 +76,29 @@ def pinnacle_odds(key: str, sport: str) -> tuple[list[dict], str | None]:
                 if mk.get("key") != "h2h":
                     continue
                 pr = {o["name"]: o["price"] for o in mk.get("outcomes", [])}
-                if e["home_team"] in pr and e["away_team"] in pr and "Draw" in pr:
+                if e["home_team"] not in pr or e["away_team"] not in pr:
+                    continue
+                if "Draw" in pr:
                     fair = remove_margin({"home": pr[e["home_team"]], "draw": pr["Draw"], "away": pr[e["away_team"]]})
+                elif len(pr) == 2 and family(sport) == "americanfootball":
+                    fair = remove_margin({"home": pr[e["home_team"]], "away": pr[e["away_team"]]})
+                else:
+                    continue
+                if fair:
                     out.append({"home": e["home_team"], "away": e["away_team"], "start": _ts(e["commence_time"]), "fair": fair})
     return out, left
 
 
 def betfair_snapshot(client, hours: float) -> list[dict]:
-    """Mercati 1X2 di calcio su betfair.it che iniziano entro `hours`: miglior back e lay per esito."""
-    from .feeds.betfair import SOCCER, split_event_name
-    cat = client.catalogue(SOCCER, "MATCH_ODDS", hours, None, 200, lookback_hours=0)
+    """Mercati Match Odds su betfair.it che iniziano entro `hours` (calcio 1X2, football americano a due esiti):
+    miglior back e lay per esito."""
+    from .feeds.betfair import AMERICAN_FOOTBALL, SOCCER, BetfairError, split_event_name
+    cat = [{**m, "_sport": "soccer"} for m in client.catalogue(SOCCER, "MATCH_ODDS", hours, None, 200, lookback_hours=0)]
+    try:                                         # se il conto .it non ha il football americano, si va avanti col calcio
+        cat += [{**m, "_sport": "americanfootball"}
+                for m in client.catalogue(AMERICAN_FOOTBALL, "MATCH_ODDS", hours, None, 100, lookback_hours=0)]
+    except BetfairError:
+        pass
     ids = [m["marketId"] for m in cat]
     books = {b["marketId"]: b for b in client.books(ids)} if ids else {}
     out = []
@@ -93,9 +118,10 @@ def betfair_snapshot(client, hours: float) -> list[dict]:
             if side:
                 sel[side] = {"back": back.get("price"), "back_size": back.get("size"), "lay": lay.get("price"),
                              "lay_size": lay.get("size")}
-        if len(sel) == 3:
-            out.append({"market_id": m["marketId"], "home": teams[0], "away": teams[1], "start": _ts(m["marketStartTime"]),
-                        "league": (m.get("competition") or {}).get("name"), "sel": sel})
+        expected = {"home", "away"} if m["_sport"] == "americanfootball" else {"home", "draw", "away"}
+        if set(sel) == expected:
+            out.append({"market_id": m["marketId"], "sport": m["_sport"], "home": teams[0], "away": teams[1],
+                        "start": _ts(m["marketStartTime"]), "league": (m.get("competition") or {}).get("name"), "sel": sel})
     return out
 
 
@@ -203,9 +229,12 @@ def analyse(data: dict, min_edge: float = 0.02, lay_min: float = 3.0, lay_max: f
             p_in = pe[-1]
             for side in ("home", "draw", "away"):
                 s = o["sel"].get(side) or {}
+                if not s or side not in p_in["fair"] or side not in pin_close["fair"]:
+                    continue
                 lay, back = s.get("lay"), s.get("back")
                 pi, pc = p_in["fair"][side], pin_close["fair"][side]
                 row = {"market": mid, "match": f"{o['home']} - {o['away']}", "league": o.get("league"), "side": side,
+                       "sport": family(o.get("sport")),
                        "minutes_before": (start - o["t"]) / 60, "p_in": pi, "p_close": pc}
                 if lay and lay > 1:
                     row.update(lay=lay, gap_lay=1 / (lay * pi) - 1, clv_lay=1 / (lay * pc) - 1,
@@ -215,15 +244,25 @@ def analyse(data: dict, min_edge: float = 0.02, lay_min: float = 3.0, lay_max: f
                 rows.append(row)
             break
     lays = [r for r in rows if "clv_lay" in r]
-    s09 = [r for r in lays if lay_min <= r["lay"] <= lay_max and r["ev_lay"] >= min_edge]
+    soccer_lays = [r for r in lays if r["sport"] == "soccer"]
+    s09 = [r for r in soccer_lays if lay_min <= r["lay"] <= lay_max and r["ev_lay"] >= min_edge]
     wide = [r for r in lays if r["ev_lay"] >= 0]
     backs = [r for r in rows if "clv_back" in r and r["ev_back"] >= min_edge]
+    nfl = [r for r in rows if r["sport"] == "americanfootball"]
+    # football americano: il prezzo che sembrava sbagliato (lay o back con EV ≥ 2%), misurato sul suo CLV
+    nfl_value = ([r["clv_lay"] for r in nfl if "clv_lay" in r and r["ev_lay"] >= min_edge]
+                 + [r["clv_back"] for r in nfl if "clv_back" in r and r["ev_back"] >= min_edge])
     res = {"matches": len({r["market"] for r in rows}), "selections": len(rows), "sports": data.get("sports"),
            "hours": (data["end"] - data["start"]) / 3600}
     for name, grp, k in (("tutti_i_lay", lays, "clv_lay"), ("s09", s09, "clv_lay"), ("lay_ev_positivo", wide, "clv_lay"),
                          ("back_ev_positivo", backs, "clv_back")):
         m, lo, hi = _mean_ci([r[k] for r in grp])
         res[name] = {"n": len(grp), "clv": m, "lo": lo, "hi": hi}
+    m, lo, hi = _mean_ci([r["clv_lay"] for r in nfl if "clv_lay" in r])
+    res["nfl_tutti_i_lay"] = {"n": sum(1 for r in nfl if "clv_lay" in r), "clv": m, "lo": lo, "hi": hi}
+    m, lo, hi = _mean_ci(nfl_value)
+    res["nfl_valore"] = {"n": len(nfl_value), "clv": m, "lo": lo, "hi": hi}
+    res["nfl_partite"] = len({r["market"] for r in nfl})
     # il prezzo che sembra "sbagliato" viene corretto dal mercato? pendenza CLV ~ gap
     xs = [(r["gap_lay"], r["clv_lay"]) for r in lays if abs(r["gap_lay"]) < 0.5]
     if len(xs) > 5:
@@ -238,6 +277,10 @@ def analyse(data: dict, min_edge: float = 0.02, lay_min: float = 3.0, lay_max: f
         res["verdetto"] = "SEGNALE ASSENTE"
     else:
         res["verdetto"] = "NON ANCORA CHIARO"
+    v = res["nfl_valore"]
+    res["verdetto_nfl"] = ("NESSUNA PARTITA" if not nfl else
+                           "SEGNALE PRESENTE" if v["n"] >= 10 and v["lo"] is not None and v["lo"] > 0 else
+                           "SEGNALE ASSENTE" if v["n"] >= 10 and v["hi"] is not None and v["hi"] < 0 else "NON ANCORA CHIARO")
     res["rows"] = rows
     return res
 
@@ -248,14 +291,18 @@ def report(res: dict) -> str:
          f"{res['hours']:.1f} ore di osservazione, {res['matches']} partite iniziate nella finestra, "
          f"{res['selections']} esiti misurati. Campionati: {', '.join(res.get('sports') or []) or '—'}.", "",
          f"**Verdetto su S09: {res['verdetto']}**", "",
+         f"**Verdetto sul football americano: {res.get('verdetto_nfl', 'NESSUNA PARTITA')}** "
+         f"({res.get('nfl_partite', 0)} partite misurate)", "",
          "CLV = quanto il prezzo preso batte la quota giusta di Pinnacle alla chiusura (positivo = il mercato ci ha dato "
          "ragione). Intervallo al 95%.", "",
          "| Gruppo | Esiti | CLV medio | Intervallo |", "|---|---|---|---|"]
     names = {"tutti_i_lay": "Tutti i lay (riferimento: di solito negativo per lo spread)",
-             "lay_ev_positivo": "Lay che sembravano convenienti (EV ≥ 0)", "s09": "Regola S09 (quote 3-8, EV ≥ 2%)",
-             "back_ev_positivo": "Back che sembravano convenienti (EV ≥ 2%)"}
+             "lay_ev_positivo": "Lay che sembravano convenienti (EV ≥ 0)", "s09": "Regola S09 (calcio, quote 3-8, EV ≥ 2%)",
+             "back_ev_positivo": "Back che sembravano convenienti (EV ≥ 2%)",
+             "nfl_tutti_i_lay": "Football americano: tutti i lay",
+             "nfl_valore": "Football americano: lay e back con EV ≥ 2%"}
     for k, label in names.items():
-        g = res[k]
+        g = res.get(k) or {"n": 0, "clv": None, "lo": None, "hi": None}
         L.append(f"| {label} | {g['n']} | {pct(g['clv'])} | {pct(g['lo'])} … {pct(g['hi'])} |")
     if res.get("pendenza") is not None:
         L += ["", f"Pendenza CLV/scarto: {res['pendenza']:+.2f}. Vicina a 1 = lo scarto Betfair-Pinnacle è un vantaggio vero; "

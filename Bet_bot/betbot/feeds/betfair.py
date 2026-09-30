@@ -44,9 +44,13 @@ BETTING = "https://api.betfair.com/exchange/betting/json-rpc/v1"
 ACCOUNT = "https://api.betfair.com/exchange/account/json-rpc/v1"
 STREAM_HOST, STREAM_PORT = "stream-api.betfair.com", 443
 
-HORSE_RACING, SOCCER, TENNIS, BASKETBALL = "7", "1", "2", "7522"
+HORSE_RACING, SOCCER, TENNIS, BASKETBALL, AMERICAN_FOOTBALL = "7", "1", "2", "7522", "6423"
 # sport → (eventTypeId Betfair, tipo di mercato, esiti attesi)
-SPORTS = {"soccer": (SOCCER, "MATCH_ODDS", 3), "tennis": (TENNIS, "MATCH_ODDS", 2), "basketball": (BASKETBALL, "MATCH_ODDS", 2)}
+# Football americano (NFL, NCAA): Match Odds a due esiti, supplementari compresi. Se finisce pari dopo i
+# supplementari Betfair applica il "dead heat": due runner WINNER, metà puntata pagata a quota piena → result "tie".
+SPORTS = {"soccer": (SOCCER, "MATCH_ODDS", 3), "tennis": (TENNIS, "MATCH_ODDS", 2), "basketball": (BASKETBALL, "MATCH_ODDS", 2),
+          "americanfootball": (AMERICAN_FOOTBALL, "MATCH_ODDS", 2)}
+SPORT_LABELS = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket", "americanfootball": "Football americano"}
 
 
 def split_event_name(name: str) -> tuple[str, str] | None:
@@ -456,7 +460,7 @@ class BetfairFeed(Feed):
             except BetfairError:
                 self.available = {}
         sports = self.cfg.get("sports") or (["soccer"] if self.cfg.get("soccer", True) else [])
-        sports = [s for s in sports if not self.available or SPORTS[s][0] in self.available]
+        sports = [s for s in sports if s in SPORTS and (not self.available or SPORTS[s][0] in self.available)]
         for sport in sports:
             event_type, market_type, _ = SPORTS[sport]
             for m in self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40):
@@ -522,7 +526,9 @@ class BetfairFeed(Feed):
                 if sorted(v for v in order.values() if v) != expected:
                     continue                           # nomi non riconosciuti: meglio saltare che invertire casa e ospite
                 closed = p["status"] == "CLOSED"
-                result = next((order[rid] for rid, v in p["runners"].items() if order.get(rid) and v.get("status") == "WINNER"), None)
+                winners = [order[rid] for rid, v in p["runners"].items() if order.get(rid) and v.get("status") == "WINNER"]
+                # due vincitori a mercato chiuso = pari dopo i supplementari (dead heat, football americano)
+                result = "tie" if closed and len(winners) > 1 else winners[0] if winners else None
                 prices_ = {order[rid]: v["back"] for rid, v in p["runners"].items() if order.get(rid) and v.get("back")}
                 if len(prices_) < n_out and not closed:
                     continue
@@ -536,7 +542,7 @@ class BetfairFeed(Feed):
                 states = [(p["runners"].get(rid) or {}).get("status") for rid in order]
                 void = closed and result is None and all(st in SETTLED_LOSER for st in states)
                 live = bool(p.get("inplay"))
-                label = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket"}.get(sport, sport)
+                label = SPORT_LABELS.get(sport, sport)
                 rate = (cat.get("description") or {}).get("marketBaseRate")
                 matches[mid] = {"match_id": mid, "sport": sport, "league": (cat.get("competition") or {}).get("name", label),
                                 "commission": rate / 100 if rate else None,

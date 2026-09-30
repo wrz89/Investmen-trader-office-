@@ -59,6 +59,8 @@ feed:
     - tennis_atp
     - tennis_wta
     - basketball_nba
+    - americanfootball_nfl   # NFL: giovedì, domenica (dalle 19:00 italiane) e lunedì notte, da settembre a febbraio
+  # fuori stagione uno sport non costa crediti (si legge l'elenco gratuito degli sport attivi)
   # gruppi di The Odds API da aggiungere da soli, es. [Tennis]: i tornei cambiano ogni settimana e ognuno costa
   # richieste. Col piano gratuito (500 al mese) lascia vuoto e metti in sports solo 2-3 campionati.
   reference_groups: []
@@ -77,8 +79,8 @@ feed:
     stream: false         # true = prezzi in tempo reale dallo Stream API invece del polling
     race_countries: [GB, IE]
     race_hours: 2
-    sports: [soccer, tennis, basketball]   # mercati MATCH_ODDS letti da Betfair
-    soccer_hours: 36                       # finestra per gli eventi (calcio, tennis, basket)
+    sports: [soccer, tennis, basketball, americanfootball]   # mercati MATCH_ODDS letti da Betfair
+    soccer_hours: 36                       # finestra per gli eventi (calcio, tennis, basket, football americano)
   odds_api:
     max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito
     min_remaining: 50              # sotto 50 crediti rimasti il riferimento si ferma (e S05 con lui)

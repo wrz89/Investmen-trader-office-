@@ -45,10 +45,18 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 ### Il test rapido (6 ore)
 
 `test_rapido.bat` risponde in un pomeriggio alla domanda su cui si regge S09: quando su betfair.it un lay costa meno della quota giusta di Pinnacle, il mercato poi ci dà ragione?
-- Per 6 ore segue le partite di calcio che iniziano in quella finestra: Betfair ogni 15 minuti, Pinnacle ogni ora (circa 150 crediti di The Odds API).
+- Per 6 ore segue le partite di calcio e di football americano (NFL, college) che iniziano in quella finestra: Betfair ogni 15 minuti, Pinnacle ogni ora (circa 150 crediti di The Odds API).
+- Calcio e football americano hanno verdetti separati. La finestra migliore è la domenica dalle 16:00: Serie A più le partite NFL delle 19:00 e delle 22:05.
 - Misura il CLV di ogni esito contro la chiusura di Pinnacle, senza bisogno del risultato. Non punta nulla, nemmeno in simulazione.
 - Il verdetto è una di tre possibilità: *segnale presente*, *segnale assente* o *non ancora chiaro*.
 - È un'indicazione, non una prova. Ripetuto in giorni diversi, i numeri si sommano.
+
+### Football americano (NFL)
+
+Matteo segue anche l'NFL: il bot legge i mercati testa a testa di betfair.it, li registra e li misura nel test rapido. Nessuna strategia ci punta ancora.
+- `python betbot.py nfl` rifà il controllo sullo storico: 3.828 partite dal 2012 al 2025, 27 prove su testa a testa, handicap e totale punti. Nessuna batte il mercato in modo solido.
+- Pareggio dopo i supplementari: Betfair applica il dead heat (metà puntata pagata a quota piena) e il bot lo conteggia così.
+- Fuori stagione (da febbraio ad agosto) l'NFL non consuma crediti di The Odds API.
 
 ### L'esame per il live
 

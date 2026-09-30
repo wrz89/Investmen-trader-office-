@@ -526,7 +526,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     { key: "quote", name: "Sara", role: "Osservatrice quote · feed", short: "Quote", color: "#3f7fc4" },
     { key: "analista", name: "Davide", role: "Analista strategie · calcio", short: "Analista calcio", color: "#1f9d55" },
     // "cavalli" resta solo come chiave interna (la usa il bot): Matteo segue tennis e basket, su Betfair.it l'ippica non c'è
-    { key: "cavalli", name: "Matteo", role: "Analista tennis & basket", short: "Tennis & basket", color: "#c7792c" },
+    { key: "cavalli", name: "Matteo", role: "Analista tennis, basket & NFL", short: "Tennis, basket & NFL", color: "#c7792c" },
     { key: "sentiment", name: "Giorgia", role: "Sentiment · quote e notizie", short: "Sentiment", color: "#8b4fa8" },
     { key: "risk", name: "Bruno", role: "Risk Manager · veto", short: "Risk · veto", color: "#b23a31" },
     { key: "banco", name: "Pietro", role: "Banco · esecuzione e notifiche", short: "Banco", color: "#e0a41f" },
@@ -632,16 +632,17 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     while (queue.length) { await playTicket(queue.shift()); }
     running = false;
   }
-  // chi "possiede" una puntata: Davide il calcio, Matteo (chiave "cavalli") tennis e basket
+  // chi "possiede" una puntata: Davide il calcio, Matteo (chiave "cavalli") tennis, basket e football americano
   const TENNIS_TXT = /tennis|\b(ATP|WTA|ITF|Challenger)\b|Wimbledon|Roland Garros|US Open|Australian Open|Coppa Davis|Davis Cup|Billie Jean/i;
   const BASKET_TXT = /basket|\b(NBA|WNBA|NCAA|ACB|NBL|FIBA)\b|Eurolega|Euroleague|EuroCup|Lega Basket/i;
-  const COURT_TXT = new RegExp(`${TENNIS_TXT.source}|${BASKET_TXT.source}`, "i");
+  const NFL_TXT = /football americano|american football|americanfootball|\b(NFL|NCAAF)\b|Super Bowl/i;
+  const COURT_TXT = new RegExp(`${TENNIS_TXT.source}|${BASKET_TXT.source}|${NFL_TXT.source}`, "i");
   // sport di una partita del tabellone: il campo sport se il feed lo manda, altrimenti dal nome del campionato
   function courtSport(m) {
     const sp = String(m?.sport || "").toLowerCase();
-    if (sp) return sp.startsWith("tennis") ? "tennis" : sp.startsWith("basket") ? "basket" : null;
+    if (sp) return sp.startsWith("tennis") ? "tennis" : sp.startsWith("basket") ? "basket" : sp.startsWith("americanfootball") ? "nfl" : null;
     const t = `${m?.league || ""}`;
-    return TENNIS_TXT.test(t) ? "tennis" : BASKET_TXT.test(t) ? "basket" : null;
+    return TENNIS_TXT.test(t) ? "tennis" : NFL_TXT.test(t) ? "nfl" : BASKET_TXT.test(t) ? "basket" : null;
   }
   // il messaggio di stato di Sara conta anche le corse dei cavalli: su Betfair.it non ci sono, quindi non si mostrano
   const msgOf = (k, m) => k === "quote" ? String(m || "").replace(/,?\s*\d+ corse aperte/, "") : m;
@@ -855,7 +856,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       <circle cx="${x(pts.length - 1)}" cy="${y(last)}" r="3.5" fill="var(--accent)"/>`;
   }
 
-  // ── tabellone (calcio, tennis e basket; le corse del mondo simulato non si mostrano: su Betfair.it l'ippica non c'è) ──
+  // ── tabellone (calcio, tennis, basket e football americano; le corse del mondo simulato non si mostrano: su Betfair.it l'ippica non c'è) ──
   function renderBoard() {
     const b = S.board;
     if (!b) { $("matches").innerHTML = `<tr><td class="dim">Nessun dato dal feed per ora.</td></tr>`; return; }
@@ -1255,7 +1256,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
         <div class="field"><input type="password" id="k-foot" autocomplete="off" placeholder="${SET.api_football_key ? `salvata: ${esc(SET.api_football_key)}` : "chiave da api-football.com"}"><button class="btn primary" id="k-save" type="button">Salva le chiavi</button></div>
       </section>
       <section class="set-sec"><h3>Betfair Exchange Italia</h3>
-        <p>L'unico operatore con concessione ADM che offre un'API ufficiale per puntare: il bot punta solo qui (calcio, tennis e basket). Gli altri bookmaker servono solo come riferimento per le quote.</p>
+        <p>L'unico operatore con concessione ADM che offre un'API ufficiale per puntare: il bot punta solo qui (calcio, tennis, basket e football americano). Gli altri bookmaker servono solo come riferimento per le quote.</p>
         <ol><li>Conto su betfair.it e una app key (developer.betfair.com). Utente e password restano sul tuo PC, in runtime/.
           <div class="field"><input type="password" id="bf-app" autocomplete="off" placeholder="${bf.app_key ? `app key: ${esc(bf.app_key)}` : "app key"}"></div>
           <div class="field"><input type="text" id="bf-user" autocomplete="off" placeholder="${bf.username ? esc(bf.username) : "utente Betfair"}"><input type="password" id="bf-pass" autocomplete="off" placeholder="password"><button class="btn primary" id="bf-save" type="button">Salva</button></div></li>
@@ -1687,7 +1688,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     // lampade accese la sera
     [[-9, 2.8, 1], [8.5, 2.8, 1], [10, 2.3, -7], [0, 2.8, 5]].forEach(([x, y, z]) => { const l = new T.PointLight(0xffc877, 0, 13, 1.6); l.position.set(x, y, z); scene3.add(l); lamps.push(l); });
     // scritte sul pavimento
-    floorLabel("DIREZIONE", 9.5, -4.8, 3.2); floorLabel("BANCO", 10.4, 0.1, 2); floorLabel("TENNIS & BASKET", HX, 9.55, 3.2);
+    floorLabel("DIREZIONE", 9.5, -4.8, 3.2); floorLabel("BANCO", 10.4, 0.1, 2); floorLabel("TENNIS · BASKET · NFL", HX, 9.55, 3.2);
     floorLabel("CAFFÈ", 12.2, 7.2, 1.8); floorLabel("SALA OPERATIVA", -9, 6.4, 4.4);
   }
   // pallina e pallone fermi: a bordo campo e sotto il canestro
@@ -2167,7 +2168,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     hand((d.getHours() % 12 + d.getMinutes() / 60) / 12 * Math.PI * 2, 30, 6); hand(d.getMinutes() / 60 * Math.PI * 2, 44, 4);
     clockTex.needsUpdate = true;
   }
-  // cartello dell'angolo tennis & basket: la partita LIVE (prima il tennis) o la prossima in programma
+  // cartello dell'angolo tennis, basket & NFL: la partita LIVE (prima il tennis) o la prossima in programma
   function updateCourt() {
     const all = (S?.board?.matches || []).map(m => ({ m, sp: courtSport(m) })).filter(x => x.sp && x.m.status !== "FINISHED");
     const lv = all.filter(x => x.m.status === "LIVE");
@@ -2181,9 +2182,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       if (!basket) { court.bt = 0; court.bball.position.set(RIM.x - 0.1, CTOP + 0.06, HZ + 0.45); }
       wake();
     }
-    let txt = "Tennis & basket", sub = "nessuna partita in cartellone", col = "#8fa396";
+    let txt = "Tennis, basket & NFL", sub = "nessuna partita in cartellone", col = "#8fa396";
     if (pick1) {
-      const m = pick1.m, SP = pick1.sp === "tennis" ? "TENNIS" : "BASKET";
+      const m = pick1.m, SP = pick1.sp === "tennis" ? "TENNIS" : pick1.sp === "basket" ? "BASKET" : "NFL";
       txt = `${m.home} – ${m.away}`;
       if (m.status === "LIVE") {
         const sc = m.home_score != null ? ` · ${pick1.sp === "tennis" ? "set " : ""}${m.home_score}-${m.away_score}` : "";

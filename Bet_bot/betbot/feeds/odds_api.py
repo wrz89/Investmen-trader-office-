@@ -134,20 +134,25 @@ class OddsApiFeed(Feed):
                 "matches": {k: dict(v) for k, v in self.matches.items()}, "races": {}}
 
     def _sport_keys(self, now: float) -> list[str]:
-        """Chiavi fisse (feed.sports, solo quelle con quote reali) + quelle attive dei gruppi in feed.reference_groups.
-        L'elenco degli sport di The Odds API non consuma richieste del piano; si aggiorna ogni 6 ore."""
+        """Chiavi fisse (feed.sports, solo quelle con quote reali e in stagione) + quelle attive dei gruppi in
+        feed.reference_groups. L'elenco degli sport di The Odds API non consuma richieste del piano; si aggiorna ogni
+        6 ore. Fuori stagione (NBA d'estate, NFL da febbraio ad agosto) uno sport non costa crediti."""
         f = self.settings["feed"]
         keys = [k for k in f.get("sports", []) if not k.startswith(("tennis_atp", "tennis_wta")) or k.count("_") > 1]
+        if now - getattr(self, "_sports_ts", 0) > 6 * 3600:
+            try:
+                self._sports_list = [s for s in self._get("/sports") if isinstance(s, dict) and s.get("key")]
+                self._sports_ts = now
+            except FeedError:
+                self._sports_list = getattr(self, "_sports_list", [])
+        listed = getattr(self, "_sports_list", [])
+        active = {s["key"] for s in listed if s.get("active")}
+        if active:                                  # elenco letto: fuori le chiavi fuori stagione
+            keys = [k for k in keys if k in active]
         groups = set(f.get("reference_groups") or [])
         if groups:
-            if now - getattr(self, "_groups_ts", 0) > 6 * 3600:
-                try:
-                    self._group_keys = [s["key"] for s in self._get("/sports") if s.get("group") in groups
-                                        and s.get("active") and not s.get("has_outrights")]
-                    self._groups_ts = now
-                except FeedError:
-                    self._group_keys = getattr(self, "_group_keys", [])
-            keys += [k for k in getattr(self, "_group_keys", []) if k not in keys]
+            keys += [s["key"] for s in listed if s.get("group") in groups and s.get("active")
+                     and not s.get("has_outrights") and s["key"] not in keys]
         return keys
 
     def _refresh_odds(self, now: float) -> None:
@@ -219,7 +224,9 @@ class OddsApiFeed(Feed):
                     m["status"] = "FINISHED"
                     h, a = m.get("home_score"), m.get("away_score")
                     if h is not None and a is not None:
-                        m["result"] = "home" if h > a else "away" if a > h else "draw"
+                        # football americano pari dopo i supplementari: dead heat, non un pareggio 1X2
+                        m["result"] = ("home" if h > a else "away" if a > h
+                                       else "tie" if sport.startswith("americanfootball") else "draw")
                 matches[mid] = m
 
     async def fetch(self) -> dict:

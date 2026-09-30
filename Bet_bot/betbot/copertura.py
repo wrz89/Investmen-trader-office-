@@ -19,7 +19,7 @@ def check(sport_keys: list[str] | None = None) -> dict:
     if not key:
         return {"error": "manca la chiave di The Odds API (Impostazioni della dashboard)"}
     s = load_settings()
-    keys = sport_keys or [k for k in (s["feed"].get("sports") or []) if k.startswith("soccer")]
+    keys = sport_keys or [k for k in (s["feed"].get("sports") or []) if k.startswith(("soccer", "americanfootball"))]
     cfg = s["feed"].get("odds_api") or {}
     every_h = float(cfg.get("odds_refresh_seconds", 7200)) / 3600
     out, remaining = [], None

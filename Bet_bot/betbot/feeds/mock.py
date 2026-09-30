@@ -26,6 +26,8 @@ LEAGUES = {
                                          "Valencia", "Sociedad", "Girona", "Getafe", "Osasuna", "Alaves"]),
     "basketball_nba": ("NBA", ["Celtics", "Nuggets", "Bucks", "Suns", "Lakers", "Warriors", "Heat", "Knicks",
                                "Thunder", "Mavericks", "Pistons", "Hornets"]),
+    "americanfootball_nfl": ("NFL", ["Chiefs", "Eagles", "Bills", "Ravens", "Lions", "49ers", "Packers", "Cowboys",
+                                     "Bengals", "Steelers", "Rams", "Commanders"]),
     "tennis_atp": ("ATP", ["Sinner", "Alcaraz", "Djokovic", "Zverev", "Medvedev", "Fritz", "Musetti", "Rune",
                            "Draper", "Cobolli", "Darderi", "Arnaldi", "Shelton", "Tsitsipas"]),
     "tennis_wta": ("WTA", ["Sabalenka", "Swiatek", "Gauff", "Paolini", "Rybakina", "Pegula", "Andreeva", "Zheng",
@@ -38,7 +40,7 @@ def is_tennis(sport: str) -> bool:
 
 
 def two_way(sport: str) -> bool:
-    return sport.startswith(("tennis", "basketball"))
+    return sport.startswith(("tennis", "basketball", "americanfootball"))
 
 
 def bo3(q: float) -> float:
@@ -247,9 +249,10 @@ class MockFeed(Feed):
                         m["home_score"] += 1
                     else:
                         m["away_score"] += 1
-        elif not m["goal_rate"]:                           # basket: punteggio dal ritmo
+        elif not m["goal_rate"]:                           # basket (e football americano): punteggio dal ritmo
             t = m["truth"]
-            pts = int((minute - m["seen_minute"]) * 4.8)
+            pace = 0.5 if m["sport"].startswith("americanfootball") else 4.8     # NFL ~45 punti a partita
+            pts = int(minute * pace) - int(m["seen_minute"] * pace)
             for _ in range(pts):
                 if self.rng.random() < 0.5 + (t["home"] - 0.5) * 0.4:
                     m["home_score"] += 1
