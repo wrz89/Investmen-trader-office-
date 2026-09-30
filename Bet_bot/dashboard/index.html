@@ -977,7 +977,9 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       cnt("PRONTA") ? pl(cnt("PRONTA"), "pronta", "pronte") : "", cnt("IN ESAME") ? `${cnt("IN ESAME")} in esame` : "", cnt("BOCCIATA") ? pl(cnt("BOCCIATA"), "bocciata", "bocciate") : ""].filter(Boolean).join(" · ");
     $("exam-rec").innerHTML = recHtml();
     $("exam-list").innerHTML = empty
-      ? `<div class="exam-empty"><p><b>Nessuna puntata sui prezzi veri ancora</b>: collega Betfair e lascia girare il bot.</p>
+      ? `<div class="exam-empty"><p><b>Nessuna puntata sui prezzi veri ancora</b>: ${(S.registrazione || {}).on
+            ? "Betfair è collegato e il bot sta registrando i prezzi. Le prime puntate di prova arrivano quando c'è una partita con valore (S09 guarda fino a 2 giorni prima): lascialo girare, il contatore sale da solo."
+            : "collega Betfair (feed: provider betfair in runtime/impostazioni.yaml) e lascia girare il bot."}</p>
           <p class="muted" style="font-size:13px">Il mondo simulato non conta per l'esame: valgono solo le puntate sui prezzi di betfair.it (in diretta o rigiocate dalle registrazioni).</p>
           ${E.length ? `<div class="chips">${E.map(r => `<span class="chip" title="${esc(r.strategy_id)}">${esc(sCode(r.strategy_id))} · 0 / ${Number(r.need) || 200}</span>`).join("")}</div>` : ""}</div>`
       : `<div class="exams">${E.map(examCard).join("")}</div>`;
