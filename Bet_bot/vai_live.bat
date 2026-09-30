@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
 if not exist ".venv\Scripts\python.exe" call installa.bat
-REM Accende le puntate con SOLDI VERI (strategia Divertimento: 2 euro, max 3 al giorno). Chiede conferma scritta.
+REM Accende le puntate con SOLDI VERI (strategia Divertimento: 2 euro, max 5 al giorno). Chiede conferma scritta.
 ".venv\Scripts\python.exe" betbot.py live on
 pause

@@ -61,7 +61,7 @@ max_losing_streak: 6
 cooldown_minutes: 120
 
 # ── Divertimento (S10): puntate minime per giocare, non per guadagnare ──
-fun_max_bets_per_day: 3        # al massimo 3 puntate da 2 € al giorno
+fun_max_bets_per_day: 5        # al massimo 5 puntate da 2 € al giorno (scelta dell'utente il 30/09/2026; prima 3)
 fun_max_open: 1                # una aperta alla volta
 fun_min_edge: -0.03            # mai un prezzo che perde più del 3% atteso (commissione compresa: a quota 1,80 vale già 2%)
 fun_max_spread: 0.03           # senza riferimento esterno: back e lay di Betfair entro il 3%

@@ -9,7 +9,7 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   richiesta esplicita dell'utente E un esame per il live superato (`esame.bat`, criteri in config/esame_live.yaml
   decisi prima dei risultati: non cambiarli dopo averli visti).
 - Eccezione decisa dall'utente il 30/09/2026: soldi veri "per divertimento" SOLO con S10_divertimento_v1 (2 € fissi,
-  max 3 al giorno, una aperta, EV ≥ −3%, freni fun_* in risk_limits.yaml), acceso da lui con `vai_live.bat` (conferma
+  max 5 al giorno, una aperta, EV ≥ −3%, freni fun_* in risk_limits.yaml), acceso da lui con `vai_live.bat` (conferma
   scritta "SI"), spento con `torna_paper.bat`. Con la app key delayed va in live solo S10 (back fill-or-kill: un prezzo
   vecchio può solo annullare l'ordine). Non aggiungere altre strategie a live_strategies senza esame superato.
 - Mai chiedere, stampare o salvare in chiaro password, app key, token, chiave privata del certificato.

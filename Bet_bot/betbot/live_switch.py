@@ -70,7 +70,7 @@ def enable(ask=input, out=print, client=None) -> bool:
     lim = load_yaml("risk_limits.yaml")
     out(f"\nSaldo disponibile su betfair.it: {bal:.2f} €\n")
     out("Cosa succede con i SOLDI VERI:")
-    out(f"  • la strategia Divertimento punta 2 € alla volta, al massimo {lim.get('fun_max_bets_per_day', 3)} al giorno, "
+    out(f"  • la strategia Divertimento punta 2 € alla volta, al massimo {lim.get('fun_max_bets_per_day', 5)} al giorno, "
         "una aperta alla volta, su calcio, tennis, basket, NFL e baseball;")
     out("  • sceglie il prezzo più vicino al giusto: in media si perde circa l'1-3% di ogni puntata (commissione e spread),")
     out("    il resto è fortuna. Non è un sistema per guadagnare;")

@@ -52,7 +52,7 @@ S05_favoriti_exchange_v3:
       odds_max: 1.3
       min_fair_prob: 0.77
 S10_divertimento_v1:
-  description: 'Per giocare: 2 € fissi, al massimo 3 al giorno e una aperta alla volta, su qualunque sport, al prezzo
+  description: 'Per giocare: 2 € fissi, al massimo 5 al giorno e una aperta alla volta, su qualunque sport, al prezzo
     più vicino al giusto (Pinnacle o prezzo medio Betfair). In media perde la commissione e mezzo spread (1-3%).'
   odds_min: 1.4
   odds_max: 3.0
