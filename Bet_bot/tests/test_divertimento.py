@@ -191,3 +191,16 @@ def test_delayed_prices_go_live_only_for_fun_backs(monkeypatch):
     assert ex.route({"strategy_id": "S05_favoriti_exchange_v2"}, snap) == "shadow"
     assert ex.route({"strategy_id": "S10_divertimento_v1", "fun": True, "side": "LAY"}, snap) == "shadow"
     assert ex.route({"strategy_id": "S05_favoriti_exchange_v2"}, {"health": {}}) == "live"
+
+
+def test_preview_lists_candidates_and_the_cost_of_opening_many():
+    from betbot import anteprima as A
+    ms = [_match(f"T{i}", "tennis", {"home": BOOK(1.80 + i / 100, 1.82 + i / 100), "away": BOOK(2.2, 2.24)},
+                 league="ATP Parigi") for i in range(4)]
+    cands = S10.candidates(_snap(*ms))
+    assert len(cands) == 4 and cands[0]["edge"] >= cands[-1]["edge"] and cands[0]["kickoff"]
+    t1, t3 = A.together(cands, 1), A.together(cands, 3)
+    assert t3["worst"] == -6.0 and t3["p_all_lost"] < t1["p_all_lost"] and t3["ev"] < t1["ev"] < 0
+    txt = A.report(cands, 30.0, {"max_daily_loss_eur": 4, "kill_below_bankroll": 20}, T0)
+    assert "3 insieme" in txt and "Tennis / ATP Parigi" in txt and "30.00 €" in txt
+    assert "Nessuna scelta" in A.report([], None, {}, T0)

@@ -58,6 +58,12 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
     q = {**DEFAULTS, **params}
     if _at_limit((ctx or {}).get("store")):
         return []
+    return candidates(snapshot, q)[:q["max_proposals"]]
+
+
+def candidates(snapshot: dict, params: dict | None = None) -> list[dict]:
+    """Tutte le puntate possibili (una per partita, la migliore prima): la usa anche l'anteprima."""
+    q = {**DEFAULTS, **(params or {})}
     now = snapshot.get("sim_time") or snapshot["ts"]
     cands = []
     for m in snapshot["matches"].values():
@@ -101,8 +107,6 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
             continue
         seen.add(c[1]["match_id"])
         out.append(_proposal(*c))
-        if len(out) >= q["max_proposals"]:
-            break
     return out
 
 
@@ -115,7 +119,8 @@ def _proposal(ev, m, sel, back, fair, source, n_books, disp, spread, comm, mins,
              "label": f"{m['home']} - {m['away']} · {name}", "market": "h2h", "selection": sel, "bookmaker": "Betfair",
              "odds": back, "fair_prob": fair, "edge": ev, "commission": comm, "n_books": n_books, "dispersion": disp,
              "ref_source": "Pinnacle" if pin_only else None, "prob_source": "exchange" if source == "exchange" else None,
-             "spread": spread, "fun": True, "live": False, "odds_ts": m.get("odds_ts"),
+             "spread": spread, "fun": True, "live": False, "odds_ts": m.get("odds_ts"), "kickoff": m["kickoff"],
+             "book_eur": b.get("back_size_best") or b.get("back_size") or 0.0,
              "ref_ts": m.get("ref_ts") if source == "riferimento" else None,
              "reason": f"Divertimento: {name} a {back:.2f} ({m.get('league') or m.get('sport')}), probabilità giusta "
                        f"{fair:.0%} dal {source}, valore atteso {ev:+.1%}, spread {spread:.1%}, "
