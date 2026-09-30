@@ -54,6 +54,15 @@ Esiti: **PRONTA**, **IN ESAME** oppure **BOCCIATA** (CLV negativo anche nel caso
 
 ## Collegare Betfair Exchange Italia
 
+**Il modo più semplice: `collega_betfair.bat` (doppio clic).**
+1. Crea il certificato e apre la pagina di betfair.it dove caricarlo: premi "Modifica" su *Automated Betting Program Access* e scegli `client-2048.crt`. È l'unico passo a mano.
+2. Ti chiede utente e password di betfair.it. La password non si vede mentre la scrivi e resta cifrata sul PC.
+3. Fa il login con il certificato, crea da solo la app key "delayed" sul tuo conto e verifica il saldo.
+
+Poi metti `feed: {provider: betfair}` in `runtime/impostazioni.yaml`, lancia `avvia.bat` e fai l'**Ordine di prova** dalla dashboard.
+
+Il procedimento a mano, se preferisci:
+
 1. Conto su **betfair.it** con la verifica dell'identità completata.
 2. App key: su developer.betfair.com crea le chiavi. La **delayed** è gratuita: prezzi in ritardo da 1 a 180 secondi, va bene per il paper e per le puntate pre-partita. La **live** per i conti italiani è gratuita, si chiede dopo aver usato la delayed (serve per l'in-play e il trading).
 3. Nella dashboard: **Impostazioni → Betfair Exchange Italia** → app key, utente, password → **Verifica il conto** → **Ordine di prova** (quota 1000, annullato subito: costa zero).

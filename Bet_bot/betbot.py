@@ -12,6 +12,7 @@
     python betbot.py mercurius            verifica il metodo "alla Mercurius" (modello dei gol proprio) sui prezzi Betfair
     python betbot.py lay                  backtest del lay di valore (S09) sui prezzi Betfair
     python betbot.py palestra             Leo rivive gli ultimi anni senza sapere i risultati, scommette e impara
+    python betbot.py collega-betfair      collegamento guidato: certificato, login, app key creata da sola
     python betbot.py certificato          crea il certificato per il login Betfair (betfair.it) e lo collega al bot
     python betbot.py esame                esame per il live: quali strategie hanno superato i criteri sui prezzi veri
     python betbot.py copertura            quante partite e quanti crediti servono a The Odds API (e se c'è Pinnacle)
@@ -64,7 +65,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -124,6 +125,10 @@ def main() -> int:
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
         return 0
+
+    if a.comando == "collega-betfair":
+        from betbot import collega_betfair
+        return 0 if collega_betfair.run() else 1
 
     if a.comando == "certificato":
         from betbot import certificato as CT
