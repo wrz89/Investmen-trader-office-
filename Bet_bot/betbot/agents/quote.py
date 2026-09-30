@@ -97,7 +97,8 @@ class Quote(Agent):
             self.store.set("ref_alert_day", snap.get("sim_time", 0) // 86400)
             self.log(f"Quote di riferimento non aggiornate: {src}. Le puntate secche restano ferme finché tornano.",
                      "ERROR", "no_data")
-        if self.settings["feed"].get("record"):
+        # si registrano solo i prezzi veri di Betfair: il mondo simulato e il replay non finiscono nelle registrazioni
+        if self.settings["feed"].get("record") and self.settings["feed"].get("provider") == "betfair":
             try:
                 from ..feeds.recorder import Recorder
                 Recorder().write(snap)                         # registrazione per il replay (runtime/recordings)

@@ -25,18 +25,17 @@ execution:
   min_stake: 2.0          # betfair.it: back da 2 € in su, a multipli di 0,50 €; lay da 0,50 €
   commission: 0.045       # betfair.it: 4,5% sulla vincita netta di mercato (con feed betfair si legge dal mercato)
   paper_liquidity_factor: 1.5   # in paper si abbina solo se nel book c'è 1,5 × la puntata
-live_strategies: []       # es. [S04_greenup_cavalli_v2] — vuota = nessuna strategia con soldi veri
+live_strategies: []       # es. [S05_favoriti_exchange_v2] — vuota = nessuna strategia con soldi veri
 
 # Strategie che lavorano (le altre nella libreria sono ritirate e non girano).
+# Ritirate il 30/09/2026: S04 cavalli (su betfair.it non ci sono), S07 scalping (negativo e mercato .it troppo
+# sottile), S08 basket nel quarto quarto (quote 1,01-1,04 e servono dati live).
 # Una strategia "attiva" punta solo se il bankroll basta per la puntata minima entro i limiti di
 # rischio; altrimenti lavora IN ATTESA (in ombra) e si sblocca da sola quando il bankroll cresce.
 active_strategies:
   - S05_favoriti_exchange_v2   # favoriti netti pre-partita (calcio, tennis, basket), EV netto ≥ 2%, parametri per sport
 observe_strategies:            # solo ombra, senza capitale: si attivano solo dopo prove sui dati veri di betfair.it
   - S06_live_exchange_v1       # in-play: serve un riferimento live aggiornato (piano a pagamento di The Odds API)
-  - S07_scalping_prepartita_v1 # trade back→lay prima dell'inizio: da provare col registratore (feed.record)
-  - S04_greenup_cavalli_v2     # su betfair.it l'ippica non c'è: gira solo nel mondo simulato
-  - S08_basket_quarto_quarto_v1 # basket +15 nel 4° quarto: 96-99% di vittorie ma quote 1,01-1,04, da verificare
   - S09_lay_valore_v1           # lay di valore sul calcio: contro gli esiti che Betfair prezza sotto Pinnacle (~80% vinte a quota 3-8)
 
 feed:
@@ -48,8 +47,9 @@ feed:
   reference: none
   # statistiche live (minuto, punteggio, tiri, cartellini): none | api_football
   live_stats: none
-  # true = salva ogni ciclo i prezzi in runtime/recordings/ (circa 3-5 MB al giorno compressi) per il replay
-  record: false
+  # true = salva ogni ciclo i prezzi in runtime/recordings/ (circa 3-5 MB al giorno compressi) per il replay.
+  # Acceso: è la prova su betfair.it dei prezzi veri (lay compresi). Con il feed simulato non registra nulla.
+  record: true
   sports:                 # chiavi di The Odds API (quote di riferimento) e sport del mondo simulato
     - soccer_italy_serie_a
     - soccer_epl

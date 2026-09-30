@@ -86,7 +86,7 @@ def test_min_stake_with_30_eur_only_when_edge_is_strong(office):
     assert not weak["approved"] and any("vantaggio non basta" in r for r in weak["reasons"])
     by = {s["id"]: s for s in office.direttore.strategies()}
     assert by["S05_favoriti_exchange_v2"]["status"] == "ATTIVA"
-    assert by["S04_greenup_cavalli_v2"]["status"] == "OSSERVAZIONE"             # niente ippica su betfair.it
+    assert "S04_greenup_cavalli_v2" not in by                                     # ritirata: niente ippica su betfair.it
 
 
 def test_back_stakes_follow_italian_rules():

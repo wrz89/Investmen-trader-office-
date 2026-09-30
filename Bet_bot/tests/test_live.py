@@ -98,7 +98,8 @@ def _later(monkeypatch, seconds=300):
 def test_live_without_live_strategies_never_touches_bankroll(tmp_path, monkeypatch):
     from betbot import local_settings
     monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
-    o = _office(tmp_path / "live.db", overrides={"mode": "live", "live_strategies": []})
+    o = _office(tmp_path / "live.db", overrides={"mode": "live", "live_strategies": [],
+                                              "observe_strategies": ["S07_scalping_prepartita_v1", "S09_lay_valore_v1"]})
     before = o.bankroll.total
 
     async def cycles():
