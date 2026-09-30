@@ -26,6 +26,31 @@ S05_favoriti_exchange_v2:
       odds_min: 1.1
       odds_max: 1.3
       min_fair_prob: 0.77
+S05_favoriti_exchange_v3:
+  description: Come S05 v2, ma salta se la probabilità di riferimento o il prezzo Betfair si sono mossi più del 6% dalla
+    prima lettura (notizie o riferimento rimasto indietro) e chiede almeno 6 € al miglior prezzo. In ombra accanto alla v2.
+  min_edge: 0.02
+  min_reference_books: 2
+  min_book_eur: 6.0
+  max_spread_ticks: 2
+  max_minutes_before: 120
+  min_minutes_before: 15
+  max_ref_drift: 0.06
+  max_bf_drift: 0.06
+  sports:
+    soccer:
+      odds_min: 1.1
+      odds_max: 1.4
+      min_fair_prob: 0.75
+    tennis:
+      odds_min: 1.1
+      odds_max: 1.35
+      min_fair_prob: 0.75
+      exclude: challenger|itf|utr|m15|m25|w15|w35|w50|w75|w100|doppio|doubles
+    basketball:
+      odds_min: 1.1
+      odds_max: 1.3
+      min_fair_prob: 0.77
 S06_live_exchange_v1:
   description: Favorito in vantaggio nel finale, su Betfair in-play; chiusura con un lay se il vantaggio sparisce.
   min_minute: 70

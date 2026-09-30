@@ -11,6 +11,8 @@
     python betbot.py diagnosi             controlla installazione, configurazione, Telegram, chiavi e Betfair
     python betbot.py mercurius            verifica il metodo "alla Mercurius" (modello dei gol proprio) sui prezzi Betfair
     python betbot.py lay                  backtest del lay di valore (S09) sui prezzi Betfair
+    python betbot.py orizzonti [--da AAAA-MM-GG] [--a AAAA-MM-GG]
+                                          dalle registrazioni: a quante ore dall'inizio betfair.it è più "sbagliato" e liquido
     python betbot.py nfl                  NFL dal 2012: testa a testa, handicap e totale punti contro le quote di chiusura
     python betbot.py palestra             Leo rivive gli ultimi anni senza sapere i risultati, scommette e impara
     python betbot.py collega-betfair      collegamento guidato: certificato, login, app key creata da sola
@@ -67,7 +69,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -127,6 +129,10 @@ def main() -> int:
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
         return 0
+
+    if a.comando == "orizzonti":
+        from betbot import orizzonti
+        return 0 if orizzonti.run(a.da, a.fino) else 1
 
     if a.comando == "nfl":
         from betbot import backtest_nfl as N

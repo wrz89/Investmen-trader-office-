@@ -45,12 +45,17 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   totale punti contro la chiusura con exchange simulato (giusto −1%, commissione 4,5%): nessuna prova solida. Le più
   "promettenti" (under con vento ≥ 15 mph +8,9% ± 11,1% su 296; ospite sfavorita all'handicap +0,2%) non sono
   significative. È il mercato più efficiente al mondo: vale solo l'ipotesi "betfair.it in ritardo su Pinnacle".
+- r/AutomatedBettingBots (letto il 30/09/2026 via archivio Arctic Shift, 554 post): quasi tutto promozione, nessun CLV
+  verificato su campioni ampi. Idee tenute: filtro sui movimenti di prezzo (→ S05 v3, in ombra), orizzonte d'ingresso
+  (→ `orizzonti.bat` sulle registrazioni), freno sul CLV mobile (Leo lo fa già per segmenti).
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
   `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
   registrazioni + `replay` + `esame`. Finestra migliore: domenica dalle 16 (Serie A + NFL delle 19:00 e 22:05).
 
 ## Dove guardare nel codice
+- orizzonti.py: CLV e liquidità di betfair.it a 72/48/24/12/6/3/1 ore dall'inizio, dalle registrazioni (le registrazioni
+  hanno `ref_ts` dal 30/09/2026: prima l'età di Pinnacle si stima dal primo momento in cui la quota cambia).
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),
   execution.py (Betfair e paper), agents/coach.py (Leo: autopsie e regole che possono solo frenare),
   esame.py, test_rapido.py, palestra.py, backtest*.py, feeds/betfair.py, collega_betfair.py.

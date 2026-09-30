@@ -51,6 +51,21 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 - Il verdetto è una di tre possibilità: *segnale presente*, *segnale assente* o *non ancora chiaro*.
 - È un'indicazione, non una prova. Ripetuto in giorni diversi, i numeri si sommano.
 
+### Quando conviene entrare (`orizzonti.bat`)
+
+Legge le registrazioni dei prezzi veri di betfair.it e, per ogni partita, guarda i prezzi a 72, 48, 24, 12, 6, 3 e 1 ora dall'inizio.
+- Per ogni orizzonte misura quanto denaro c'è al miglior prezzo e quanto il prezzo preso batte la chiusura, di Betfair e di Pinnacle.
+- Il gruppo che conta è quello "di valore": gli esiti in cui betfair.it pagava più di Pinnacle. Se il loro CLV è sopra zero in modo solido a un certo orizzonte, lì c'è il vantaggio.
+- Non punta nulla e non consuma crediti. Diventa affidabile con qualche settimana di registrazioni (bot acceso con il feed Betfair).
+
+### S05 v3 (in ombra)
+
+È S05 v2 con due controlli in più:
+- se la probabilità di riferimento o il prezzo Betfair si sono mossi di oltre il 6% dalla prima lettura, salta: di solito è una notizia, e il "valore" è solo il riferimento rimasto indietro;
+- chiede almeno 6 € al miglior prezzo invece di 3.
+
+Gira in ombra accanto alla v2 e l'esame per il live le confronta con gli stessi criteri.
+
 ### Football americano (NFL)
 
 Matteo segue anche l'NFL: il bot legge i mercati testa a testa di betfair.it, li registra e li misura nel test rapido. Nessuna strategia ci punta ancora.

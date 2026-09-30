@@ -19,7 +19,7 @@ from .base import Feed
 
 REC_DIR = RUNTIME_DIR / "recordings"
 KEEP_MATCH = ("match_id", "sport", "league", "home", "away", "kickoff", "status", "minute", "home_score", "away_score",
-              "result", "books", "live_books", "exchange", "closing", "odds_ts", "commission", "betfair", "stats")
+              "result", "books", "live_books", "exchange", "closing", "odds_ts", "ref_ts", "commission", "betfair", "stats")
 
 
 def compact(snap: dict) -> dict:
