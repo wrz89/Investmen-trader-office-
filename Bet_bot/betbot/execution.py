@@ -147,7 +147,10 @@ class Executor:
         """live = soldi veri; paper = exchange simulato; shadow = in modalità live, strategia non ammessa ai
         soldi veri: si segue in ombra, senza toccare il bankroll vero (mai mescolare paper e live)."""
         ok, _ = Gates.live_allowed(self.settings, p["strategy_id"])
-        if ok and exchange_target(p, snapshot) and not (snapshot.get("health") or {}).get("delayed"):
+        # prezzi in ritardo (app key delayed): soldi veri solo per le puntate secche di S10 (divertimento). L'ordine è
+        # fill-or-kill al prezzo scelto: un prezzo vecchio può solo far annullare la puntata, mai abbinarla peggio.
+        delayed = (snapshot.get("health") or {}).get("delayed")
+        if ok and exchange_target(p, snapshot) and (not delayed or (p.get("fun") and p.get("side") != "LAY")):
             return "live"
         return "shadow" if self.settings.get("mode") == "live" else "paper"
 

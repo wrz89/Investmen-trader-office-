@@ -52,6 +52,18 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 - Il verdetto è una di tre possibilità: *segnale presente*, *segnale assente* o *non ancora chiaro*.
 - È un'indicazione, non una prova. Ripetuto in giorni diversi, i numeri si sommano.
 
+### Soldi veri per divertimento (`vai_live.bat` / `torna_paper.bat`)
+
+La strategia **S10 Divertimento** punta ogni giorno su qualunque sport di betfair.it (calcio, tennis, basket, NFL, baseball), anche in settimana.
+- **Quanto:** 2 € fissi, al massimo 3 puntate al giorno e una aperta alla volta.
+- **Cosa sceglie:** quote tra 1,40 e 3,00, su un libro con back e lay vicini e almeno 10 € disponibili. Prende il prezzo più vicino al "giusto": Pinnacle se la quota è recente, altrimenti il prezzo medio di Betfair.
+- **Cosa aspettarsi:** non cerca un vantaggio. In media perde l'1-3% di ogni puntata (commissione e spread), circa 1 € al mese; il resto è fortuna.
+- **Quando si ferma da solo:** se il saldo scende sotto 20 €, e per il resto del giorno dopo 4 € persi.
+
+`vai_live.bat` fa tutto: login, mostra il saldo, chiede di scrivere **SI**, fa l'ordine di prova (2 € a quota 1000, annullato subito), accende le puntate reali e scrive `runtime/impostazioni.yaml`. Poi si riavvia il bot con `avvia.bat`.
+
+`torna_paper.bat` spegne tutto. Le puntate vere già aperte si chiudono da sole su Betfair. Le altre strategie restano in ombra, senza soldi.
+
 ### Quando conviene entrare (`orizzonti.bat`)
 
 Legge le registrazioni dei prezzi veri di betfair.it e, per ogni partita, guarda i prezzi a 72, 48, 24, 12, 6, 3 e 1 ora dall'inizio.

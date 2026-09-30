@@ -36,6 +36,7 @@ live_strategies: []       # es. [S05_favoriti_exchange_v2] — vuota = nessuna s
 # rischio; altrimenti lavora IN ATTESA (in ombra) e si sblocca da sola quando il bankroll cresce.
 active_strategies:
   - S05_favoriti_exchange_v2   # favoriti netti pre-partita (calcio, tennis, basket), EV netto ≥ 2%, parametri per sport
+  - S10_divertimento_v1        # 2 € fissi, max 3 al giorno, al prezzo più giusto: per giocare (in media perde 1-3%)
 observe_strategies:            # solo ombra, senza capitale: si attivano solo dopo prove sui dati veri di betfair.it
   - S06_live_exchange_v1       # in-play: serve un riferimento live aggiornato (piano a pagamento di The Odds API)
   - S05_favoriti_exchange_v3   # come S05 v2 + filtri sul movimento dei prezzi (6%) e libro ≥ 6 €: in ombra accanto alla v2

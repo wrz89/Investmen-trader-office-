@@ -113,23 +113,12 @@ def handle_action(path: str, body: dict) -> dict:
     if path == "/api/betfair/test_order":
         if not s["betfair"].get("verified"):
             raise ValueError("Prima verifica il conto.")
-        import uuid
-        from .feeds.betfair import SOCCER, BetfairClient
-        c = BetfairClient(s["betfair"])
-        cat = [m for m in c.catalogue(SOCCER, "MATCH_ODDS", 72, None, 10, lookback_hours=0) if m.get("runners")]
-        if not cat:
-            raise ValueError("Nessuna partita di calcio disponibile ora per la prova: riprova più tardi.")
-        m = cat[0]
-        ref = f"prova{uuid.uuid4().hex[:12]}"
-        # back 2 € a quota 1000: non si abbina mai (vincita potenziale 2.000 €, sotto il limite ADM di 10.000 €)
-        r = c.place(m["marketId"], m["runners"][0]["selectionId"], "BACK", 1000.0, 2.0, fill_or_kill=False, order_ref=ref)
-        c.cancel(m["marketId"], r["bet_id"])
-        left = [o for o in c.current_orders(order_refs=[ref]) if o.get("status") == "EXECUTABLE"]
-        if left:
-            raise ValueError("L'ordine di prova è ancora aperto su Betfair: annullalo da 'Le mie scommesse' e riprova.")
+        from .feeds.betfair import BetfairClient
+        from .live_switch import test_order
+        event = test_order(BetfairClient(s["betfair"]))
         s["betfair"]["test_done"] = True
         local_settings.save(s)
-        return {"message": f"Ordine di prova (2 € a quota 1000 su {m['event']['name']}) accettato e annullato. "
+        return {"message": f"Ordine di prova (2 € a quota 1000 su {event}) accettato e annullato. "
                            "Il collegamento per le puntate funziona."}
     if path == "/api/settings/betfair_live":
         on = bool(body.get("enabled"))

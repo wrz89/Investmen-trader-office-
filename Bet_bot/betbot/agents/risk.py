@@ -263,6 +263,7 @@ class RiskManager(Agent):
         check(not state.get("daily_stop"), f"Stop giornaliero non attivo (persi oggi {state.get('loss_today', 0):.2f} €)")
         check(not state.get("telegram_pause_until"), "Nessuna pausa chiesta da Telegram")
         check(p["strategy_status"] == "ATTIVA", "Strategia attiva (non in osservazione)")
+        fun = bool(p.get("fun"))                 # S10 divertimento: puntata minima fissa, pochi colpi al giorno
         coach = getattr(self.office, "coach", None)
         coach_blocked = None
         if coach is not None:
@@ -292,6 +293,10 @@ class RiskManager(Agent):
                       f"Quota ≤ {L.get('max_table_odds', 1.10):.2f} per le probabilità da tabella storica ({p['odds']:.2f})")
                 check(p["edge"] <= L.get("max_table_edge", 0.05),
                       f"EV ≤ {L.get('max_table_edge', 0.05):.0%} per le probabilità da tabella storica ({p['edge']:+.1%})")
+            elif p.get("prob_source") == "exchange":
+                # probabilità dal prezzo medio di Betfair stesso (S10): nessun riferimento esterno, conta il libro stretto
+                check(p.get("spread") is not None and p["spread"] <= L.get("fun_max_spread", 0.03) + 1e-9,
+                      f"Libro Betfair stretto (spread {(p.get('spread') or 0):.1%} ≤ {L.get('fun_max_spread', 0.03):.0%})")
             elif p.get("ref_source") == "Pinnacle":
                 # riferimento sharp unico (S09): il consenso tra bookmaker non serve, conta che Pinnacle ci sia
                 check(p["n_books"] >= 1, "Riferimento sharp: Pinnacle senza margine")
@@ -299,7 +304,8 @@ class RiskManager(Agent):
                 check(p["n_books"] >= L["min_bookmakers"], f"Almeno {L['min_bookmakers']} bookmaker di riferimento ({p['n_books']})")
                 check(p["dispersion"] is not None and p["dispersion"] <= L["max_odds_dispersion"],
                       "Bookmaker di riferimento concordi sulla probabilità")
-            check(p["edge"] >= L["min_edge"], f"EV netto ≥ {L['min_edge']:.1%} ({p['edge']:+.2%})")
+            min_edge = L.get("fun_min_edge", -0.03) if fun else L["min_edge"]
+            check(p["edge"] >= min_edge, f"EV netto ≥ {min_edge:.1%} ({p['edge']:+.2%})")
 
         open_bets = self.office.bankroll.open_bets()
         is_exchange = bool(p.get("exchange"))
@@ -310,6 +316,13 @@ class RiskManager(Agent):
         check(today_n < day_cap, f"Operazioni di oggi < {day_cap} ({'exchange' if is_exchange else 'sport'})")
         check(not any(b["match_id"] == p["match_id"] and b["strategy_id"] == p["strategy_id"] for b in open_bets),
               "Nessuna puntata già aperta sullo stesso evento")
+        if fun:
+            fun_today = self.store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND ts >= ? AND strategy_id=?",
+                                         (_day_start_iso(), p["strategy_id"]))[0]["n"]
+            fun_open = sum(1 for b in open_bets if b["strategy_id"] == p["strategy_id"])
+            check(fun_today < L.get("fun_max_bets_per_day", 3),
+                  f"Puntate di divertimento oggi < {L.get('fun_max_bets_per_day', 3)} ({fun_today})")
+            check(fun_open < L.get("fun_max_open", 1), f"Puntate di divertimento aperte < {L.get('fun_max_open', 1)}")
         same_league = sum(1 for b in open_bets if b.get("league") == p.get("league"))
         check(same_league < L["max_same_league_open"], "Concentrazione per campionato nei limiti")
 
@@ -322,7 +335,9 @@ class RiskManager(Agent):
         min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
         if p.get("side") == "LAY":                               # lay d'apertura: minimo 0,50 € del backer
             min_stake = lay_min_liability(p)
-        if verdict["level"] == "caution":                       # il dimezzamento va PRIMA dell'arrotondamento a 0,50 €
+        if fun:                                                 # divertimento: sempre e solo la puntata minima
+            stake, k_full = min_stake, 0.0
+        elif verdict["level"] == "caution":                     # il dimezzamento va PRIMA dell'arrotondamento a 0,50 €
             stake, k_full = stake_for(p, base * L.get("sentiment_caution_stake_factor", 0.5), L, min_stake)
         else:
             stake, k_full = stake_for(p, base, L, min_stake)
@@ -363,7 +378,7 @@ class RiskManager(Agent):
               f"Puntata ≥ minimo exchange {min_stake:.2f} € (calcolata {stake:.2f} €"
               + (f"; il vantaggio non basta per giustificare la puntata minima con questo bankroll: Kelly pieno "
                  f"{k_full:.1%}, servirebbe almeno {min_stake / max(base, 1e-9) / L.get('min_stake_max_kelly_share', 0.5):.1%})"
-                 if not p.get("exchange") and sized < min_stake - 1e-9 else ")"))
+                 if not p.get("exchange") and not fun and sized < min_stake - 1e-9 else ")"))
 
         approved = not reasons
         decision = {"approved": approved, "stake": stake if approved else 0.0, "kelly_full": k_full, "risk": risk_now,
@@ -373,6 +388,7 @@ class RiskManager(Agent):
                     "coach_blocked": coach_blocked if coach_blocked and reasons == [coach_blocked] else None}
         if approved:
             how = (f"perdita massima {risk_now:.2f} € allo stop" if p.get("exchange")
+                   else "divertimento: puntata minima fissa" if fun
                    else f"Kelly netto {k_full:.1%} × {L['kelly_fraction']:.2f}")
             self.say(f"APPROVO {p['label']} a {p['odds']:.2f}: puntata {stake:.2f} € ({how}, base {base:.2f} €)"
                      + (f" · sentiment: {verdict['reason']}" if verdict["level"] == "caution" else "") + ".",
