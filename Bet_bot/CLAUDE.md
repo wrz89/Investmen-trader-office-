@@ -60,6 +60,12 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   Sui BFE 2024-26 puliti: S10 1.239 puntate ROI +0,2% ± 5,5%, CLV +0,2% ± 0,4%; S09 95 lay ROI +4,8% ± 11,3%,
   CLV +15% (prezzi del venerdì: i movimenti fino alla chiusura sono grandi, la causa "notizia" scatta spesso);
   S05 7 puntate.
+- PPDA e "deep" (Understat getLeagueData → teams[].history: ppda att/def, ppda_allowed, deep, deep_allowed; "deep" è il
+  sostituto gratuito del Field Tilt), media delle ultime 6, 5 campionati 2021-26, 7.333 partite, allenamento 2021-23 e
+  prova 2024-26: log-loss modello 0,9688 contro mercato 0,9684 (peggio), chiusura 0,9666; correlazione con il movimento
+  fino alla chiusura 0,00. Le "occasioni" con +3%: CLV +0,7% ± 0,4% al prezzo GIUSTO di Pinnacle (prima di spread e
+  commissione): non sfruttabile. ATTENZIONE fuso orario: football-data e Understat hanno orari diversi; con `d < data`
+  l'xG della partita stessa entrava nella media e il modello "batteva" la chiusura. Escludere tutto il giorno.
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
   `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
