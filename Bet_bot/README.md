@@ -45,8 +45,9 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 ### Il test rapido (6 ore)
 
 `test_rapido.bat` risponde in un pomeriggio alla domanda su cui si regge S09: quando su betfair.it un lay costa meno della quota giusta di Pinnacle, il mercato poi ci dà ragione?
-- Per 6 ore segue le partite di calcio e di football americano (NFL, college) che iniziano in quella finestra: Betfair ogni 15 minuti, Pinnacle ogni ora (circa 150 crediti di The Odds API).
-- Calcio e football americano hanno verdetti separati. La finestra migliore è la domenica dalle 16:00: Serie A più le partite NFL delle 19:00 e delle 22:05.
+- Lo lanci quando vuoi. Legge il calendario (gratis) e, se adesso ci sono poche partite, aspetta da solo la finestra di 6 ore con più partite nei 3 giorni successivi. `test_rapido.bat subito` parte comunque adesso.
+- Per 6 ore segue calcio, football americano, tennis, basket e baseball: Betfair ogni 15 minuti, Pinnacle ogni ora (circa 150 crediti di The Odds API). Così si misura anche in settimana.
+- Ogni sport ha il suo verdetto. Se lo interrompi con Ctrl+C, analizza comunque quello che ha raccolto.
 - Misura il CLV di ogni esito contro la chiusura di Pinnacle, senza bisogno del risultato. Non punta nulla, nemmeno in simulazione.
 - Il verdetto è una di tre possibilità: *segnale presente*, *segnale assente* o *non ancora chiaro*.
 - È un'indicazione, non una prova. Ripetuto in giorni diversi, i numeri si sommano.

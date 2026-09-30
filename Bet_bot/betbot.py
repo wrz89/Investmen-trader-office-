@@ -17,7 +17,9 @@
     python betbot.py palestra             Leo rivive gli ultimi anni senza sapere i risultati, scommette e impara
     python betbot.py collega-betfair      collegamento guidato: certificato, login, app key creata da sola
     python betbot.py certificato          crea il certificato per il login Betfair (betfair.it) e lo collega al bot
-    python betbot.py test-rapido [--ore 6] test in poche ore: betfair.it resta indietro rispetto a Pinnacle? (nessuna puntata)
+    python betbot.py test-rapido [subito] [--ore 6]
+                                          test in poche ore: betfair.it resta indietro rispetto a Pinnacle? (nessuna puntata)
+                                          aspetta da solo la finestra con più partite; "subito" parte adesso
     python betbot.py esame                esame per il live: quali strategie hanno superato i criteri sui prezzi veri
     python betbot.py copertura            quante partite e quanti crediti servono a The Odds API (e se c'è Pinnacle)
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
@@ -146,7 +148,7 @@ def main() -> int:
     if a.comando == "test-rapido":
         from betbot import test_rapido
         ore = a.ore if a.ore != 72 else 6.0                  # --ore vale 72 di default per simula: qui 6
-        return 0 if test_rapido.run(hours=ore) else 1
+        return 0 if test_rapido.run(hours=ore, subito=a.valore == "subito") else 1
 
     if a.comando == "collega-betfair":
         from betbot import collega_betfair

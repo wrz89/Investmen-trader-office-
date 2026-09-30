@@ -80,8 +80,8 @@ feed:
     stream: false         # true = prezzi in tempo reale dallo Stream API invece del polling
     race_countries: [GB, IE]
     race_hours: 2
-    sports: [soccer, tennis, basketball, americanfootball]   # mercati MATCH_ODDS letti da Betfair
-    soccer_hours: 36                       # finestra per gli eventi (calcio, tennis, basket, football americano)
+    sports: [soccer, tennis, basketball, americanfootball, baseball]   # mercati MATCH_ODDS letti (e registrati) da Betfair
+    soccer_hours: 36                       # finestra per gli eventi (tutti gli sport qui sopra)
   odds_api:
     max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito
     min_remaining: 50              # sotto 50 crediti rimasti il riferimento si ferma (e S05 con lui)

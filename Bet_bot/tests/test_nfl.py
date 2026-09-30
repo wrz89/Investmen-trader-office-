@@ -148,7 +148,7 @@ def test_test_rapido_measures_nfl_separately(monkeypatch, tmp_path):
     assert {r["side"] for r in nfl} == {"home", "away"}
     away = [r for r in nfl if r["side"] == "away"][0]
     assert away["ev_lay"] > 0 and away["clv_lay"] > 0
-    assert res["nfl_partite"] == 1 and res["nfl_valore"]["n"] >= 1
+    assert res["sport"]["americanfootball"]["partite"] == 1 and res["sport"]["americanfootball"]["valore"]["n"] >= 1
     assert res["s09"]["n"] == 0                                           # nessun lay di calcio conveniente qui
     md = T.report(res)
     assert "football americano" in md and "Football americano: lay e back" in md

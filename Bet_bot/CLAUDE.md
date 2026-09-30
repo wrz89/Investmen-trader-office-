@@ -51,7 +51,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - Ritirate: S04 cavalli, S07 scalping pre-partita, S08 basket nel 4° quarto.
 - L'unica ipotesi ancora aperta: su betfair.it i prezzi restano indietro rispetto a Pinnacle? Si verifica con
   `test_rapido.bat` (6 ore, CLV contro la chiusura, nessuna puntata; calcio e NFL con verdetti separati) e con le
-  registrazioni + `replay` + `esame`. Finestra migliore: domenica dalle 16 (Serie A + NFL delle 19:00 e 22:05).
+  registrazioni + `replay` + `esame`. Il test rapido sceglie da solo la finestra con più partite (calendario /events
+  gratuito) e misura calcio, NFL, tennis, basket e baseball con verdetti separati (tennis: orario indicativo,
+  tolleranza 4 ore e nomi abbinati anche in ordine inverso).
 
 ## Dove guardare nel codice
 - orizzonti.py: CLV e liquidità di betfair.it a 72/48/24/12/6/3/1 ore dall'inizio, dalle registrazioni (le registrazioni

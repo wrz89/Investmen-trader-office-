@@ -4,7 +4,7 @@ Domanda (dalle analisi pubbliche su Pinnacle: CLV ~0,4% entrando 1 ora prima, ~1
 su betfair.it i prezzi lontani dal fischio d'inizio sono più "sbagliati", e quindi più sfruttabili, di quelli vicini?
 E c'è denaro abbastanza per entrare?
 
-Per ogni partita registrata (calcio e football americano, prezzi VERI di betfair.it) e per ogni orizzonte (72, 48, 24,
+Per ogni partita registrata (calcio, football americano, tennis, basket, baseball: prezzi VERI di betfair.it) e per ogni orizzonte (72, 48, 24,
 12, 6, 3 e 1 ora prima dell'inizio) si prende la fotografia più vicina a quel momento e si misura, per ogni esito:
   • liquidità: denaro al miglior prezzo back e distanza tra back e lay;
   • CLV del back contro la chiusura di Betfair (ultimo prezzo medio prima dell'inizio, margine tolto): c'è sempre;
@@ -37,9 +37,13 @@ def _pin_max_age_s(h: float) -> float:
     return max(90 * 60.0, 0.25 * h * 3600)
 
 
+FAMILIES = (("soccer", "calcio"), ("americanfootball", "football americano"), ("tennis", "tennis"),
+            ("basketball", "basket"), ("baseball", "baseball"))
+
+
 def family(sport: str | None) -> str | None:
     s = sport or ""
-    return "calcio" if s.startswith("soccer") else "football americano" if s.startswith("americanfootball") else None
+    return next((name for pre, name in FAMILIES if s.startswith(pre)), None)
 
 
 def _pin_prices(books: dict | None) -> dict | None:
@@ -152,7 +156,7 @@ def analyse(M: dict, min_edge: float = 0.02, close_max_before_s: float = 30 * 60
                     row["ev"] = p * (back - 1) * (1 - COMM) - (1 - p)
                     row["gap"] = back * p - 1
                 rows.append(row)
-    for fam in ("calcio", "football americano"):
+    for _, fam in FAMILIES:
         g = {}
         for h in HORIZONS_H:
             rr = [x for x in rows if x["family"] == fam and x["h"] == h]
