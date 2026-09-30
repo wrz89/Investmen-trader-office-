@@ -66,6 +66,10 @@ def load_settings(overrides: dict | None = None) -> dict:
             settings.setdefault(section, {})[field] = value
         else:
             settings[section] = value
+    # S10 v1 → v2 (30/09/2026): chi aveva acceso il live con la v1 passa alla v2 (stessi freni, lay di valore prima)
+    if "S10_divertimento_v1" in (settings.get("live_strategies") or []):
+        settings["live_strategies"] = [("S10_divertimento_v2" if x == "S10_divertimento_v1" else x)
+                                       for x in settings["live_strategies"]]
     if settings.get("mode") not in ("paper", "live"):
         raise RuntimeError("mode deve essere 'paper' oppure 'live'.")
     return settings

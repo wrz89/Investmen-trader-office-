@@ -14,5 +14,7 @@ S05_favoriti_exchange_v2:
   min_puntate: 200
 S05_favoriti_exchange_v3:   # aggiunta il 30/09/2026, prima di qualunque risultato: stessi criteri della v2
   min_puntate: 200
+S10_divertimento_v2:        # aggiunta il 30/09/2026, prima di qualunque risultato
+  min_puntate: 200
 S06_live_exchange_v1:
   min_puntate: 200

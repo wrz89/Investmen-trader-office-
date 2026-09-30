@@ -157,13 +157,13 @@ def test_live_on_and_off(local):
     assert bf["live_enabled"] and bf["test_done"] and bf["verified"]
     cfg = yaml.safe_load(over.read_text(encoding="utf-8"))
     assert cfg["mode"] == "live" and cfg["execution"]["provider"] == "betfair"
-    assert cfg["live_strategies"] == ["S10_divertimento_v1"] and cfg["feed"]["reference"] == "odds_api"   # il resto resta
+    assert cfg["live_strategies"] == ["S10_divertimento_v2"] and cfg["feed"]["reference"] == "odds_api"   # il resto resta
     assert any("30.00 €" in x for x in said)
     from betbot.execution import Gates
     assert live_switch.disable(out=lambda *a: None)
     cfg = yaml.safe_load(over.read_text(encoding="utf-8"))
     assert cfg["mode"] == "paper" and cfg["live_strategies"] == [] and not store["betfair"]["live_enabled"]
-    assert Gates.live_allowed(cfg, "S10_divertimento_v1")[0] is False
+    assert Gates.live_allowed(cfg, "S10_divertimento_v2")[0] is False
 
 
 def test_live_refused_without_money(local):
@@ -189,7 +189,8 @@ def test_delayed_prices_go_live_only_for_fun_backs(monkeypatch):
     snap = {"health": {"delayed": True}}
     assert ex.route({"strategy_id": "S10_divertimento_v1", "fun": True}, snap) == "live"
     assert ex.route({"strategy_id": "S05_favoriti_exchange_v2"}, snap) == "shadow"
-    assert ex.route({"strategy_id": "S10_divertimento_v1", "fun": True, "side": "LAY"}, snap) == "shadow"
+    assert ex.route({"strategy_id": "S10_divertimento_v2", "fun": True, "side": "LAY"}, snap) == "live"     # lay fill-or-kill
+    assert ex.route({"strategy_id": "S09_lay_valore_v1", "side": "LAY"}, snap) == "shadow"
     assert ex.route({"strategy_id": "S05_favoriti_exchange_v2"}, {"health": {}}) == "live"
 
 
@@ -204,3 +205,45 @@ def test_preview_lists_candidates_and_the_cost_of_opening_many():
     txt = A.report(cands, 30.0, {"max_daily_loss_eur": 4, "kill_below_bankroll": 20}, T0)
     assert "3 insieme" in txt and "Tennis / ATP Parigi" in txt and "30.00 €" in txt
     assert "Nessuna scelta" in A.report([], None, {}, T0)
+
+
+# ── S10 v2: prima il lay di valore ────────────────────────────────────────
+def _lay_match(ref_ts=None):
+    ex = {"home": {"back": 1.70, "lay": 1.72, "back_size_best": 80, "lay_size_best": 60},
+          "draw": {"back": 3.9, "lay": 4.0, "back_size_best": 40, "lay_size_best": 40},
+          "away": {"back": 4.6, "lay": 4.7, "back_size_best": 30, "lay_size_best": 30}}
+    # Pinnacle dà l'ospite a 5,6 (≈17%): bancarlo a 4,7 ha valore
+    m = _match("L1", "soccer_italy_serie_a", ex, books={"Pinnacle": {"home": 1.62, "draw": 4.2, "away": 5.6}})
+    m["ref_ts"] = ref_ts or T0 - 600
+    return m
+
+
+def test_v2_prefers_value_lays_then_backs():
+    from betbot.strategies import s10_divertimento_v2 as V2
+    tennis = _match("T1", "tennis", {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}, league="ATP Parigi")
+    out = V2.propose(_snap(tennis, _lay_match()), {}, {})
+    assert out[0]["side"] == "LAY" and out[0]["selection"] == "LAY:away" and out[0]["fun"]
+    assert out[0]["strategy_id"] == "S10_divertimento_v2" and out[0]["edge"] >= 0.02
+    assert out[1]["match_id"] == "T1" and out[1].get("side") != "LAY"
+    stale = V2.propose(_snap(_lay_match(ref_ts=T0 - 5 * 3600)), {}, {})            # Pinnacle vecchio: niente lay
+    assert all(p.get("side") != "LAY" for p in stale)
+
+
+def test_risk_sizes_fun_lay_at_minimum_backer(office):
+    from betbot.strategies import s10_divertimento_v2 as V2
+    p = V2.propose(_snap(_lay_match()), {}, {})[0]
+    p = {**p, "strategy_status": "ATTIVA", "odds_ts": 1000.0, "ref_ts": 1000.0}
+    snap = {"ts": 1000.0, "sim_time": 1000.0, "time_scale": 1.0, "races": {}, "health": {"error_rate": 0, "source": "mock"},
+            "matches": {"L1": {"match_id": "L1", "status": "SCHEDULED", "home": "Casa", "away": "Ospite",
+                               "exchange": {"away": {"back": 4.6, "lay": 4.7, "back_size": 300.0, "lay_size": 300.0}}}}}
+    d = office.risk.evaluate(p, snap, office.risk.portfolio_state())
+    assert d["approved"], d["reasons"]
+    assert d["stake"] == pytest.approx(0.5 * (4.7 - 1), abs=0.02)                 # responsabilità con 0,50 € del backer
+
+
+def test_live_settings_move_v1_to_v2(tmp_path, monkeypatch):
+    from betbot import config
+    over = tmp_path / "impostazioni.yaml"
+    over.write_text("mode: live\nlive_strategies: [S10_divertimento_v1]\n", encoding="utf-8")
+    monkeypatch.setattr(config, "LOCAL_OVERRIDE", over)
+    assert config.load_settings()["live_strategies"] == ["S10_divertimento_v2"]

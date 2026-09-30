@@ -17,19 +17,24 @@ SPORT_IT = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket", "ame
             "baseball": "Baseball"}
 
 
+def _leg(c: dict, comm: float) -> tuple[float, float, float]:
+    """(rischio, probabilità di vincere, vincita netta) di una scelta: back da 2 € o lay con 0,50 € del backer."""
+    if c.get("side") == "LAY":
+        backer = 0.5
+        return backer * (c["odds"] - 1), 1 - c["fair_prob"], backer * (1 - comm)
+    return STAKE, c["fair_prob"], STAKE * (c["odds"] - 1) * (1 - comm)
+
+
 def together(cands: list[dict], k: int, comm: float = 0.045) -> dict:
     """Le prime k scelte aperte insieme (partite diverse, esiti indipendenti)."""
-    sel = cands[:k]
-    ev = sum(STAKE * c["edge"] for c in sel)
-    p_all_lost = 1.0
-    for c in sel:
-        p_all_lost *= 1 - c["fair_prob"]
-    p_any_lost = 1.0
-    for c in sel:
-        p_any_lost *= c["fair_prob"]
-    best = sum(STAKE * (c["odds"] - 1) * (1 - comm) for c in sel)
-    return {"k": len(sel), "ev": ev, "p_all_lost": p_all_lost, "p_at_least_one_lost": 1 - p_any_lost,
-            "worst": -STAKE * len(sel), "best": best}
+    legs = [_leg(c, comm) for c in cands[:k]]
+    ev = sum(w * win - (1 - w) * risk for risk, w, win in legs)
+    p_all_lost = p_all_won = 1.0
+    for risk, w, win in legs:
+        p_all_lost *= 1 - w
+        p_all_won *= w
+    return {"k": len(legs), "ev": ev, "p_all_lost": p_all_lost, "p_at_least_one_lost": 1 - p_all_won,
+            "worst": -sum(r for r, _, _ in legs), "best": sum(win for _, _, win in legs)}
 
 
 def report(cands: list[dict], bankroll: float | None, limits: dict, now: float, top: int = 10) -> str:
@@ -38,17 +43,20 @@ def report(cands: list[dict], bankroll: float | None, limits: dict, now: float, 
         L.append("Nessuna scelta adatta in questo momento (quote 1,40-3,00, libro stretto e liquido, inizio tra 10 minuti "
                  "e 4 ore). Riprova più tardi: la sera e nei weekend ce ne sono di più.")
         return "\n".join(L)
-    L.append(f"{'#':>2}  {'Inizio':6}  {'Sport / campionato':26}  {'Scelta':32}  {'Quota':>5}  {'Prob.':>5}  "
-             f"{'Fonte':10}  {'Valore':>6}  {'€ al prezzo':>11}")
+    L.append(f"{'#':>2}  {'Inizio':6}  {'Sport / campionato':26}  {'Scelta':32}  {'Quota':>5}  {'Vince':>5}  "
+             f"{'Fonte':10}  {'Valore':>6}  {'€ al prezzo':>11}  Tipo")
     for i, c in enumerate(cands[:top], 1):
         ko = datetime.fromisoformat(c["kickoff"]).astimezone(TZ)
-        src = "Pinnacle" if c.get("prob_source") != "exchange" else "Betfair"
+        src = "Betfair" if c.get("prob_source") == "exchange" else "Pinnacle" if "inn" in str(c.get("ref_source") or "Pinnacle") else "consenso"
         sport = SPORT_IT.get((c.get("sport") or "").split("_")[0], c.get("sport") or "")
         league = f"{sport} / {c.get('league') or ''}"[:26]
-        L.append(f"{i:>2}  {ko:%H:%M}   {league:26}  {c['label'][:32]:32}  {c['odds']:5.2f}  {c['fair_prob']:5.0%}  "
-                 f"{src:10}  {c['edge']:+6.1%}  {c['book_eur']:9.0f} €")
+        risk, w, _ = _leg(c, 0.045)
+        kind = f"LAY rischio {risk:.2f} €" if c.get("side") == "LAY" else "back 2 €"
+        L.append(f"{i:>2}  {ko:%H:%M}   {league:26}  {c['label'][:32]:32}  {c['odds']:5.2f}  {w:5.0%}  "
+                 f"{src:10}  {c['edge']:+6.1%}  {c['book_eur']:9.0f} €  {kind}")
     L += ["", "Valore = guadagno atteso per euro puntato, commissione compresa (negativo = in media si perde un po').", "",
-          "Se ne aprissi più di una INSIEME (2 € l'una, le migliori della lista):"]
+          "Vince = probabilità che la puntata vinca (per un LAY: che l'esito NON succeda). I LAY di valore vengono prima.", "",
+          "Se ne aprissi più di una INSIEME (le migliori della lista):"]
     for k in (1, 2, 3):
         if k > len(cands):
             break
@@ -64,7 +72,7 @@ def report(cands: list[dict], bankroll: float | None, limits: dict, now: float, 
 
 def run(out=print) -> int:
     from .feeds import make_feed
-    from .strategies import s10_divertimento_v1 as S10
+    from .strategies import s10_divertimento_v2 as S10
     settings = load_settings()
     if settings["feed"]["provider"] != "betfair":
         settings["feed"]["provider"] = "betfair"          # l'anteprima guarda sempre i prezzi veri
