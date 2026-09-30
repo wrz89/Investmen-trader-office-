@@ -356,6 +356,45 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 .lessons .row .mono { font-size: 12px; }
 .lessons .why { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
 .drawer .coach-sum { border: 1px solid var(--wall); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 6px; font-size: 13px; }
+/* ── esame per il live ─────────────────────────── */
+.exam { display: grid; gap: 14px; }
+.exam > header { margin-bottom: 0; }
+.exam .rule { margin: 0; font-size: 13px; line-height: 1.45; padding: 8px 12px; border-radius: var(--r); background: var(--accent-soft); color: var(--ink); }
+.exam .rule b { color: var(--accent); }
+.rec { border: 1px solid var(--wall); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 6px; }
+.rec .top-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; font-size: 14px; }
+.rec .top-line b { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+.rec .meter { height: 8px; }
+.rec small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.rec .how { margin: 2px 0 0; font-size: 13px; line-height: 1.45; padding: 8px 10px; border-radius: var(--r); background: var(--warn-soft); color: var(--ink); }
+.exams { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+.exams > * { min-width: 0; }
+.ex { border: 1px solid var(--wall); border-left: 4px solid var(--v, var(--wall)); border-radius: var(--r); padding: 12px; display: grid; gap: 10px; align-content: start; }
+.ex.v-ok { --v: var(--ok); } .ex.v-warn { --v: var(--warn); } .ex.v-bad { --v: var(--bad); }
+.ex .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ex .head h3 { min-width: 0; overflow-wrap: anywhere; }
+.ex .head h3 span { font: 500 12px var(--f-body); color: var(--muted); display: block; margin-top: 1px; }
+.ex .pill { font-size: 12px; padding: 3px 9px; }
+.ex .lab { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+.ex .lab b { color: var(--ink); font: 600 13px var(--f-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ex .lab b.pos { color: var(--ok); } .ex .lab b.neg { color: var(--bad); }
+.ex .meter { height: 8px; }
+.ex .meter i { background: var(--v, var(--accent)); }
+.clvline { position: relative; height: 26px; margin: 2px 4px 14px; }
+.clvline .axis { position: absolute; left: 0; right: 0; top: 12px; height: 2px; background: var(--wall); border-radius: 1px; }
+.clvline .zero { position: absolute; top: 2px; width: 2px; height: 22px; margin-left: -1px; background: var(--ink); }
+.clvline .zero::after { content: "0"; position: absolute; top: 23px; left: 50%; transform: translateX(-50%); font: 600 10.5px var(--f-data); color: var(--ink); }
+.clvline .span { position: absolute; top: 8px; height: 10px; border-radius: 5px; background: var(--c); opacity: .35; min-width: 2px; }
+.clvline .dot { position: absolute; top: 6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--c); border: 2px solid var(--room); }
+.clvline .end { position: absolute; top: 23px; font: 10.5px var(--f-data); color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
+.clvline .end.l { transform: none; } .clvline .end.r { transform: translateX(-100%); }
+.ex .miss { margin: 0; font-size: 13px; line-height: 1.45; }
+.ex .miss b { display: block; font: 600 11px/1.3 var(--f-data); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.ex .miss ul { margin: 0; padding-left: 18px; }
+.ex .aside { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.4; }
+.exam-empty { padding: 14px; border: 1px dashed var(--wall); border-radius: var(--r); display: grid; gap: 8px; }
+.exam-empty p { margin: 0; font-size: 14px; }
+.exam-empty .chips { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -382,6 +421,13 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     <header><h2>Bankroll e reinvestimento</h2><p id="kpi-note"></p></header>
     <div class="kpis" id="kpis"></div>
     <svg class="chart" id="chart" viewBox="0 0 800 170" role="img" aria-label="Andamento del bankroll"></svg>
+  </section>
+
+  <section class="panel exam" id="exam" aria-label="Esame per il live">
+    <header><h2>Esame per il live</h2><p id="exam-note"></p></header>
+    <p class="rule"><b>Criteri decisi prima dei risultati</b>: almeno 200 puntate sui prezzi veri, CLV positivo anche nel caso peggiore, ROI positivo. La decisione di passare ai soldi veri resta tua.</p>
+    <div id="exam-rec"></div>
+    <div id="exam-list"></div>
   </section>
 
   <section class="panel" aria-label="La sala">
@@ -531,7 +577,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (k === "quote") return `${pl(st.partite ?? 0, "partita", "partite")} · ${st.live ?? 0} live`;
     if (k === "tesoriere") return `${eur(st.bankroll)} · ROI ${pct(st.roi, 1, true)}`;
     if (k === "sentiment") return `${st.flags ?? 0} segnalazioni · ${st.news_24h ?? 0} notizie 24h`;
-    if (k === "direttore") return `${st.piazzate ?? 0} piazzate · ${st.chiuse ?? 0} chiuse`;
+    if (k === "direttore") { const r = examReady().length; return `${st.piazzate ?? 0} piazzate · ${st.chiuse ?? 0} chiuse${r ? ` · ${pl(r, "strategia pronta", "strategie pronte")}` : ""}`; }
     return "";
   }
   function renderFloor() {
@@ -556,13 +602,13 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     return { x: r.left - f.left + r.width / 2, y: r.top - f.top + r.height / 2 };
   }
   async function playTicket(ev) {
-    const veto = ev.kind === "veto", win = ev.kind === "settle", coach = ev.kind === "lesson" || ev.kind === "rule";
-    const desk = ev.kind === "lesson" ? lessonOwner(ev) : ownerOf(ev);
-    // Leo: l'autopsia va dalla sua stanza a quella di chi aveva la puntata; una regola resta nella sua stanza
-    const path = coach ? (ev.kind === "lesson" ? ["coach", desk] : ["coach"]) : win ? ["banco", "tesoriere", "auditor"] : veto ? ["quote", desk, "sentiment", "risk"] : ["quote", desk, "sentiment", "risk", "banco", "tesoriere", "auditor"];
+    const veto = ev.kind === "veto", win = ev.kind === "settle", coach = ev.kind === "lesson" || ev.kind === "rule" || ev.kind === "esame";
+    const desk = ev.kind === "lesson" ? lessonOwner(ev) : ev.kind === "esame" ? "direttore" : ownerOf(ev);
+    // Leo: l'autopsia va dalla sua stanza a quella di chi aveva la puntata, l'esito dell'esame a Carlo; una regola resta nella sua stanza
+    const path = coach ? (ev.kind === "rule" ? ["coach"] : ["coach", desk]) : win ? ["banco", "tesoriere", "auditor"] : veto ? ["quote", desk, "sentiment", "risk"] : ["quote", desk, "sentiment", "risk", "banco", "tesoriere", "auditor"];
     const t = document.createElement("div");
     t.className = `ticket${veto ? " veto" : win ? " win" : coach ? " coach" : ""}`;
-    t.textContent = coach ? (ev.kind === "lesson" ? lessonLine(ev) : ruleLine(ev)).slice(0, 60) : win ? `${signEur(ev.payload?.pnl)} · ${ev.payload?.label || ""}`.slice(0, 60)
+    t.textContent = coach ? (ev.kind === "lesson" ? lessonLine(ev) : ev.kind === "esame" ? examLine(ev) : ruleLine(ev)).slice(0, 60) : win ? `${signEur(ev.payload?.pnl)} · ${ev.payload?.label || ""}`.slice(0, 60)
       : veto ? ev.message.replace(/^VETO\s*/, "").slice(0, 60) : ev.message.replace(/^\[[^\]]+\]\s*/, "").slice(0, 60);
     $("floor").appendChild(t);
     const place = k => { const c = center(k); t.style.left = `${Math.max(4, c.x - t.offsetWidth / 2)}px`; t.style.top = `${c.y - 10}px`; };
@@ -602,7 +648,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   function ownerOf(e) {
     const a = e?.payload?.agent;
     if (a === "analista" || a === "cavalli") return a;       // il bot lo scrive nel payload di 'bet' e 'settle'
-    if (/^S0[48]/.test(e?.payload?.strategy || "")) return "cavalli";
+    if (/^S0[48]_/.test(e?.payload?.strategy || "")) return "cavalli";   // solo eventi vecchi: S04 e S08 sono ritirate
     const p = e?.payload || {};
     return COURT_TXT.test(`${e?.message || ""} ${p.label || ""} ${p.sport || ""} ${p.league || ""}`) ? "cavalli" : "analista";
   }
@@ -661,7 +707,8 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   // eventi nuovi tra un poll e l'altro → animazioni (solo con l'ufficio collegato, mai in fotografia)
   // priorità: allarmi, poi chiusure, poi puntate; i veti per ultimi (a ogni ciclo possono essere decine)
   // lezioni e regole di Leo: una regola nuova è rara e conta quanto una chiusura; le autopsie come una puntata
-  const PRIO = { kill_switch: 0, circuit: 0, settle: 1, cashout: 1, rule: 1, bet: 2, lesson: 2, veto: 3 };
+  // l'esito dell'esame per il live cambia di rado ed è la notizia della fase di prova: conta come una chiusura
+  const PRIO = { kill_switch: 0, circuit: 0, settle: 1, cashout: 1, rule: 1, esame: 1, bet: 2, lesson: 2, veto: 3 };
   // di autopsie e regole se ne anima una sola per poll (l'ultima): dopo un giro di chiusure possono essere tante
   const lastOfKind = list => list.filter(e => (e.kind !== "lesson" && e.kind !== "rule") || e === list.filter(x => x.kind === e.kind).pop());
   const seenAnim = new Map(), DEDUP_MS = 15 * 60 * 1000;
@@ -694,7 +741,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
           main.sort((a, b) => a.id - b.id).forEach(e => enqueue(eventAnim(e), PRIO[e.kind]));
         }
       } else if (mode3d === "off" && !REDUCED && !document.hidden) {
-        lastOfKind(pickNew()).filter(e => ["bet", "veto", "lesson", "rule"].includes(e.kind)).slice(-3).forEach(e => queue.push(e));
+        lastOfKind(pickNew()).filter(e => ["bet", "veto", "lesson", "rule", "esame"].includes(e.kind)).slice(-3).forEach(e => queue.push(e));
         while (queue.length > 3) queue.shift();
         pump();
       }
@@ -703,7 +750,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   }
 
   // ── testata, allarmi, indicatori ───────────────────────────
-  const FEED_TXT = { mock: "simulati", betfair: "veri di Betfair" };
+  const FEED_TXT = { mock: "simulati", betfair: "veri di Betfair", replay: "veri registrati (replay)" };
   const EXEC_TXT = { paper: "exchange simulato", betfair: "Betfair Exchange Italia" };
   function renderHeader() {
     const m = S.meta || {}, sv = S.settings_view || {}, rs = S.risk_state || {};
@@ -732,7 +779,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const P = S.strategy_params || {};
     // una strategia in OSSERVAZIONE non si sblocca col bankroll: resta fuori dal box Obiettivo
     return (S.strategies || []).map(s => ({ id: s.id, code: String(s.id).split("_")[0], name: s.name, status: s.status, at: Number(s.unlock_at ?? P[s.id]?.min_bankroll) }))
-      .filter(s => s.at > 0 && s.status !== "OSSERVAZIONE").sort((a, b) => a.at - b.at);
+      .filter(s => s.at > 0 && s.status !== "OSSERVAZIONE" && !retired(s.id)).sort((a, b) => a.at - b.at);
   }
   function renderGoal() {
     const rs = S.risk_state || {}, m = S.metrics || {};
@@ -849,21 +896,22 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   const STRAT_PILL = { "ATTIVA": ["ok", "ATTIVA"], "IN ATTESA": ["warn", "IN ATTESA"], "OSSERVAZIONE": ["", "IN OSSERVAZIONE"] };
   const STRAT_NOTE = { "ATTIVA": "attiva: punta con il bankroll", "IN ATTESA": "attiva, ma il bankroll non basta ancora: intanto lavora in ombra",
     "OSSERVAZIONE": "in osservazione (ombra, nessun capitale)" };
-  // S04 è l'ippica: su Betfair.it non c'è, la strategia gira in ombra solo nel mondo simulato
-  const notOnBetfairIt = id => /^S04/.test(id || "");
+  // ritirate il 30/09/2026 (S04 cavalli, S07 scalping, S08 basket nel quarto quarto): non girano più.
+  // Se un database vecchio le elenca ancora, si mostrano come ritirate e restano fuori dal box Obiettivo.
+  const retired = id => /^S0[478]_/.test(id || "");
   function renderStrats() {
     const by = S.metrics?.by_strategy || {}, P = S.strategy_params || {};
     const shadow = Object.fromEntries((S.shadow || []).map(r => [r.strategy_id, r]));
     const live = S.meta?.live_strategies || [], bank = S.risk_state?.bankroll ?? S.metrics?.bankroll ?? 0;
     $("strats").innerHTML = (S.strategies || []).map(s => {
       const m = by[s.id], p = P[s.id] || {}, sh = shadow[s.id], unl = Number(s.unlock_at ?? p.min_bankroll) || 0;
-      const na = notOnBetfairIt(s.id);
-      const [pc, pt] = na ? ["", "NON DISPONIBILE"] : STRAT_PILL[s.status] || ["", s.status || "—"];
+      const na = retired(s.id);
+      const [pc, pt] = na ? ["", "RITIRATA"] : STRAT_PILL[s.status] || ["", s.status || "—"];
       const pill = `<span class="pill ${pc}">${esc(pt)}</span>`;
-      const note = na ? "non disponibile su Betfair.it: gira in ombra solo nel mondo simulato" : STRAT_NOTE[s.status] || "";
+      const note = na ? "ritirata: non gira più, i numeri sono solo storia" : STRAT_NOTE[s.status] || "";
       return `<div class="strat"><div class="head"><h3>${esc(s.name)}</h3>${pill}</div>
         ${note ? `<div style="font-size:12px;font-weight:600">${esc(note)}</div>` : ""}
-        <div class="muted" style="font-size:12px">${esc(p.description || "")}</div>
+        ${na ? "" : `<div class="muted" style="font-size:12px">${esc(p.description || "")}</div>`}
         <dl><dt>Versione</dt><dd>${esc(s.id)}</dd>
         <dt>Chiuse</dt><dd>${m ? m.bets : 0}</dd>
         <dt>Vinte / pareggio</dt><dd>${m && m.bets ? (m.single_win_rate != null ? `${pct(m.single_win_rate, 0)} / ${pct(m.breakeven_win_rate, 0)}` : pct(m.win_rate, 0)) : "—"}</dd>
@@ -873,6 +921,66 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
         ${unl ? `<dt>Sblocco</dt><dd>${eur(unl, 0)}${bank >= unl ? " ✓" : ""}</dd>` : ""}
         <dt>Soldi veri</dt><dd>${live.includes(s.id) ? "ammessa" : "no"}</dd></dl></div>`;
     }).join("") || `<div class="empty">Le strategie compaiono dopo il primo ciclo.</div>`;
+  }
+
+  // ── esame per il live: criteri di config/esame_live.yaml sui soli prezzi veri di betfair.it ───────────────────────────
+  const VERDICT = { "PRONTA": ["ok", "PRONTA"], "IN ESAME": ["warn", "IN ESAME"], "BOCCIATA": ["bad", "BOCCIATA"] };
+  const examList = () => Array.isArray(S?.esame) ? S.esame : [];
+  const examReady = () => examList().filter(r => r.verdict === "PRONTA");
+  const isoDay = d => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : ""; };
+  const stratName = id => (S?.strategies || []).find(s => s.id === id)?.name || "";
+  // le frasi di esame.py, con la maiuscola e i numeri all'italiana
+  const reasonTxt = t => { t = String(t || "").trim(); return t ? t[0].toUpperCase() + t.slice(1) + (/[.!]$/.test(t) ? "" : ".") : ""; };
+  function recHtml() {
+    const R = S?.registrazione || {};
+    if (!Object.keys(R).length) return "";
+    const days = Number(R.days) || 0, target = Number(R.target_days) || 28, frac = Math.min(1, days / target);
+    const when = days ? [R.first ? `dal ${isoDay(R.first)}` : "", R.last && R.last !== R.first ? `ultimo giorno ${isoDay(R.last)}` : "",
+      R.mb != null ? `${Number(R.mb).toLocaleString("it-IT", { maximumFractionDigits: 1 })} MB` : ""].filter(Boolean).join(" · ") : "nessun giorno registrato ancora";
+    const off = !R.on;
+    const how = off ? `<p class="how">La registrazione è spenta${R.provider && R.provider !== "betfair" ? ` (ora i prezzi vengono dal feed <span class="mono">${esc(R.provider)}</span>, che non si registra)` : ""}. Per accenderla scrivi in <span class="mono">runtime/impostazioni.yaml</span> <span class="mono">feed.provider: betfair</span> e <span class="mono">feed.record: true</span>, poi riavvia Bet_bot.</p>`
+      : days >= target ? `<small>Giorni sufficienti: con <span class="mono">python betbot.py replay</span> le strategie rigiocano i giorni registrati.</small>` : "";
+    return `<div class="rec"><div class="top-line"><span>Registrazione prezzi veri: <b>${days} ${days === 1 ? "giorno" : "giorni"} su ${target}</b></span>
+      <span class="pill ${off ? "warn" : "ok"}">${off ? "spenta" : "accesa"}</span></div>
+      <div class="meter" title="${pct(frac, 0)} dei giorni che servono"><i style="width:${(frac * 100).toFixed(1)}%;${off ? "background:var(--warn)" : ""}"></i></div>
+      <small>${esc(when)}</small>${how}</div>`;
+  }
+  // CLV come una linea: lo zero in evidenza, l'intervallo (caso peggiore … caso migliore) e il punto della media
+  function clvLine(r) {
+    if (r.clv == null) return `<p class="aside">CLV non misurabile ancora: serve la quota di chiusura delle puntate.</p>`;
+    const lo = r.clv_lo, hi = r.clv_hi, m = Math.max(0.02, ...[lo, hi, r.clv].filter(v => v != null).map(Math.abs)) * 1.15;
+    const X = v => (50 + v / m * 50).toFixed(1);
+    const col = lo != null && lo > 0 ? "var(--ok)" : hi != null && hi < 0 ? "var(--bad)" : "var(--warn)";
+    return `<div class="clvline" style="--c:${col}" role="img" aria-label="CLV ${pctS(r.clv, 1)}${lo != null ? `, caso peggiore ${pctS(lo, 1)}, caso migliore ${pctS(hi, 1)}` : ""}">
+      <span class="axis"></span>${lo != null ? `<span class="span" style="left:${X(lo)}%;width:${(X(hi) - X(lo)).toFixed(1)}%"></span>` : ""}
+      <span class="zero" style="left:50%"></span><span class="dot" style="left:${X(r.clv)}%"></span>
+      <span class="end l" style="left:0">${esc(pctS(-m, 0))}</span><span class="end r" style="left:100%">${esc(pctS(m, 0))}</span></div>`;
+  }
+  function examCard(r) {
+    const [vc, vt] = VERDICT[r.verdict] || ["", r.verdict || "—"], need = Number(r.need) || 200, n = Number(r.n) || 0;
+    const name = stratName(r.strategy_id), reasons = (r.reasons || []).map(reasonTxt).filter(Boolean);
+    const miss = r.verdict === "PRONTA" ? `<p class="miss"><b>Cosa manca</b>Niente: ha superato tutti i criteri sui prezzi veri. Se passare ai soldi veri lo decidi tu.</p>`
+      : r.verdict === "BOCCIATA" ? `<p class="miss"><b>Esito</b>Con ${need} puntate e oltre, il CLV resta negativo anche nel caso migliore: sui prezzi veri il mercato le dà torto. Resta in ombra, senza soldi veri.</p>`
+      : `<div class="miss"><b>Cosa manca</b>${reasons.length ? `<ul>${reasons.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` : "Dati ancora insufficienti."}</div>`;
+    const lay = /^S09/.test(r.strategy_id || "") ? `<p class="aside">Lay d'apertura con soldi veri: ha un interruttore suo, <span class="mono">execution.lay_apertura</span>, spento di serie. Accenderlo è una tua scelta, dopo l'esame.</p>` : "";
+    return `<div class="ex v-${vc}"><div class="head"><h3 title="${esc(r.strategy_id)}">${esc(sCode(r.strategy_id))}${name ? `<span>${esc(name)}</span>` : `<span>${esc(r.strategy_id)}</span>`}</h3><span class="pill ${vc}">${esc(vt)}</span></div>
+      <div><div class="lab"><span>Puntate chiuse sui prezzi veri</span><b>${n} / ${need}</b></div><div class="meter"><i style="width:${Math.min(100, n / need * 100).toFixed(1)}%"></i></div></div>
+      <div><div class="lab"><span>CLV (caso peggiore … migliore)</span><b>${r.clv == null ? "—" : `${esc(pctS(r.clv, 1))}${r.clv_lo != null ? ` <span class="muted" style="font-weight:500">(${esc(pctS(r.clv_lo, 1))} … ${esc(pctS(r.clv_hi, 1))})</span>` : ""}`}</b></div>${clvLine(r)}</div>
+      <div class="lab"><span>ROI sul rischio</span><b class="${tone(r.roi)}">${r.roi == null ? "—" : esc(pctS(r.roi, 1))}</b></div>
+      ${r.win_rate != null ? `<div class="lab" style="margin-top:-6px"><span>Vinte</span><b>${pct(r.win_rate, 0)}</b></div>` : ""}
+      ${miss}${lay}</div>`;
+  }
+  function renderExam() {
+    const E = examList(), empty = !E.length || E.every(r => !Number(r.n));
+    const cnt = k => E.filter(r => r.verdict === k).length;
+    $("exam-note").textContent = empty ? "Conta solo ciò che succede sui prezzi veri di betfair.it" : [
+      cnt("PRONTA") ? pl(cnt("PRONTA"), "pronta", "pronte") : "", cnt("IN ESAME") ? `${cnt("IN ESAME")} in esame` : "", cnt("BOCCIATA") ? pl(cnt("BOCCIATA"), "bocciata", "bocciate") : ""].filter(Boolean).join(" · ");
+    $("exam-rec").innerHTML = recHtml();
+    $("exam-list").innerHTML = empty
+      ? `<div class="exam-empty"><p><b>Nessuna puntata sui prezzi veri ancora</b>: collega Betfair e lascia girare il bot.</p>
+          <p class="muted" style="font-size:13px">Il mondo simulato non conta per l'esame: valgono solo le puntate sui prezzi di betfair.it (in diretta o rigiocate dalle registrazioni).</p>
+          ${E.length ? `<div class="chips">${E.map(r => `<span class="chip" title="${esc(r.strategy_id)}">${esc(sCode(r.strategy_id))} · 0 / ${Number(r.need) || 200}</span>`).join("")}</div>` : ""}</div>`
+      : `<div class="exams">${E.map(examCard).join("")}</div>`;
   }
 
   // ── scuola degli errori (Leo) ───────────────────────────
@@ -1053,14 +1161,19 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     bd.scrollTop = top;
     drawerSig = drawerKey(k);
   }
-  // nel cassetto di Leo: il riassunto della scuola degli errori e un collegamento al pannello
+  // nel cassetto di Leo: il riassunto della scuola degli errori e un collegamento al pannello (e l'esame per il live, che tiene lui)
+  function examLeo() {
+    const E = examList();
+    if (!E.length) return "";
+    return `<div>Esame per il live: ${E.map(r => `<span class="pill ${(VERDICT[r.verdict] || [""])[0]}" title="${esc(r.strategy_id)}">${esc(sCode(r.strategy_id))} ${esc(r.verdict)} ${Number(r.n) || 0}/${Number(r.need) || 200}</span>`).join(" ")} <a href="#exam" data-close="1">vedi ↑</a></div>`;
+  }
   function coachDrawer() {
     const C = S?.coach;
-    if (!C) return `<div class="coach-sum"><span class="muted">Leo non ha ancora dati: le autopsie partono con le prime puntate chiuse.</span></div>`;
+    if (!C) return `<div class="coach-sum"><span class="muted">Leo non ha ancora dati: le autopsie partono con le prime puntate chiuse.</span>${examLeo()}</div>`;
     const r = coachRules().filter(x => x.active), N = coachNums();
     return `<div class="coach-sum"><div><b>${pl(N.lessons ?? 0, "autopsia", "autopsie")}</b> · CLV medio <b class="${tone(N.clv)}">${N.clv == null ? "—" : esc(pctS(N.clv, 1))}</b> · ${pl(r.length, "regola attiva", "regole attive")}</div>
       ${r.slice(0, 3).map(x => `<div class="muted">• ${esc(ruleBoardText(x))}</div>`).join("")}
-      <div><a href="#school" data-close="1">Apri la Scuola degli errori ↓</a></div></div>`;
+      ${examLeo()}<div><a href="#school" data-close="1">Apri la Scuola degli errori ↓</a></div></div>`;
   }
   function openDrawer(k) {
     const other = k !== openAgent;
@@ -1125,7 +1238,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       </section>
       <section class="set-sec"><h3>Cosa ti scrivo</h3>
         ${chk("n-bets", "Ogni puntata piazzata", "in paper (exchange simulato) o con soldi veri su Betfair", n.bets)}
-        ${chk("n-settles", "Ogni puntata chiusa", "vinta, persa o chiusa prima della fine (cash-out, green-up)", n.settles)}
+        ${chk("n-settles", "Ogni puntata chiusa", "vinta, persa o chiusa prima della fine con un lay (cash-out)", n.settles)}
         ${chk("n-breakers", "Blocchi di sicurezza", "kill switch, perdita del giorno, serie negativa, limiti modificati", n.breakers)}
         ${chk("n-sentiment", "Allarmi sentiment", "veti e cautele su una squadra o un giocatore", n.sentiment)}
         ${chk("n-errors", "Errori", "prezzi non raggiungibili, errori di ciclo", n.errors)}
@@ -1133,6 +1246,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       </section>
       <section class="set-sec"><h3>Fonti dei dati</h3>
         <p>Prezzi: <b>${esc(feedTxt)}</b> · quote di riferimento: <b>${esc(refTxt)}</b>${SET.live_stats && SET.live_stats !== "none" ? ` · statistiche live: <b>${esc(SET.live_stats)}</b>` : ""}. Per cambiare fonte scrivi <span class="mono">feed:</span> in runtime/impostazioni.yaml e riavvia.</p>
+        <p>Registrazione dei prezzi veri (per l'esame per il live): <b>${SET.record && SET.feed === "betfair" ? "accesa" : "spenta"}</b>${SET.record && SET.feed === "betfair" ? "" : `. Si accende con <span class="mono">feed.provider: betfair</span> e <span class="mono">feed.record: true</span> in runtime/impostazioni.yaml`}.</p>
         <label for="k-odds">The Odds API: quote dei bookmaker, solo come riferimento per stimare la probabilità giusta (lì non si punta)</label>
         <div class="field"><input type="password" id="k-odds" autocomplete="off" placeholder="${SET.odds_api_key ? `salvata: ${esc(SET.odds_api_key)}` : "chiave da the-odds-api.com"}"></div>
         <label for="k-foot">API-Football: minuto, punteggio, tiri e cartellini delle partite di calcio in corso</label>
@@ -1145,7 +1259,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
           <div class="field"><input type="text" id="bf-user" autocomplete="off" placeholder="${bf.username ? esc(bf.username) : "utente Betfair"}"><input type="password" id="bf-pass" autocomplete="off" placeholder="password"><button class="btn primary" id="bf-save" type="button">Salva</button></div></li>
           <li><div class="field"><button class="btn" id="bf-verify" type="button" ${bf.has_login ? "" : "disabled"}>${bf.verified ? "Conto verificato ✓" : "Verifica il conto"}</button></div></li>
           <li>Ordine di prova su una partita di calcio: 2 € a quota 1000, annullato subito (a quella quota nessuno lo abbina), quindi non costa nulla. Servono almeno 2 € disponibili sul conto. <div class="field"><button class="btn" id="bf-test" type="button" ${bf.verified && !bf.test_done ? "" : "disabled"}>${bf.test_done ? "Prova fatta ✓" : "Fai l'ordine di prova"}</button></div></li>
-          <li>${chk("bf-live", "Puntate reali (soldi veri)", `servono anche, in runtime/impostazioni.yaml, <span class="mono">mode: live</span>, <span class="mono">execution: provider: betfair</span> e la strategia in <span class="mono">live_strategies</span> (ora: ${esc((SET.live_strategies || []).join(", ") || "nessuna")}). Finché manca qualcosa il bot resta in paper.`, bf.live_enabled)}</li></ol>
+          <li>${chk("bf-live", "Puntate reali (soldi veri)", `servono anche, in runtime/impostazioni.yaml, <span class="mono">mode: live</span>, <span class="mono">execution: provider: betfair</span> e la strategia in <span class="mono">live_strategies</span> (ora: ${esc((SET.live_strategies || []).join(", ") || "nessuna")}). Finché manca qualcosa il bot resta in paper. Il lay d'apertura (S09) ha in più l'interruttore <span class="mono">execution.lay_apertura</span>, spento di serie: accendilo solo se S09 supera l'esame per il live.`, bf.live_enabled)}</li></ol>
         ${bf.has_login ? `<div class="field"><button class="btn danger" id="bf-clear" type="button">Rimuovi le credenziali</button></div>` : ""}
       </section>`;
     const on = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); };
@@ -1808,7 +1922,12 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       return `${compactTags ? `${n} lez.` : pl(n, "lezione", "lezioni")}${clv}`;
     }
     if (k === "tesoriere") return `${compactTags ? "" : "Bankroll "}${eur(st?.tesoriere?.bankroll ?? S?.risk_state?.bankroll)}`;
-    if (k === "direttore") { const dd = st?.direttore?.drawdown ?? S?.risk_state?.drawdown; return `${compactTags ? "DD" : "Drawdown"} <span class="${dd > 0.06 ? "neg" : ""}">${pct(dd, 1)}</span>`; }
+    if (k === "direttore") {
+      // con una strategia che ha superato l'esame per il live, Carlo lo tiene sopra la testa
+      const dd = st?.direttore?.drawdown ?? S?.risk_state?.drawdown, ready = examReady().length;
+      const rd = ready ? ` · <span class="pos">${compactTags ? `${ready} ${ready === 1 ? "pronta" : "pronte"}` : pl(ready, "strategia pronta", "strategie pronte")}</span>` : "";
+      return `${compactTags ? "DD" : "Drawdown"} <span class="${dd > 0.06 ? "neg" : ""}">${pct(dd, 1)}</span>${rd}`;
+    }
     if (k === "quote") return ag.partite != null ? `${pl(ag.partite, "partita", "partite")} · ${ag.live ?? 0} live` : "";
     if (k === "sentiment") return ag.flags != null ? (compactTags ? `${ag.flags} segnal.` : pl(ag.flags, "segnalazione", "segnalazioni")) : "";
     return "";
@@ -2332,6 +2451,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     if (e.kind === "kill_switch" || e.kind === "circuit") return () => animAlarm(e);
     if (e.kind === "lesson") return () => animLesson(e);
     if (e.kind === "rule") return () => animRule(e);
+    if (e.kind === "esame") return () => animExam(e);
     return null;
   }
   // ── Leo: autopsie alla scrivania di chi aveva la puntata, regole scritte sulla lavagna tattica ──
@@ -2362,6 +2482,36 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     await c.say(txt, 4600);
     c.setProp(null);
     if (!REDUCED) c.home();
+  }
+  // ── esame per il live: Leo porta la notizia a Carlo. PRONTA = festa leggera; BOCCIATA = una frase sobria ──
+  const examSid = e => sCode(e?.payload?.strategy_id || ruleSid(e));
+  function examLine(e) {
+    const v = e?.payload?.verdict, sid = examSid(e);
+    return v === "PRONTA" ? `${sid} ha superato l'esame!` : v === "BOCCIATA" ? `${sid} non ha passato l'esame: sui prezzi veri il mercato le dà torto. Resta in ombra.`
+      : `${sid} torna in esame: servono altri dati sui prezzi veri.`;
+  }
+  async function animExam(e) {
+    const p = e.payload || {}, c = W.coach, d = W.direttore, sid = examSid(e), line = examLine(e);
+    const nums = `${p.n != null ? `${pl(Number(p.n), "puntata", "puntate")} sui prezzi veri` : "prezzi veri di betfair.it"}`;
+    if (p.verdict === "PRONTA") {
+      setNote(`<b>Esame per il live</b>: ${esc(sid)} ha superato tutti i criteri (${esc(nums)}). La decisione di passare ai soldi veri resta tua.`);
+      c.claim(); d.claim();
+      if (!REDUCED) {
+        c.setProp(null);
+        if (!(await c.go(visitPos("direttore", c.x)))) return;
+        d.standUp(); d.face = faceTo(d.x, d.z, c.x, c.z); c.face = faceTo(c.x, c.z, d.x, d.z);
+        c.fx.jump = nowMs() + 2200; d.fx.clap = nowMs() + 2600;
+        burst((c.x + d.x) / 2, 1.5, (c.z + d.z) / 2); popConfetti(c); popConfetti(d); wake(3500); kick();
+      }
+      await c.say(line, 3200);
+      await d.say("Ottimo lavoro! Se passare ai soldi veri lo decidi tu.", 2800);
+      d.sitIfHome(); if (!REDUCED) c.home();
+      return;
+    }
+    setNote(`<b>Esame per il live</b>: ${esc(line)} (${esc(nums)}).`);
+    c.claim();
+    await c.say(line, p.verdict === "BOCCIATA" ? 4200 : 3000);
+    backToDesk(c);
   }
   function betText(e) {
     let t = String(e.message || "").replace(/^\[[^\]]+\]\s*/, "").replace(/^Puntata #\d+:\s*/, "");
@@ -2520,7 +2670,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     await w.say(line, stay);
     if (w.job === j) await w.home();
   }
-  // chi possiede una puntata letta dal libro (stesse regole di state.py: S04/S08, tennis e basket → Matteo)
+  // chi possiede una puntata letta dal libro (stesse regole di state.py: tennis e basket → Matteo; S04/S08, ritirate, solo nello storico)
   function betOwner(b) {
     let sport = ""; try { sport = (typeof b.extra === "string" ? JSON.parse(b.extra || "{}") : b.extra || {}).sport || ""; } catch (e) { sport = ""; }
     if (sport) return /^(tennis|basket)/.test(sport) ? "cavalli" : "analista";
@@ -2548,7 +2698,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 
   // ── ciclo di aggiornamento ───────────────────────────
   function renderAll() {
-    renderHeader(); renderKpis(); renderFloor(); render3D(); renderBoard(); renderBets(); renderStrats(); renderCoach(); renderFeed(); renderSentiment(); renderBacktest();
+    renderHeader(); renderKpis(); renderExam(); renderFloor(); render3D(); renderBoard(); renderBets(); renderStrats(); renderCoach(); renderFeed(); renderSentiment(); renderBacktest();
     $("foot-note").textContent = `Aggiornato alle ${new Date((S.generated || Date.now() / 1000) * 1000).toLocaleTimeString("it-IT")}`;
     if (openAgent && drawerKey(openAgent) !== drawerSig) fillDrawer(openAgent);
     detectNew();
