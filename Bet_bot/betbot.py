@@ -25,6 +25,7 @@
     python betbot.py live on|off          soldi veri SÌ/NO (vai_live.bat / torna_paper.bat): chiede conferma scritta
     python betbot.py anteprima            su cosa punterebbe adesso il Divertimento (prezzi veri, nessuna puntata)
     python betbot.py allenamento          le strategie rigiocano 5 anni senza vedere il risultato, Leo fa l'autopsia
+    python betbot.py autopsia [nome|numero]   perché è stata fatta una puntata e perché è persa (Leo)
     python betbot.py bollettino           il bollettino di Leo adesso (ogni mattina arriva da solo su Telegram)
     python betbot.py ferma                spegnimento ordinato: niente nuove puntate, trade chiusi, poi uscita
     python betbot.py avvio-automatico on|off   Bet_bot parte da solo quando accedi a Windows
@@ -75,7 +76,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento", "autopsia"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -142,6 +143,10 @@ def main() -> int:
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
         return 0
+
+    if a.comando == "autopsia":
+        from betbot import autopsia
+        return autopsia.run(a.valore)
 
     if a.comando == "allenamento":
         from betbot import allenamento

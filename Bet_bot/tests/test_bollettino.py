@@ -59,3 +59,20 @@ def test_leo_sends_the_bulletin_in_his_cycle(office, monkeypatch):
     office.coach._bulletin()
     ev = office.store.query("SELECT message FROM events WHERE kind='report' ORDER BY id DESC LIMIT 1")
     assert ev and "Bollettino di Leo" in ev[0]["message"] and "tennis: SEGNALE ASSENTE" in ev[0]["message"]
+
+
+def test_autopsy_finds_a_bet_by_name(tmp_path, monkeypatch):
+    from betbot import autopsia
+    from betbot.store import Store
+    db = tmp_path / "betbot.db"
+    st = Store(db)
+    st.execute("INSERT INTO bets (ts, mode, strategy_id, match_id, label, market, selection, bookmaker, odds, stake, status, "
+               "pnl, reason, settle_reason) VALUES ('2026-10-01T15:00:00+00:00', 'live', 'S10_divertimento_v2', 'M', "
+               "'Berrettini - Fritz · Fritz', 'h2h', 'away', 'Betfair', 2.1, 2, 'LOST', -2, "
+               "'Divertimento: Fritz a 2.10, probabilità giusta 47%', 'risultato 2-1')")
+    monkeypatch.setattr(autopsia, "DB_LIVE_PATH", db)
+    monkeypatch.setattr(autopsia, "DB_PATH", tmp_path / "manca.db")
+    said = []
+    assert autopsia.run("Berrettini", out=said.append) == 0
+    assert "Fritz a 2.10" in said[0] and "LOST" in said[0]
+    assert autopsia.run("Nessuno", out=said.append) == 1
