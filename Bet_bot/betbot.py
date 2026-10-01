@@ -25,6 +25,7 @@
     python betbot.py live on|off          soldi veri SÌ/NO (vai_live.bat / torna_paper.bat): chiede conferma scritta
     python betbot.py anteprima            su cosa punterebbe adesso il Divertimento (prezzi veri, nessuna puntata)
     python betbot.py allenamento          le strategie rigiocano 5 anni senza vedere il risultato, Leo fa l'autopsia
+    python betbot.py storico-betfair      lo storico ufficiale Betfair (runtime/storico_betfair/): lay di valore all'ora vera
     python betbot.py deposito             aggiunge al bot i soldi che hai versato su Betfair (conferma scritta SI)
     python betbot.py autopsia [nome|numero]   perché è stata fatta una puntata e perché è persa (Leo)
     python betbot.py bollettino           il bollettino di Leo adesso (ogni mattina arriva da solo su Telegram)
@@ -77,7 +78,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento", "autopsia", "deposito"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento", "autopsia", "deposito", "storico-betfair"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -144,6 +145,10 @@ def main() -> int:
         print(f"  probabilità di kill switch   {r['prob_kill_switch']:.0%}  (drawdown ≥ 15%)")
         print(f"  drawdown massimo mediano     {r['median_max_dd']:.1%}")
         return 0
+
+    if a.comando == "storico-betfair":
+        from betbot import storico_betfair
+        return 0 if storico_betfair.run() else 1
 
     if a.comando == "deposito":
         from betbot import live_switch

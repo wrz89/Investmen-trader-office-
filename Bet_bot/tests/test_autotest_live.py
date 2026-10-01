@@ -103,3 +103,27 @@ def test_allenamento_autopsy_on_synthetic_matches():
     assert cal["partite"] == 60 and 0 <= cal["azzeccate"] <= 1
     assert "Allenamento" in A.report({"anni": 1, "partite": 60, "calibrazione": cal, "con_betfair": 60,
                                       "strategie": {"S10 divertimento": r}})
+
+
+def test_tennis_training_on_synthetic_file(tmp_path):
+    import pandas as pd
+
+    from betbot import allenamento as A
+    rows = []
+    for i in range(80):
+        # il favorito (1,60 per Pinnacle) vince 2 volte su 3; Betfair paga un filo meglio
+        fav_wins = i % 3 != 0
+        w, l = ("Sinner", f"Avv{i}") if fav_wins else (f"Avv{i}", "Sinner")
+        psw, psl = (1.60, 2.45) if fav_wins else (2.45, 1.60)
+        rows.append({"Date": f"2025-0{1 + i % 9}-{1 + i % 27:02d}", "Winner": w, "Loser": l, "Comment": "Completed",
+                     "Series": "ATP250", "Surface": "Hard", "PSW": psw, "PSL": psl, "BFEW": psw + 0.04, "BFEL": psl + 0.06})
+    rows.append({"Date": "2025-03-03", "Winner": "X", "Loser": "Y", "Comment": "Retired", "PSW": 1.5, "PSL": 2.6})
+    f = tmp_path / "tennis_atp_2025.xlsx"
+    pd.DataFrame(rows).to_excel(f, index=False)
+    ms = A.tennis_matches([f])
+    assert len(ms) == 80 and all(m["bfe"] for m in ms)
+    t = A.tennis_report(ms)
+    assert 0.6 < t["favorito_vince"] < 0.7 and t["s10"]["n"] > 0
+    txt = A.report({"anni": 1, "partite": 0, "calibrazione": {"azzeccate": 0.5, "partite": 1, "attese": 0.5, "fasce": []},
+                    "con_betfair": 0, "strategie": {}, "tennis": t})
+    assert "Tennis" in txt and "S10 sul tennis" in txt

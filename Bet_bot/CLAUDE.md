@@ -8,10 +8,12 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - Default **paper**. Mai mettere `mode: live`, `live_strategies`, `execution.lay_apertura` o "puntate reali" senza una
   richiesta esplicita dell'utente E un esame per il live superato (`esame.bat`, criteri in config/esame_live.yaml
   decisi prima dei risultati: non cambiarli dopo averli visti).
-- Eccezione decisa dall'utente il 30/09/2026: soldi veri "per divertimento" SOLO con S10_divertimento_v1 (2 € fissi,
-  max 5 al giorno, una aperta, EV ≥ −3%, freni fun_* in risk_limits.yaml), acceso da lui con `vai_live.bat` (conferma
-  scritta "SI"), spento con `torna_paper.bat`. Con la app key delayed va in live solo S10 (back fill-or-kill: un prezzo
-  vecchio può solo annullare l'ordine). Non aggiungere altre strategie a live_strategies senza esame superato.
+- Eccezione decisa dall'utente il 30/09/2026: soldi veri "per divertimento" SOLO con S10_divertimento_v2 (prima i lay
+  di valore sul calcio con 0,50 € del backer, altrimenti back da 2 €; max 5 al giorno, una aperta, EV ≥ −3%, freni fun_*
+  in risk_limits.yaml), acceso da lui (dashboard "Passa ai soldi veri" o `vai_live.bat`, conferma scritta "SI"), spento
+  con `torna_paper.bat` o dalla dashboard. Con la app key delayed va in live solo S10 (ordini fill-or-kill: un prezzo
+  vecchio può solo annullare l'ordine). La puntata NON cresce col saldo (scelta dell'utente: solo dopo un esame
+  superato). Versamenti: `deposito.bat`. Non aggiungere altre strategie a live_strategies senza esame superato.
 - Mai chiedere, stampare o salvare in chiaro password, app key, token, chiave privata del certificato.
 - `runtime/` sono i dati dell'utente: non va su GitHub. Le impostazioni personali stanno in runtime/impostazioni.yaml.
 - In caso di dubbio sui soldi veri si blocca (kill switch), non si indovina.
@@ -79,6 +81,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - autotest.py: con `avvia` lancia in sottofondo orizzonti (1/giorno), allenamento (1/settimana), test rapido
   (1/settimana, ≥250 crediti). Live dalla dashboard: /api/live/on|off → live_switch + riavvio (runtime/riavvio.richiesta,
   `avvia` esce con 3, avvia.bat riparte subito).
+- storico_betfair.py: legge lo storico ufficiale Betfair (piano Basic gratuito, LTP minuto per minuto, formato Stream
+  API .bz2/.tar in runtime/storico_betfair/), abbina football-data e misura scarto e lay di valore a 24h/6h/1h/15'.
+- allenamento.py ha anche il tennis (tennis-data: risponde 403 dai server esteri, gira sul PC dell'utente).
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
   proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),

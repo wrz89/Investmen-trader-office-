@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
+from pathlib import Path
 
 from .agents.coach import classify, price_clv_of
 from .feeds.mock import tick_up
@@ -179,6 +180,91 @@ def reasoning(bs: list[dict], min_n: int = 30) -> dict:
             "ragionamenti": thoughts}
 
 
+# ── 3. tennis (tennis-data.co.uk: ATP e WTA principali, quote Pinnacle e Betfair dal 2025) ─────────────
+def tennis_matches(paths=None) -> list[dict]:
+    """Partite completate con quote Pinnacle (PSW/PSL) e, se ci sono, Betfair (BFEW/BFEL). Il vincitore è il
+    risultato; per le scelte le due parti sono trattate allo stesso modo (nessuno sguardo al risultato)."""
+    import pandas as pd
+    if paths is None:
+        from .backtest_tennis import tennis_paths
+        paths = tennis_paths()
+    out = []
+    for path in paths:
+        try:
+            df = pd.read_excel(path)
+        except Exception:
+            continue
+        tour = "WTA" if "wta" in Path(path).name.lower() else "ATP"
+        for _, r in df.iterrows():
+            if str(r.get("Comment", "Completed")).strip().lower() != "completed":
+                continue
+            ps = (r.get("PSW"), r.get("PSL"))
+            bfe = (r.get("BFEW"), r.get("BFEL"))
+            try:
+                ps = tuple(float(x) for x in ps)
+            except (TypeError, ValueError):
+                continue
+            if any(x != x or x <= 1 for x in ps):
+                continue
+            try:
+                bfe = tuple(float(x) for x in bfe)
+                bfe = None if any(x != x or x <= 1 for x in bfe) else bfe
+            except (TypeError, ValueError):
+                bfe = None
+            d = pd.to_datetime(r.get("Date"), errors="coerce")
+            if pd.isna(d):
+                continue
+            out.append({"date": d.to_pydatetime(), "tour": tour, "series": str(r.get("Series") or r.get("Tier") or ""),
+                        "surface": str(r.get("Surface") or ""), "w": str(r.get("Winner")), "l": str(r.get("Loser")),
+                        "ps": ps, "bfe": bfe})
+    return out
+
+
+def tennis_report(ms: list[dict], per_day: int = 5) -> dict:
+    """Calibrazione del favorito di Pinnacle e S10 (back sul prezzo Betfair più giusto) sul tennis. Le quote del file
+    sono prese vicino all'inizio: il CLV qui non si misura, conta il ROI (con il suo margine d'errore)."""
+    from .strategies.s10_divertimento_v1 import DEFAULTS as S10D
+    n = hit = 0
+    exp = 0.0
+    pool = defaultdict(list)
+    for m in ms:
+        try:
+            f = remove_margin({"w": m["ps"][0], "l": m["ps"][1]})
+        except Exception:
+            continue
+        fav = max(f, key=f.get)
+        n += 1
+        hit += fav == "w"
+        exp += f[fav]
+        if not m["bfe"] or not exchange_prices_sane(list(m["bfe"]), list(m["ps"])):
+            continue
+        for i, side in enumerate(("w", "l")):
+            back, p = m["bfe"][i], f[side]
+            ev = ev_net(p, back, COMM)
+            if S10D["odds_min"] <= back <= S10D["odds_max"] and ev >= S10D["min_ev"]:
+                pool[m["date"].strftime("%Y-%m-%d")].append({"strategy": "S10 tennis", "side": "BACK", "price": back,
+                                                             "p": p, "pc": None, "ev": ev, "won": side == "w",
+                                                             "match": f"{m['w']}-{m['l']}", "div": m["tour"],
+                                                             "season": m["date"].strftime("%Y"), "sel": m["surface"] or "?"})
+    bets = []
+    for day, pl in pool.items():
+        seen = set()
+        for b in sorted(pl, key=lambda b: -b["ev"]):
+            if b["match"] in seen:
+                continue
+            seen.add(b["match"])
+            bets.append(b)
+            if len(seen) >= per_day:
+                break
+    for b in bets:
+        b["pnl"] = (b["price"] - 1) * (1 - COMM) if b["won"] else -1.0
+        b["clv"] = None
+        b["cause"] = classify(b["won"], None, {}, None)
+        b["band"] = _band(b["price"])
+    return {"partite": n, "favorito_vince": hit / n if n else None, "atteso": exp / n if n else None,
+            "s10": reasoning(bets) if bets else {"n": 0}}
+
+
 def run(years: int = 5, log=print) -> dict:
     from .palestra import load_matches
     matches = load_matches(years)
@@ -187,9 +273,13 @@ def run(years: int = 5, log=print) -> dict:
     by = defaultdict(list)
     for b in bets:
         by[b["strategy"]].append(b)
+    try:
+        tennis = tennis_report(tennis_matches())
+    except Exception as exc:                       # da alcuni server tennis-data risponde 403: il calcio va avanti
+        tennis = {"errore": str(exc)}
     return {"anni": years, "partite": len(matches), "calibrazione": cal,
             "con_betfair": sum(1 for m in matches if m.get("bfe")),
-            "strategie": {k: reasoning(v) for k, v in sorted(by.items())}}
+            "strategie": {k: reasoning(v) for k, v in sorted(by.items())}, "tennis": tennis}
 
 
 def report(r: dict) -> str:
@@ -219,6 +309,23 @@ def report(r: dict) -> str:
             L += ["", "Leo proporrebbe di evitare (perdita sicura al 90%):"]
             L += [f"- {x['dove']}: {x['n']} puntate, ROI {pct(x['roi'])}" for x in s["regole"]]
         L.append("")
+    t = r.get("tennis") or {}
+    L += ["## 3. Tennis (ATP e WTA, quote vicino all'inizio)", ""]
+    if t.get("errore"):
+        L.append(f"Dati del tennis non disponibili: {t['errore']}")
+    elif t.get("partite"):
+        L.append(f"Favorito di Pinnacle: vince {t['favorito_vince']:.1%} su {t['partite']} partite (atteso {t['atteso']:.1%}).")
+        s = t.get("s10") or {}
+        if s.get("n"):
+            L += ["", f"S10 sul tennis: {s['n']} puntate · vinte {s['vinte']:.1%} (attese {s['attese']:.1%}) · ROI "
+                      f"{pct(s['roi'])} ± {2 * s['se']:.1%}. Il CLV qui non si misura: quote del file già vicino all'inizio."]
+            L += [f"- {x}" for x in s["ragionamenti"][1:]]
+            if s.get("regole"):
+                L += ["", "Leo proporrebbe di evitare:"] + [f"- {x['dove']}: {x['n']} puntate, ROI {pct(x['roi'])}"
+                                                          for x in s["regole"]]
+        else:
+            L.append("Nessuna partita con prezzi Betfair utilizzabili.")
+    L.append("")
     return "\n".join(L) + "\n"
 
 

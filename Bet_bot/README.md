@@ -81,6 +81,18 @@ Le strategie rigiocano gli ultimi 5 anni senza vedere il risultato, poi Leo fa l
 - **Azzeccano il risultato?** Scegliendo sempre l'esito più probabile per Pinnacle si azzecca il 51,5% (atteso 51,3%). Le quote sono tarate: quello che danno al 70% vince 7 volte su 10.
 - **Sui prezzi veri di Betfair (2024-26):** S10 fa 1.239 puntate, ROI +0,2% ± 5,5%, CLV +0,2% ± 0,4%: né vantaggio né svantaggio misurabile. S09 fa 95 lay, ROI +4,8% ± 11,3%, CLV positivo: promettente ma pochi dati. S05 fa solo 7 puntate.
 - Per ogni perdita dice se è stata varianza (decisione giusta) o un prezzo che non valeva, e quali campionati o fasce evitare.
+- **Tennis** (ATP e WTA, da tennis-data con i prezzi Betfair dal 2025): calibrazione del favorito e S10 sul tennis. I dati si scaricano dal tuo PC (da alcuni server esteri il sito li blocca).
+
+### Storico ufficiale Betfair (`storico_betfair.bat`)
+
+Serve a verificare il lay di valore all'ora vera della puntata (1 ora e 15 minuti prima), non sui prezzi del venerdì.
+
+**Come scaricarlo** (gratis, 10 minuti; le voci del sito possono cambiare leggermente):
+1. Apri **historicdata.betfair.com** e accedi con il tuo conto Betfair.
+2. In **Buy Data**: sport **Soccer**, piano **BASIC** (prezzo 0), date degli ultimi 12 mesi. Conferma l'"acquisto" gratuito.
+3. In **My Data**: sport Soccer, piano BASIC, stesse date. Se te lo chiede, tipo di mercato **MATCH_ODDS** (il file è molto più piccolo) e paesi Italia, Inghilterra, Spagna, Germania e Francia.
+4. Premi **Download** e salva il file `.tar` in `D:\Claude\Bet_bot\Bet_bot\runtime\storico_betfair\`. La cartella la crea `storico_betfair.bat` la prima volta che lo lanci.
+5. Lancia `storico_betfair.bat`. Il risultato è anche in `runtime/reports/storico_betfair.md`.
 
 ### Il bollettino di Leo (ogni mattina)
 
