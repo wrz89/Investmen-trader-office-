@@ -247,3 +247,21 @@ def test_live_settings_move_v1_to_v2(tmp_path, monkeypatch):
     over.write_text("mode: live\nlive_strategies: [S10_divertimento_v1]\n", encoding="utf-8")
     monkeypatch.setattr(config, "LOCAL_OVERRIDE", over)
     assert config.load_settings()["live_strategies"] == ["S10_divertimento_v2"]
+
+
+def test_deposit_adds_capital_not_profit(tmp_path):
+    from betbot import live_switch
+    from betbot.bankroll import Bankroll
+    from betbot.store import Store
+    st = Store(tmp_path / "live.db")
+    br = Bankroll(st, 30.0)
+    st.set("day_start:" + __import__("betbot.bankroll", fromlist=["today"]).today(), 30.0)
+    c = FakeClient(balance=60.0)
+    said = []
+    assert not live_switch.deposit(ask=lambda q: "no", out=said.append, client=c, store=st)
+    assert br.total == 30.0
+    assert live_switch.deposit(ask=lambda q: "SI", out=said.append, client=c, store=st)
+    assert br.total == 60.0 and br.initial_capital == 60.0 and br.profits == 0.0
+    assert float(st.get("peak_bankroll")) == 60.0
+    assert any("39.96" in x or "40" in x for x in said)                     # nuovo stop: picco 60 × 0,666
+    assert not live_switch.deposit(ask=lambda q: "SI", out=said.append, client=c, store=st)    # niente di nuovo

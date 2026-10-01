@@ -111,3 +111,38 @@ def request_restart() -> None:
     """Il bot acceso da avvia.bat si spegne in modo ordinato e riparte subito con le nuove impostazioni."""
     RESTART_FILE.parent.mkdir(parents=True, exist_ok=True)
     RESTART_FILE.write_text("live", encoding="utf-8")
+
+
+def deposit(ask=input, out=print, client=None, store=None) -> bool:
+    """Soldi versati sul conto Betfair: con la conferma "SI" il bot li aggiunge al SUO bankroll (come capitale, non
+    come vincita). Senza conferma restano sul conto e il bot continua a usare il suo bankroll di prima."""
+    from .agents.risk import kill_floor
+    from .bankroll import Bankroll
+    from .config import DB_LIVE_PATH
+    from .store import Store
+    store = store or Store(DB_LIVE_PATH)
+    if store.get("cash") is None:
+        out("Il bot non ha ancora un bankroll con soldi veri: al primo avvio in LIVE usa da solo tutto il saldo di Betfair.")
+        return False
+    if client is None:
+        from .feeds.betfair import BetfairClient
+        client = BetfairClient(local_settings.load()["betfair"])
+        client.login()
+    funds = client.account_funds()
+    real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
+    br = Bankroll(store, store.get("initial_capital") or 0, allow_reset=False)
+    extra = round(real - br.total, 2)
+    out(f"Saldo vero Betfair {real:.2f} € · bankroll del bot {br.total:.2f} €")
+    if extra < 1.0:
+        out("Non ci sono soldi in più da aggiungere.")
+        return False
+    lim = load_yaml("risk_limits.yaml")
+    peak = float(store.get("peak_bankroll") or br.total) + extra
+    out(f"Aggiungendo {extra:.2f} € il bankroll diventa {br.total + extra:.2f} €. La puntata NON cambia (2 € fissi, "
+        f"rischio dei lay 1-3,50 €); il bot si fermerà da solo sotto {kill_floor(peak, lim):.2f} €.")
+    if str(ask("Per aggiungerli scrivi SI e premi Invio: ")).strip() != "SI":
+        out("Nessuna modifica.")
+        return False
+    br.add_capital(extra)
+    out(f"Fatto: bankroll {br.total:.2f} €, capitale {br.initial_capital:.2f} €.")
+    return True

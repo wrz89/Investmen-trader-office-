@@ -76,6 +76,17 @@ class Bankroll:
             return value_now
         return float(v)
 
+    def add_capital(self, amount: float) -> None:
+        """Versamento (decisione umana): più liquidità e più capitale, NON profitto. Si spostano anche il picco e
+        l'inizio del giorno, così il versamento non sembra una vincita né cambia lo stop giornaliero."""
+        amount = round(float(amount), 2)
+        self.cash = self.cash + amount
+        self.store.set("initial_capital", self.initial_capital + amount)
+        self.store.set("peak_bankroll", float(self.store.get("peak_bankroll", self.total - amount)) + amount)
+        key = f"day_start:{today()}"
+        if self.store.get(key) is not None:
+            self.store.set(key, float(self.store.get(key)) + amount)
+
     def update_peak(self, value_now: float) -> float:
         peak = max(float(self.store.get("peak_bankroll", value_now)), value_now)
         self.store.set("peak_bankroll", peak)
