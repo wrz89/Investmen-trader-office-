@@ -179,14 +179,14 @@ def test_losses_settled_before_first_state_of_day_count(office, monkeypatch):
     t = [datetime(2026, 9, 28, 23, 30, tzinfo=TZ).timestamp()]
     monkeypatch.setattr(clock, "_source", lambda: t[0])
     office.risk.portfolio_state()
-    ids = [_open_bet(office, match=f"M{i}") for i in range(2)]
+    ids = [_open_bet(office, match=f"M{i}") for i in range(3)]
     assert office.risk.portfolio_state()["loss_today"] == 0.0                   # aperte, valutate al costo
     t[0] = datetime(2026, 9, 29, 8, 0, tzinfo=TZ).timestamp()
     for i in ids:                                                               # si chiudono prima dello stato
         office.store.execute("UPDATE bets SET status='LOST', settled_ts=?, payout=0, pnl=-2.0 WHERE id=?", (now_iso(), i))
     st = office.risk.portfolio_state()
-    assert st["bankroll"] == pytest.approx(26.0)
-    assert st["loss_today"] == pytest.approx(4.0) and st["daily_stop"]
+    assert st["bankroll"] == pytest.approx(24.0)
+    assert st["loss_today"] == pytest.approx(6.0) and st["daily_stop"]
 
 
 # ── n.6: consenso solo sui bookmaker che quotano tutto il mercato ──────────────────────────────

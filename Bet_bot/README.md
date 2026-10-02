@@ -58,7 +58,7 @@ La strategia **S10 Divertimento** punta ogni giorno su qualunque sport di betfai
 - **Quanto:** 2 € fissi, al massimo 10 puntate al giorno e una aperta alla volta.
 - **Cosa sceglie:** quote tra 1,40 e 3,00, su un libro con back e lay vicini e almeno 10 € disponibili. Prende il prezzo più vicino al "giusto": Pinnacle se la quota è recente, altrimenti il prezzo medio di Betfair.
 - **Cosa aspettarsi:** non cerca un vantaggio. In media perde l'1-3% di ogni puntata (commissione e spread): 5-10 € al mese se punta tutti i giorni. Il resto è fortuna.
-- **Quando si ferma da solo:** se il saldo scende sotto 20 €, e per il resto del giorno dopo 4 € persi.
+- **Quando si ferma da solo:** se il saldo scende sotto 20 €, e per il resto del giorno dopo 6 € persi.
 
 Si accende dalla dashboard: pulsante **Passa ai soldi veri** in alto, scrivi SI e conferma. Il bot fa login, ordine di prova e si riavvia da solo in LIVE. Lo stesso pulsante (diventato **LIVE · soldi veri**) riporta ai soldi finti. Ogni puntata mostra il suo **Perché** nella dashboard e nel messaggio Telegram.
 
@@ -201,7 +201,7 @@ In **osservazione** una strategia lavora "in ombra": le puntate secche valgono 1
 - **Puntate secche**: 1/4 di Kelly sulla quota netta. Con 30 € quasi sempre il risultato è sotto i 2 € minimi: la puntata minima passa solo se resta al massimo **metà del Kelly pieno**, cioè solo con un vantaggio netto. Tetto 10% del bankroll.
 - **Trade con stop**: la puntata si sceglie dalla **perdita massima** allo stop, con 6 tick di scivolamento; sotto i 100 € un solo trade aperto, sempre alla puntata minima.
 - **Rischio aperto** complessivo ≤ 8% del bankroll; massimo 4 posizioni aperte. Una puntata che sforerebbe l'8% non viene scartata: si **riduce** allo spazio che resta, e il veto scatta solo se quello spazio è sotto i 2 € minimi. Sotto i 100 €, con niente di aperto, **una puntata da 2 € alla volta resta sempre possibile** (fino al kill switch).
-- **Circuit breaker sotto i 100 €** (limiti assoluti): **kill switch se il bankroll scende sotto max(20 €, picco × 0,666)**: la soglia segue il picco, 20 € con 30 € di picco, circa 40 € con 60 €, così un profitto non si restituisce tutto; stop fino a domani dopo 4 € persi nel giorno; 6 perdite di fila → pausa di 2 ore.
+- **Circuit breaker sotto i 100 €** (limiti assoluti): **kill switch se il bankroll scende sotto max(20 €, picco × 0,666)**: la soglia segue il picco, 20 € con 30 € di picco, circa 40 € con 60 €, così un profitto non si restituisce tutto; stop fino a domani dopo 6 € persi nel giorno; 6 perdite di fila → pausa di 2 ore.
 - **Circuit breaker sopra i 100 €** (percentuali): −5% nel giorno → stop fino a domani; −15% dal massimo → kill switch. Il reset è solo dal PC: `python betbot.py reset-kill-switch`.
 - **Quote di riferimento** più vecchie di 2,5 ore, o un vantaggio sopra l'8% (quasi sempre un errore di dato): veto.
 - **Compounding**: la base di puntata è capitale + profitti; se il bankroll scende sotto il 90% del capitale, la base è il bankroll stesso e le puntate si riducono da sole.

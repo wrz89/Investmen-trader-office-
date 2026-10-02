@@ -76,7 +76,7 @@ def enable(ask=input, out=print, client=None) -> bool:
     out("  • sceglie il prezzo più vicino al giusto: in media si perde circa l'1-3% di ogni puntata (commissione e spread),")
     out("    il resto è fortuna. Non è un sistema per guadagnare;")
     out(f"  • si ferma da solo se il saldo scende sotto {lim.get('kill_below_bankroll', 20):.0f} € "
-        f"e per il resto del giorno dopo {lim.get('max_daily_loss_eur', 4):.0f} € persi;")
+        f"e per il resto del giorno dopo {lim.get('max_daily_loss_eur', 6):.0f} € persi;")
     out("  • non deposita e non preleva mai. Le altre strategie restano in ombra (senza soldi).")
     if bal < 2:
         out("\nSaldo sotto i 2 €: non si può puntare. Deposita dal sito Betfair e riprova.")

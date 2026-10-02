@@ -1227,7 +1227,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
     const chk = (id, label, hint, on) => `<label class="check-row" for="${id}"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span>${label}<small>${hint}</small></span></label>`;
     const isLive = SET.mode === "live" && bf.live_enabled;
     const liveSec = `<section class="set-sec" id="live-sec"><h3>Soldi veri</h3><div class="live-box">
-      ${isLive ? `<p><b>LIVE acceso</b> per ${esc((SET.live_strategies || []).join(", ") || "nessuna strategia")}: 2 € a puntata, al massimo 10 al giorno, una aperta alla volta. Si ferma da solo sotto i 20 € e dopo 4 € persi nel giorno.</p>
+      ${isLive ? `<p><b>LIVE acceso</b> per ${esc((SET.live_strategies || []).join(", ") || "nessuna strategia")}: 2 € a puntata, al massimo 10 al giorno, una aperta alla volta. Si ferma da solo sotto i 20 € e dopo 6 € persi nel giorno.</p>
         <div class="field"><button class="btn" id="live-off" type="button">Torna ai soldi finti</button></div>`
       : `<p>Adesso: <b>soldi finti</b>. Con i soldi veri punta la strategia Divertimento: 2 € fissi, al massimo 10 al giorno, una aperta alla volta, su calcio, tennis, basket, NFL e baseball. In media si perde l'1-3% di ogni puntata: è per giocare, non un sistema per guadagnare. Non deposita e non preleva mai.</p>
         <p>Il bot fa login, controlla il saldo, fa un ordine di prova (2 € a quota 1000, annullato subito) e si riavvia da solo in LIVE.</p>

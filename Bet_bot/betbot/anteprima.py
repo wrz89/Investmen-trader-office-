@@ -63,7 +63,7 @@ def report(cands: list[dict], bankroll: float | None, limits: dict, now: float, 
         t = together(cands, k)
         L.append(f"  • {k} insieme: atteso {t['ev']:+.2f} € · almeno una persa {t['p_at_least_one_lost']:.0%} · "
                  f"tutte perse {t['p_all_lost']:.0%} ({t['worst']:.0f} €) · tutte vinte {t['best']:+.2f} €")
-    stop = limits.get("max_daily_loss_eur", 4)
+    stop = limits.get("max_daily_loss_eur", 6)
     kill = limits.get("kill_below_bankroll", 20)
     L += ["", f"Freni: stop per il giorno dopo {stop:.0f} € persi, bot fermo sotto {kill:.0f} € di saldo"
               + (f" (oggi {bankroll:.2f} €)." if bankroll is not None else ".")]

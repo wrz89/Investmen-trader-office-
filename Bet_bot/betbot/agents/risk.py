@@ -85,7 +85,7 @@ TRADE_MARKETS = ("exchange_trade", "exchange_win")
 def kill_floor(peak: float, limits: dict) -> float:
     """Soglia del kill switch sotto `small_bankroll`: sale col picco (picco × (1 − max_drawdown_small)) ma non scende
     mai sotto kill_below_bankroll. Con 30 € di picco resta a ~20 €; con 60 € di picco diventa 40,20 €: un profitto
-    non si può più restituire tutto (4 € al giorno) senza che scatti il kill switch."""
+    non si può più restituire tutto (6 € al giorno) senza che scatti il kill switch."""
     trailing = peak * (1.0 - limits.get("max_drawdown_small", 1.0))
     return round(max(limits.get("kill_below_bankroll", 0.0), trailing), 2)
 
