@@ -467,10 +467,23 @@ class BetfairFeed(Feed):
                 self.available = {}
         sports = self.cfg.get("sports") or (["soccer"] if self.cfg.get("soccer", True) else [])
         sports = [s for s in sports if s in SPORTS and (not self.available or SPORTS[s][0] in self.available)]
+        errors, bad = [], getattr(self, "bad_sports", {})
         for sport in sports:
+            if bad.get(sport, 0) >= 3:                       # sport rifiutato 3 volte di fila: si smette di provarlo
+                continue
             event_type, market_type, _ = SPORTS[sport]
-            for m in self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40):
+            try:
+                found = self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40)
+            except BetfairError as exc:                      # uno sport che il conto non ha non deve spegnere gli altri
+                bad[sport] = bad.get(sport, 0) + 1
+                errors.append(f"{sport}: {exc}")
+                continue
+            bad.pop(sport, None)
+            for m in found:
                 cat[m["marketId"]] = {**m, "_kind": sport}
+        self.bad_sports = bad
+        if errors and not cat:                               # niente di niente: l'errore vero esce, come prima
+            raise BetfairError("; ".join(errors))
         saved = getattr(self, "saved_cat", {})
         for mid in getattr(self, "watch_ids", set()):         # le partite con posizioni aperte non si dimenticano
             if mid not in cat and (mid in old or mid in saved):

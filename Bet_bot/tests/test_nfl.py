@@ -168,3 +168,24 @@ def test_pinnacle_two_way_only_for_american_football(monkeypatch):
     assert abs(sum(rows[0]["fair"].values()) - 1) < 1e-6
     rows, _ = T.pinnacle_odds("k", "soccer_epl")          # nel calcio senza pareggio il mercato non vale
     assert rows == []
+
+
+def test_one_rejected_sport_does_not_blind_the_feed():
+    from betbot.feeds.betfair import BetfairError, BetfairFeed
+    f = BetfairFeed.__new__(BetfairFeed)
+    f.cat, f.cat_ts, f.available = {}, 0, {"1": "Soccer", "7524": "Ice Hockey"}
+    f.cfg = {"sports": ["soccer", "icehockey"], "soccer_hours": 36}
+    f.watch_ids, f.saved_cat = set(), {}
+
+    class C:
+        def catalogue(self, event_type, market_type, hours, countries, n, **k):
+            if event_type == "7524":
+                raise BetfairError("INVALID_INPUT_DATA")
+            return [{"marketId": "1.1", "event": {"name": "Inter v Lecce"}, "runners": []}]
+    f.client = C()
+    f._refresh_catalogue()
+    assert list(f.cat) == ["1.1"] and f.bad_sports == {"icehockey": 1}
+    f.client = type("D", (), {"catalogue": lambda *a, **k: (_ for _ in ()).throw(BetfairError("tutto giù"))})()
+    f.cat_ts = 0
+    with pytest.raises(BetfairError, match="tutto giù"):                    # se NIENTE funziona, l'errore esce
+        f._refresh_catalogue()
