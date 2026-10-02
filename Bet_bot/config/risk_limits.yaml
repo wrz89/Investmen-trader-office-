@@ -62,7 +62,8 @@ cooldown_minutes: 120
 
 # ── Divertimento (S10): puntate minime per giocare, non per guadagnare ──
 fun_max_bets_per_day: 10       # al massimo 10 puntate al giorno (scelta dell'utente il 02/10/2026; prima 3, poi 5)
-fun_max_open: 1                # una aperta alla volta
+fun_open_risk_pct: 0.10        # per il divertimento il rischio aperto arriva al 10% del bankroll (6 € con 60 €: 3 puntate da 2 €)
+fun_max_open: 3                # fino a 3 puntate aperte insieme (scelta dell'utente il 04/10/2026; prima 1)
 fun_min_edge: -0.03            # mai un prezzo che perde più del 3% atteso (commissione compresa: a quota 1,80 vale già 2%)
 fun_max_spread: 0.03           # senza riferimento esterno: back e lay di Betfair entro il 3%
 

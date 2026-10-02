@@ -9,7 +9,7 @@ stagione e confermata sulla seconda):
   • le altre varianti (solo EV ≥ 0, quote 1,40-2,00, senza pareggio, lay con EV ≥ 0) non migliorano in modo solido.
 Quindi: se c'è un lay di valore (calcio, quote 3-8, EV ≥ 2% sul rischio, Pinnacle fresco) si fa quello, con la
 puntata del backer minima (0,50 €: rischio 1-2 €); altrimenti il back della v1. Stessi freni: 2 € sui back,
-al massimo 10 al giorno, una aperta alla volta. I prezzi del backtest sono del venerdì: su betfair.it vicino al fischio
+al massimo 10 al giorno, fino a 3 aperte insieme. I prezzi del backtest sono del venerdì: su betfair.it vicino al fischio
 d'inizio il vantaggio può essere più piccolo. Lo dicono il test rapido e l'esame.
 """
 from __future__ import annotations

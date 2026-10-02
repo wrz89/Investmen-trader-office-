@@ -91,10 +91,11 @@ def test_fun_caps_per_day_and_open(office):
     from betbot.store import now_iso
     ins = ("INSERT INTO bets (ts, mode, strategy_id, match_id, league, market, selection, bookmaker, odds, stake, status) "
            "VALUES (?, 'paper', 'S10_divertimento_v1', ?, 'X', 'h2h', 'home', 'Betfair', 1.8, 2, ?)")
-    office.store.execute(ins, (now_iso(), "A", "OPEN"))
+    for mid in ("A", "A2", "A3"):                                   # tre aperte insieme: il massimo
+        office.store.execute(ins, (now_iso(), mid, "OPEN"))
     d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
-    assert not d["approved"] and any("aperte" in r for r in d["reasons"])
-    office.store.execute("UPDATE bets SET status='LOST', pnl=-2 WHERE match_id='A'")
+    assert not d["approved"] and any("aperte < 3" in r for r in d["reasons"])
+    office.store.execute("UPDATE bets SET status='LOST', pnl=-2 WHERE status='OPEN'")
     for mid in "BCDEFGHIJ":
         office.store.execute(ins, (now_iso(), mid, "WON"))
     d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
@@ -306,3 +307,19 @@ def test_v2_live_skips_national_teams_but_misura_keeps_them():
     club = _match("C1", "tennis", ex, league="ATP Parigi")
     assert [p["match_id"] for p in V2.propose(_snap(nat, club), {}, {})] == ["C1"]
     assert {p["match_id"] for p in M.propose(_snap(nat, club), {}, {})} == {"N1", "C1"}
+
+
+def test_fun_allows_three_open_with_sixty_euros(office):
+    from betbot.store import now_iso
+    office.bankroll.add_capital(30.0)                                   # 60 €: rischio aperto fino a 6 €
+    ins = ("INSERT INTO bets (ts, mode, strategy_id, match_id, league, market, selection, bookmaker, odds, stake, status) "
+           "VALUES (?, 'paper', 'S10_divertimento_v2', ?, 'X', 'h2h', 'home', 'Betfair', 1.8, 2, 'OPEN')")
+    office.store.execute("UPDATE kv SET value=value")                   # (nessun effetto: solo per chiarezza)
+    for mid in ("A", "B"):
+        office.store.execute(ins, (now_iso(), mid))
+    st = office.risk.portfolio_state()
+    d = office.risk.evaluate(_fun(strategy_id="S10_divertimento_v2"), _rsnap(), st)
+    assert d["approved"] and d["stake"] == 2.0, d["reasons"]               # la terza ci sta: 6 € di rischio su 60 €
+    office.store.execute(ins, (now_iso(), "C"))
+    d = office.risk.evaluate(_fun(strategy_id="S10_divertimento_v2"), _rsnap(), office.risk.portfolio_state())
+    assert not d["approved"]                                              # la quarta no

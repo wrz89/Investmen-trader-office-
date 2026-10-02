@@ -351,12 +351,14 @@ class RiskManager(Agent):
         # la puntata si RIDUCE allo spazio che resta (budget del giorno, rischio aperto, trade aperti): il veto arriva
         # solo se non ci sta nemmeno la puntata minima
         room = self._room(state, open_bets, min_stake)
+        if fun:                                                 # divertimento: tetto del rischio aperto suo (fun_open_risk_pct)
+            room["limits"] = {**L, "max_open_risk_pct": L.get("fun_open_risk_pct", L["max_open_risk_pct"])}
         stake = fit_stake(p, stake, **room)
         risk_now = worst_loss(p, stake)
         # con puntata 0 i limiti si verificano sulla puntata minima: così il veto dice quale limite la blocca
         tested = stake if stake > 0 else min_stake
         risk_tested = worst_loss(p, tested)
-        risk_cap, trade_cap = exposure_caps(state["bankroll"], L, min_stake, room["small"], room["nothing_open"])
+        risk_cap, trade_cap = exposure_caps(state["bankroll"], room["limits"], min_stake, room["small"], room["nothing_open"])
         check(risk_tested <= room["left_today"] + 1e-9,
               f"Perdita possibile ({risk_tested:.2f} €) entro il budget rimasto oggi ({room['left_today']:.2f} €)")
         if rpu:
@@ -369,7 +371,7 @@ class RiskManager(Agent):
             check(room["open_trade_stakes"] + tested <= trade_cap + 1e-9,
                   f"Puntate dei trade aperti entro il limite per i salti di prezzo ({trade_cap:.2f} €)")
         check(room["open_risk"] + risk_tested <= risk_cap + 1e-9,
-              f"Rischio aperto entro {risk_cap:.2f} € ({L['max_open_risk_pct']:.0%} del bankroll) "
+              f"Rischio aperto entro {risk_cap:.2f} € ({room['limits']['max_open_risk_pct']:.0%} del bankroll) "
               f"({room['open_risk'] + risk_tested:.2f} € con questa)")
         on_match = sum(b["stake"] for b in open_bets if b["match_id"] == p["match_id"])
         check(on_match == 0 or on_match + risk_tested <= L["max_exposure_per_match_pct"] * state["bankroll"],

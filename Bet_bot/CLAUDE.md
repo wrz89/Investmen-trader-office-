@@ -9,7 +9,7 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   richiesta esplicita dell'utente E un esame per il live superato (`esame.bat`, criteri in config/esame_live.yaml
   decisi prima dei risultati: non cambiarli dopo averli visti).
 - Eccezione decisa dall'utente il 30/09/2026: soldi veri "per divertimento" SOLO con S10_divertimento_v2 (prima i lay
-  di valore sul calcio con 0,50 € del backer, altrimenti back da 2 €; max 10 al giorno, una aperta, EV ≥ −3%, freni fun_*
+  di valore sul calcio con 0,50 € del backer, altrimenti back da 2 €; max 10 al giorno, fino a 3 aperte insieme (fun_open_risk_pct 10% del conto), EV ≥ −3%, freni fun_*
   in risk_limits.yaml), acceso da lui (dashboard "Passa ai soldi veri" o `vai_live.bat`, conferma scritta "SI"), spento
   con `torna_paper.bat` o dalla dashboard. Con la app key delayed va in live solo S10 (ordini fill-or-kill: un prezzo
   vecchio può solo annullare l'ordine). La puntata NON cresce col saldo (scelta dell'utente: solo dopo un esame

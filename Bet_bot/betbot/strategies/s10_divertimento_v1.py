@@ -9,7 +9,7 @@ il meno possibile. In media perde circa la commissione e mezzo spread (1-3% dell
   • probabilità giusta da Pinnacle / bookmaker di riferimento se ci sono, altrimenti dal prezzo medio di Betfair
     stesso (margine tolto); si sceglie l'esito con il valore atteso migliore, purché non sotto −3% (la sola commissione a quota 1,80 vale già −2%);
   • tennis: esclusi Challenger, ITF, UTR e doppi (integrità).
-Fino a 3 proposte per ciclo (partite diverse, la migliore prima). Puntata fissa al minimo (2 €), al massimo 10 al giorno e una aperta alla volta: lo decide il
+Fino a 3 proposte per ciclo (partite diverse, la migliore prima). Puntata fissa al minimo (2 €), al massimo 10 al giorno e fino a 3 aperte insieme: lo decide il
 Risk Manager (fun_* in risk_limits.yaml), con tutti gli altri freni (kill switch a 20 €, stop giornaliero).
 """
 from __future__ import annotations
