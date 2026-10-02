@@ -14,6 +14,8 @@ d'inizio il vantaggio può essere più piccolo. Lo dicono il test rapido e l'esa
 """
 from __future__ import annotations
 
+import re
+
 from . import s09_lay_valore_v1 as S09
 from . import s10_divertimento_v1 as V1
 
@@ -52,11 +54,18 @@ def candidates(snapshot: dict, params: dict | None = None) -> list[dict]:
     return lays + backs                                  # prima i lay di valore, poi i back più giusti
 
 
+# nazionali e amichevoli: mai misurate (i dati sono di campionati di club), formazioni che cambiano all'ultimo, poco denaro.
+# Restano nella misura in ombra (S10 misura usa candidates), non nelle puntate vere.
+NATIONAL = re.compile(r"friendl|amichevol|nations league|world cup|mondial|qualif|euro 20|uefa euro|copa america|"
+                      r"africa cup|asian cup|international|olympic|olimpi", re.I)
+
+
 def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
     q = {**DEFAULTS, **params}
     if _at_limit((ctx or {}).get("store")):
         return []
-    return candidates(snapshot, q)[:q["max_proposals"]]
+    ok = [p for p in candidates(snapshot, q) if not NATIONAL.search(p.get("league") or "")]
+    return ok[:q["max_proposals"]]
 
 
 def _at_limit(store) -> bool:

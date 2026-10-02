@@ -93,6 +93,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   Leo imparate su S10_misura_v1 frenano anche S10_divertimento_* (coach.check). Sport letti da Betfair: calcio, tennis,
   basket, NFL, baseball, hockey (7524), pallavolo (998917), freccette (3503), snooker (6422), ping pong (2593); gli ID
   sono da verificare sul conto .it (se mancano o hanno 3 esiti il feed li salta).
+- S10 v2 con soldi veri esclude nazionali e amichevoli (regex NATIONAL in s10_divertimento_v2.py, 04/10/2026, dopo
+  una perdita su Italia-Francia): i dati di verifica sono tutti di club. S10 misura le tiene, per misurarle in ombra.
+  Lay solo fino a quota 5 (rischio ≤ 2 €).
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
   proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),

@@ -296,3 +296,13 @@ def test_v2_lay_risk_never_above_two_euros():
     m["ref_ts"] = T0 - 600
     assert all(p.get("side") != "LAY" for p in V2.propose(_snap(m), {}, {}))
     assert all(0.5 * (p["odds"] - 1) <= 2.0 + 1e-9 for p in V2.propose(_snap(_lay_match()), {}, {}) if p.get("side") == "LAY")
+
+
+def test_v2_live_skips_national_teams_but_misura_keeps_them():
+    from betbot.strategies import s10_divertimento_v2 as V2
+    from betbot.strategies import s10_misura_v1 as M
+    ex = {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}
+    nat = _match("N1", "tennis", ex, league="International Friendlies")
+    club = _match("C1", "tennis", ex, league="ATP Parigi")
+    assert [p["match_id"] for p in V2.propose(_snap(nat, club), {}, {})] == ["C1"]
+    assert {p["match_id"] for p in M.propose(_snap(nat, club), {}, {})} == {"N1", "C1"}
