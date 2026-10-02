@@ -155,7 +155,7 @@ class SportOffice:
         for p in proposals:
             # in osservazione, oppure in live senza via libera ai soldi veri (o con prezzi ritardati): solo in ombra,
             # prima del Risk Manager, così il bankroll vero non viene mai toccato
-            # lay d'apertura spento: solo in ombra. Eccezione: i lay del divertimento (S10 v2), rischio ≤ 3,50 €
+            # lay d'apertura spento: solo in ombra. Eccezione: i lay del divertimento (S10 v2), rischio ≤ 2 €
             lay_off = (p.get("side") == "LAY" and not p.get("fun")
                        and not (self.settings.get("execution") or {}).get("lay_apertura"))
             if (p["strategy_status"] != "ATTIVA" or lay_off              # lay d'apertura spento: solo in ombra

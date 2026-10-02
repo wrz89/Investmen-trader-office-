@@ -284,3 +284,15 @@ def test_leo_uses_betfair_close_when_pinnacle_is_stale():
     assert abs(sum(f.values()) - 1) < 1e-9 and f["home"] > f["away"]
     assert exchange_fair({"home": {"back": 1.8, "lay": 2.5}, "away": {"back": 2.2, "lay": 2.3}}) is None   # libro largo
     _ = json
+
+
+def test_v2_lay_risk_never_above_two_euros():
+    from betbot.strategies import s10_divertimento_v2 as V2
+    ex = {"home": {"back": 1.60, "lay": 1.62, "back_size_best": 80, "lay_size_best": 60},
+          "draw": {"back": 4.2, "lay": 4.3, "back_size_best": 40, "lay_size_best": 40},
+          "away": {"back": 9.0, "lay": 9.4, "back_size_best": 30, "lay_size_best": 30}}
+    # Pinnacle dà l'ospite a 14,0 (7%): bancarlo a 9,4 avrebbe valore, ma il rischio sarebbe 4,20 € → escluso
+    m = _match("L2", "soccer_italy_serie_a", ex, books={"Pinnacle": {"home": 1.55, "draw": 4.6, "away": 14.0}})
+    m["ref_ts"] = T0 - 600
+    assert all(p.get("side") != "LAY" for p in V2.propose(_snap(m), {}, {}))
+    assert all(0.5 * (p["odds"] - 1) <= 2.0 + 1e-9 for p in V2.propose(_snap(_lay_match()), {}, {}) if p.get("side") == "LAY")

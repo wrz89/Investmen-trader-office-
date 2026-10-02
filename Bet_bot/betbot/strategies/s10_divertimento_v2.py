@@ -8,7 +8,7 @@ stagione e confermata sulla seconda):
     Con la commissione un CLV del 13-16% sul lay vale circa +2% di guadagno atteso sul rischio.
   • le altre varianti (solo EV ≥ 0, quote 1,40-2,00, senza pareggio, lay con EV ≥ 0) non migliorano in modo solido.
 Quindi: se c'è un lay di valore (calcio, quote 3-8, EV ≥ 2% sul rischio, Pinnacle fresco) si fa quello, con la
-puntata del backer minima (0,50 €: rischio 1-3,50 €); altrimenti il back della v1. Stessi freni: 2 € sui back,
+puntata del backer minima (0,50 €: rischio 1-2 €); altrimenti il back della v1. Stessi freni: 2 € sui back,
 al massimo 10 al giorno, una aperta alla volta. I prezzi del backtest sono del venerdì: su betfair.it vicino al fischio
 d'inizio il vantaggio può essere più piccolo. Lo dicono il test rapido e l'esame.
 """
@@ -21,7 +21,10 @@ STRATEGY_ID = "S10_divertimento_v2"
 NAME = "Divertimento (lay di valore prima)"
 KIND = "prematch"
 
-DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 8.0}
+# lay fino a quota 5 (3-8 prima): con 0,50 € del backer il rischio massimo è 2 €, come un back; a quota 8 era 3,50 €
+# (scelta del 04/10/2026 dopo una perdita "troppo rischiosa"; sui dati 2024-26 le fasce alte sono solo 35 lay su 95,
+# con CLV positivo ma troppo pochi per dire che valgano il rischio doppio)
+DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 5.0}
 
 
 def lay_candidates(snapshot: dict, q: dict) -> list[dict]:

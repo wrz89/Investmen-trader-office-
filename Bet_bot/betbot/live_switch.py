@@ -70,7 +70,7 @@ def enable(ask=input, out=print, client=None) -> bool:
     lim = load_yaml("risk_limits.yaml")
     out(f"\nSaldo disponibile su betfair.it: {bal:.2f} €\n")
     out("Cosa succede con i SOLDI VERI:")
-    out(f"  • la strategia Divertimento: prima i lay di valore sul calcio (rischio 1-3,50 €), altrimenti back da 2 €; "
+    out(f"  • la strategia Divertimento: prima i lay di valore sul calcio (rischio 1-2 €), altrimenti back da 2 €; "
         f"al massimo {lim.get('fun_max_bets_per_day', 10)} al giorno, una aperta alla volta, su calcio, tennis, basket, "
         "NFL e baseball;")
     out("  • sceglie il prezzo più vicino al giusto: in media si perde circa l'1-3% di ogni puntata (commissione e spread),")
@@ -139,7 +139,7 @@ def deposit(ask=input, out=print, client=None, store=None) -> bool:
     lim = load_yaml("risk_limits.yaml")
     peak = float(store.get("peak_bankroll") or br.total) + extra
     out(f"Aggiungendo {extra:.2f} € il bankroll diventa {br.total + extra:.2f} €. La puntata NON cambia (2 € fissi, "
-        f"rischio dei lay 1-3,50 €); il bot si fermerà da solo sotto {kill_floor(peak, lim):.2f} €.")
+        f"rischio dei lay 1-2 €); il bot si fermerà da solo sotto {kill_floor(peak, lim):.2f} €.")
     if str(ask("Per aggiungerli scrivi SI e premi Invio: ")).strip() != "SI":
         out("Nessuna modifica.")
         return False
