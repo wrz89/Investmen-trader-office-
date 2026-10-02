@@ -9,7 +9,7 @@ stagione e confermata sulla seconda):
   • le altre varianti (solo EV ≥ 0, quote 1,40-2,00, senza pareggio, lay con EV ≥ 0) non migliorano in modo solido.
 Quindi: se c'è un lay di valore (calcio, quote 3-8, EV ≥ 2% sul rischio, Pinnacle fresco) si fa quello, con la
 puntata del backer minima (0,50 €: rischio 1-3,50 €); altrimenti il back della v1. Stessi freni: 2 € sui back,
-al massimo 5 al giorno, una aperta alla volta. I prezzi del backtest sono del venerdì: su betfair.it vicino al fischio
+al massimo 10 al giorno, una aperta alla volta. I prezzi del backtest sono del venerdì: su betfair.it vicino al fischio
 d'inizio il vantaggio può essere più piccolo. Lo dicono il test rapido e l'esame.
 """
 from __future__ import annotations
@@ -66,5 +66,5 @@ def _at_limit(store) -> bool:
     rows = store.query("SELECT status, ts FROM bets WHERE mode!='shadow' AND strategy_id=? AND (status='OPEN' OR ts >= ?)",
                        (STRATEGY_ID, day))
     return (sum(1 for r in rows if r["status"] == "OPEN") >= lim.get("fun_max_open", 1)
-            or sum(1 for r in rows if r["ts"] >= day) >= lim.get("fun_max_bets_per_day", 5))
+            or sum(1 for r in rows if r["ts"] >= day) >= lim.get("fun_max_bets_per_day", 10))
 

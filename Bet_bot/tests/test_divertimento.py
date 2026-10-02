@@ -1,4 +1,4 @@
-"""S10 Divertimento (2 € fissi, max 5 al giorno, una aperta) e passaggio al live con conferma scritta."""
+"""S10 Divertimento (2 € fissi, max 10 al giorno, una aperta) e passaggio al live con conferma scritta."""
 from datetime import datetime, timezone
 
 import pytest
@@ -95,10 +95,10 @@ def test_fun_caps_per_day_and_open(office):
     d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
     assert not d["approved"] and any("aperte" in r for r in d["reasons"])
     office.store.execute("UPDATE bets SET status='LOST', pnl=-2 WHERE match_id='A'")
-    for mid in ("B", "C", "D", "E"):
+    for mid in "BCDEFGHIJ":
         office.store.execute(ins, (now_iso(), mid, "WON"))
     d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
-    assert not d["approved"] and any("oggi < 5" in r for r in d["reasons"])
+    assert not d["approved"] and any("oggi < 10" in r for r in d["reasons"])
 
 
 # ── vai_live / torna_paper ────────────────────────────────────────────────

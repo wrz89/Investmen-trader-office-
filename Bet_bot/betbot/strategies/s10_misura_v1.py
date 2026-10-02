@@ -1,7 +1,7 @@
 """S10 misura — la logica di S10 v2 SOLO IN OMBRA, su tutte le partite adatte (nessun limite al giorno).
 
 Serve a raccogliere il campione in fretta: l'esame per il live vuole 200 puntate chiuse sui prezzi veri di betfair.it
-e i soldi veri di S10 ne fanno al massimo 5 al giorno. In ombra non c'è capitale in gioco, ma i prezzi sono quelli
+e i soldi veri di S10 ne fanno al massimo 10 al giorno. In ombra non c'è capitale in gioco, ma i prezzi sono quelli
 veri e Leo ne fa l'autopsia (CLV contro la chiusura): con decine di partite al giorno il verdetto arriva in settimane,
 non in mesi. Non va MAI in live_strategies: è uno strumento di misura.
 """

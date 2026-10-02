@@ -320,8 +320,8 @@ class RiskManager(Agent):
             fun_today = self.store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND ts >= ? AND strategy_id=?",
                                          (_day_start_iso(), p["strategy_id"]))[0]["n"]
             fun_open = sum(1 for b in open_bets if b["strategy_id"] == p["strategy_id"])
-            check(fun_today < L.get("fun_max_bets_per_day", 5),
-                  f"Puntate di divertimento oggi < {L.get('fun_max_bets_per_day', 5)} ({fun_today})")
+            check(fun_today < L.get("fun_max_bets_per_day", 10),
+                  f"Puntate di divertimento oggi < {L.get('fun_max_bets_per_day', 10)} ({fun_today})")
             check(fun_open < L.get("fun_max_open", 1), f"Puntate di divertimento aperte < {L.get('fun_max_open', 1)}")
         same_league = sum(1 for b in open_bets if b.get("league") == p.get("league"))
         check(same_league < L["max_same_league_open"], "Concentrazione per campionato nei limiti")

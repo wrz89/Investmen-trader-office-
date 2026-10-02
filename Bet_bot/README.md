@@ -55,9 +55,9 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 ### Soldi veri per divertimento (`vai_live.bat` / `torna_paper.bat`)
 
 La strategia **S10 Divertimento** punta ogni giorno su qualunque sport di betfair.it (calcio, tennis, basket, NFL, baseball), anche in settimana.
-- **Quanto:** 2 € fissi, al massimo 5 puntate al giorno e una aperta alla volta.
+- **Quanto:** 2 € fissi, al massimo 10 puntate al giorno e una aperta alla volta.
 - **Cosa sceglie:** quote tra 1,40 e 3,00, su un libro con back e lay vicini e almeno 10 € disponibili. Prende il prezzo più vicino al "giusto": Pinnacle se la quota è recente, altrimenti il prezzo medio di Betfair.
-- **Cosa aspettarsi:** non cerca un vantaggio. In media perde l'1-3% di ogni puntata (commissione e spread): 3-6 € al mese se punta tutti i giorni. Il resto è fortuna.
+- **Cosa aspettarsi:** non cerca un vantaggio. In media perde l'1-3% di ogni puntata (commissione e spread): 5-10 € al mese se punta tutti i giorni. Il resto è fortuna.
 - **Quando si ferma da solo:** se il saldo scende sotto 20 €, e per il resto del giorno dopo 4 € persi.
 
 Si accende dalla dashboard: pulsante **Passa ai soldi veri** in alto, scrivi SI e conferma. Il bot fa login, ordine di prova e si riavvia da solo in LIVE. Lo stesso pulsante (diventato **LIVE · soldi veri**) riporta ai soldi finti. Ogni puntata mostra il suo **Perché** nella dashboard e nel messaggio Telegram.
@@ -106,7 +106,7 @@ Per vederlo subito: `python betbot.py bollettino`.
 
 ### Più campione per l'esame (S10 misura)
 
-I soldi veri di S10 fanno al massimo 5 puntate al giorno: per le 200 dell'esame servirebbero mesi. **S10 misura** applica la stessa logica di S10 v2 **in ombra**, senza soldi e senza limite al giorno, su tutte le partite adatte di betfair.it: decine di misure al giorno sui prezzi veri. Leo fa l'autopsia di ognuna.
+I soldi veri di S10 fanno al massimo 10 puntate al giorno: per le 200 dell'esame servirebbero mesi. **S10 misura** applica la stessa logica di S10 v2 **in ombra**, senza soldi e senza limite al giorno, su tutte le partite adatte di betfair.it: decine di misure al giorno sui prezzi veri. Leo fa l'autopsia di ognuna.
 
 Quando la quota di Pinnacle al via è vecchia (il riferimento gratuito si aggiorna ogni 2-6 ore), Leo misura il CLV contro la chiusura di Betfair stesso, che c'è sempre. Prima in quei casi la "chiusura" era la stessa quota dell'ingresso, e il CLV risultava finto, vicino a zero.
 
