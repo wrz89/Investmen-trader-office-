@@ -421,7 +421,9 @@ class Coach(Agent, CoachBook):
         """(ok, etichetta). Solo freni: una regola non può mai approvare quello che il Risk Manager boccia."""
         if not self.apply_rules:
             return True, "Lezioni dell'allenatore (spente)"
-        rules = self.store.query("SELECT * FROM coach_rules WHERE active=1 AND strategy_id=?", (p["strategy_id"],))
+        # le lezioni imparate da S10 misura (ombra, decine di puntate al giorno) valgono anche per S10 con i soldi veri
+        ids = [p["strategy_id"]] + (["S10_misura_v1"] if p["strategy_id"].startswith("S10_divertimento") else [])
+        rules = self.store.query(f"SELECT * FROM coach_rules WHERE active=1 AND strategy_id IN ({','.join('?' * len(ids))})", ids)
         if not rules:
             return True, "Nessuna lezione dell'allenatore contraria"
         m = snapshot.get("matches", {}).get(p["match_id"]) or {}

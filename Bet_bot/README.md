@@ -110,6 +110,10 @@ I soldi veri di S10 fanno al massimo 10 puntate al giorno: per le 200 dell'esame
 
 Quando la quota di Pinnacle al via è vecchia (il riferimento gratuito si aggiorna ogni 2-6 ore), Leo misura il CLV contro la chiusura di Betfair stesso, che c'è sempre. Prima in quei casi la "chiusura" era la stessa quota dell'ingresso, e il CLV risultava finto, vicino a zero.
 
+**Più sport e multiple virtuali.** La misura ora guarda dieci sport di betfair.it: calcio, tennis, basket, NFL, baseball, hockey su ghiaccio, pallavolo, freccette, snooker e ping pong (quelli che il tuo conto non ha, o con tre esiti, si saltano da soli). Con le puntate singole chiuse costruisce anche **doppie e triple virtuali**: Betfair Exchange non ha le multiple, quindi sono solo un calcolo dopo il risultato, senza ordini né soldi. `python betbot.py multiple` le mostra, il bollettino del mattino ne riporta il risultato e dice **quale gamba le rompe più spesso** (sport e fascia di quota). Aspettati che vadano peggio delle singole: una doppia moltiplica anche la perdita media.
+
+**Imparare dagli errori.** Leo fa l'autopsia di ogni puntata di misura. Le regole che impara su tanti campioni (per esempio "con le freccette a quota 1,40-1,80 il mercato ci dà torto") valgono anche per S10 con i soldi veri, ma solo per frenarlo.
+
 ### Quando conviene entrare (`orizzonti.bat`)
 
 Legge le registrazioni dei prezzi veri di betfair.it e, per ogni partita, guarda i prezzi a 72, 48, 24, 12, 6, 3 e 1 ora dall'inizio.

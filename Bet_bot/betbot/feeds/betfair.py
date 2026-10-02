@@ -45,13 +45,18 @@ ACCOUNT = "https://api.betfair.com/exchange/account/json-rpc/v1"
 STREAM_HOST, STREAM_PORT = "stream-api.betfair.com", 443
 
 HORSE_RACING, SOCCER, TENNIS, BASKETBALL, AMERICAN_FOOTBALL, BASEBALL = "7", "1", "2", "7522", "6423", "7511"
+# altri sport a due esiti (Match Odds testa a testa): se il conto .it non li ha, o il mercato ha 3 esiti, si saltano da soli
+ICE_HOCKEY, VOLLEYBALL, DARTS, SNOOKER, TABLE_TENNIS = "7524", "998917", "3503", "6422", "2593"
 # sport → (eventTypeId Betfair, tipo di mercato, esiti attesi)
 # Football americano (NFL, NCAA): Match Odds a due esiti, supplementari compresi. Se finisce pari dopo i
 # supplementari Betfair applica il "dead heat": due runner WINNER, metà puntata pagata a quota piena → result "tie".
 SPORTS = {"soccer": (SOCCER, "MATCH_ODDS", 3), "tennis": (TENNIS, "MATCH_ODDS", 2), "basketball": (BASKETBALL, "MATCH_ODDS", 2),
-          "americanfootball": (AMERICAN_FOOTBALL, "MATCH_ODDS", 2), "baseball": (BASEBALL, "MATCH_ODDS", 2)}
+          "americanfootball": (AMERICAN_FOOTBALL, "MATCH_ODDS", 2), "baseball": (BASEBALL, "MATCH_ODDS", 2),
+          "icehockey": (ICE_HOCKEY, "MATCH_ODDS", 2), "volleyball": (VOLLEYBALL, "MATCH_ODDS", 2),
+          "darts": (DARTS, "MATCH_ODDS", 2), "snooker": (SNOOKER, "MATCH_ODDS", 2), "tabletennis": (TABLE_TENNIS, "MATCH_ODDS", 2)}
 SPORT_LABELS = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket", "americanfootball": "Football americano",
-                "baseball": "Baseball"}
+                "baseball": "Baseball", "icehockey": "Hockey su ghiaccio", "volleyball": "Pallavolo", "darts": "Freccette",
+                "snooker": "Snooker", "tabletennis": "Ping pong"}
 
 
 def split_event_name(name: str) -> tuple[str, str] | None:

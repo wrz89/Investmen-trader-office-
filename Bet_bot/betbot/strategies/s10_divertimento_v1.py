@@ -27,7 +27,8 @@ KIND = "prematch"
 DEFAULTS = {"odds_min": 1.40, "odds_max": 3.00, "max_spread": 0.03, "min_book_eur": 10.0, "min_minutes_before": 10,
             "max_minutes_before": 240, "min_ev": -0.03, "commission": 0.045, "max_ref_age_s": 9000, "max_proposals": 3,
             "exclude": "challenger|itf|utr|m15|m25|w15|w35|w50|w75|w100|doppio|doubles"}
-SPORTS = ("soccer", "tennis", "basketball", "americanfootball", "baseball")
+SPORTS = ("soccer", "tennis", "basketball", "americanfootball", "baseball", "icehockey", "volleyball", "darts", "snooker",
+          "tabletennis")
 
 
 def exchange_fair(ex: dict) -> dict | None:

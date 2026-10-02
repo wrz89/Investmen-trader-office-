@@ -87,6 +87,11 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - S10_misura_v1 (ombra, mai live): la logica di S10 v2 su tutte le partite adatte, senza limite al giorno, per arrivare
   in fretta alle 200 puntate dell'esame. Leo: chiusura = Pinnacle se fresco al via (≤ 90'), altrimenti prezzo medio di
   Betfair alla chiusura (track.p_close_bf, features.close_src); prima una Pinnacle vecchia dava CLV finto ≈ 0.
+- multiple.py: doppie e triple VIRTUALI dalle puntate singole di S10 misura (ombra, stesso giorno, partite diverse,
+  prodotto delle quote, commissione una volta): misura e "gambe fragili" per sport/fascia, nel bollettino. Le regole di
+  Leo imparate su S10_misura_v1 frenano anche S10_divertimento_* (coach.check). Sport letti da Betfair: calcio, tennis,
+  basket, NFL, baseball, hockey (7524), pallavolo (998917), freccette (3503), snooker (6422), ping pong (2593); gli ID
+  sono da verificare sul conto .it (se mancano o hanno 3 esiti il feed li salta).
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
   proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),

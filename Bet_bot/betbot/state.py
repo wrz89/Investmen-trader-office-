@@ -15,7 +15,8 @@ def _j(v):
 # chi "possiede" le puntate (per le etichette sopra gli omini nell'ufficio 3D):
 # Davide = calcio; Matteo = tennis, basket, football americano (e cavalli, che su Betfair.it non ci sono)
 STRATEGY_AGENT = {"S04": "cavalli", "S08": "cavalli"}
-OTHER_SPORTS = ("tennis", "basketball", "americanfootball", "baseball")
+OTHER_SPORTS = ("tennis", "basketball", "americanfootball", "baseball", "icehockey", "volleyball", "darts", "snooker",
+                "tabletennis")
 
 
 def strategy_agent(strategy_id: str, sport: str | None = None) -> str:

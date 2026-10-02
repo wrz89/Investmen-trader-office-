@@ -106,3 +106,18 @@ def test_stale_pinnacle_close_falls_back_to_betfair_close(office):
         les = st.query("SELECT clv, features FROM coach_lessons ORDER BY id DESC LIMIT 1")[0]
         assert json.loads(les["features"])["close_src"] == expect
         assert les["clv"] == pytest.approx(2.0 * (0.55 if expect == "betfair" else 0.50) - 1)
+
+
+def test_rules_learned_on_s10_misura_also_brake_s10_with_real_money(office):
+    st = office.store
+    st.execute("INSERT INTO coach_rules(created, updated, strategy_id, kind, feature, value, n, clv, clv_hi, active, evidence) "
+               "VALUES('x', 'x', 'S10_misura_v1', 'blocca', 'sport', 'darts', 60, -0.06, -0.02, 1, 'test')")
+    snap = {"ts": 1000.0, "sim_time": 1000.0, "matches": {"M1": {"kickoff": "2030-01-01T10:00:00+00:00", "exchange": {}}}}
+    p = {"strategy_id": "S10_divertimento_v2", "match_id": "M1", "selection": "home", "odds": 1.8, "sport": "darts",
+         "edge": -0.01, "league": "PDC"}
+    ok, label = office.coach.check(p, snap)
+    assert not ok
+    ok, _ = office.coach.check({**p, "sport": "tennis"}, snap)
+    assert ok
+    ok, _ = office.coach.check({**p, "strategy_id": "S05_favoriti_exchange_v2"}, snap)
+    assert ok                                             # altre strategie: la regola non le tocca

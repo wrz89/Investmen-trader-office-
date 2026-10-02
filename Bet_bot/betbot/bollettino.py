@@ -54,7 +54,9 @@ def build(store, settings: dict) -> dict:
     exam.sort(key=lambda r: (order[r["verdict"]], -(r["clv_lo"] if r["clv_lo"] is not None else -9), -r["n"]))
     live = set(settings.get("live_strategies") or []) if settings.get("mode") == "live" else set()
     proposals = [r["strategy_id"] for r in exam if r["verdict"] == "PRONTA" and r["strategy_id"] not in live]
+    from .multiple import summary as multiple_summary
     return {"ts": time.time(), "live": sorted(live), "soldi_veri": real_money(store), "esame": exam,
+            "multiple": multiple_summary(store),
             "test_rapido": _read_json("test_rapido.json"), "orizzonti": _read_json("orizzonti.json"),
             "registrazioni": recording_status(), "proposte": proposals}
 
@@ -75,6 +77,14 @@ def text(b: dict) -> str:
         L.append(f"• {r['strategy_id']}: {r['verdict']} · {r['n']}/{r['need']} puntate · CLV {_pct(r['clv'])}{ci} · "
                  f"ROI {_pct(r['roi'])}")
     tr, oz, rec = b.get("test_rapido"), b.get("orizzonti"), b.get("registrazioni") or {}
+    mu = b.get("multiple")
+    if mu and (mu["doppie"]["n"] or mu["triple"]["n"]):
+        L += ["", "Multiple virtuali (ombra):"]
+        for k in ("doppie", "triple"):
+            d = mu[k]
+            if d["n"]:
+                L.append(f"• {k}: {d['n']} · vinte {d['vinte']:.0%} (attese {d['attese']:.0%}) · ROI {_pct(d['roi'])} ± {2 * d['se']:.0%}"
+                         f" (singole {_pct(mu['singole']['roi'])} su {mu['singole']['n']})")
     L += ["", "Misure:"]
     if tr:
         extra = "; ".join(f"{k}: {v['verdetto']}" for k, v in (tr.get("sport") or {}).items())

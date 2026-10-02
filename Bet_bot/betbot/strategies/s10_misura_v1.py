@@ -13,7 +13,7 @@ STRATEGY_ID = "S10_misura_v1"
 NAME = "Misura del divertimento (ombra)"
 KIND = "prematch"
 
-DEFAULTS = {**V2.DEFAULTS, "max_proposals": 20}
+DEFAULTS = {**V2.DEFAULTS, "max_proposals": 60}
 
 
 def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
