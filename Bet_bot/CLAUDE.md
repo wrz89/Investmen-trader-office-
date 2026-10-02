@@ -81,7 +81,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - autotest.py: con `avvia` lancia in sottofondo orizzonti (1/giorno), allenamento (1/settimana), test rapido
   (1/settimana, ≥250 crediti). Live dalla dashboard: /api/live/on|off → live_switch + riavvio (runtime/riavvio.richiesta,
   `avvia` esce con 3, avvia.bat riparte subito).
-- storico_betfair.py: legge lo storico ufficiale Betfair (piano Basic gratuito, LTP minuto per minuto, formato Stream
+- storico_betfair.py (NON usabile dall'Italia: historicdata.betfair.com blocca gli IP italiani e la VPN è vietata, non
+  suggerirla; si usano le registrazioni di betfair.it + orizzonti.py): legge lo storico ufficiale Betfair (piano Basic gratuito, LTP minuto per minuto, formato Stream
   API .bz2/.tar in runtime/storico_betfair/), abbina football-data e misura scarto e lay di valore a 24h/6h/1h/15'.
 - allenamento.py ha anche il tennis (tennis-data: risponde 403 dai server esteri, gira sul PC dell'utente).
 - S10_misura_v1 (ombra, mai live): la logica di S10 v2 su tutte le partite adatte, senza limite al giorno, per arrivare

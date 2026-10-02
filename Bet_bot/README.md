@@ -83,16 +83,9 @@ Le strategie rigiocano gli ultimi 5 anni senza vedere il risultato, poi Leo fa l
 - Per ogni perdita dice se è stata varianza (decisione giusta) o un prezzo che non valeva, e quali campionati o fasce evitare.
 - **Tennis** (ATP e WTA, da tennis-data con i prezzi Betfair dal 2025): calibrazione del favorito e S10 sul tennis. I dati si scaricano dal tuo PC (da alcuni server esteri il sito li blocca).
 
-### Storico ufficiale Betfair (`storico_betfair.bat`)
+### Storico ufficiale Betfair (non utilizzabile dall'Italia)
 
-Serve a verificare il lay di valore all'ora vera della puntata (1 ora e 15 minuti prima), non sui prezzi del venerdì.
-
-**Come scaricarlo** (gratis, 10 minuti; le voci del sito possono cambiare leggermente):
-1. Apri **historicdata.betfair.com** e accedi con il tuo conto Betfair.
-2. In **Buy Data**: sport **Soccer**, piano **BASIC** (prezzo 0), date degli ultimi 12 mesi. Conferma l'"acquisto" gratuito.
-3. In **My Data**: sport Soccer, piano BASIC, stesse date. Se te lo chiede, tipo di mercato **MATCH_ODDS** (il file è molto più piccolo) e paesi Italia, Inghilterra, Spagna, Germania e Francia.
-4. Premi **Download** e salva il file `.tar` in `D:\Claude\Bet_bot\Bet_bot\runtime\storico_betfair\`. La cartella la crea `storico_betfair.bat` la prima volta che lo lanci.
-5. Lancia `storico_betfair.bat`. Il risultato è anche in `runtime/reports/storico_betfair.md`.
+historicdata.betfair.com è del Betfair internazionale e blocca gli accessi dall'Italia ("a country that Betfair does not accept bets from"). **Non va aggirato** (con una VPN si violano le regole di Betfair e si rischia il conto betfair.it). Non serve: i prezzi del mercato italiano li registra il bot ogni giorno e `orizzonti.bat` li legge. `storico_betfair.bat` resta nel progetto solo per chi avesse già file di quello storico.
 
 ### Il bollettino di Leo (ogni mattina)
 
