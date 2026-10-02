@@ -16,5 +16,7 @@ S05_favoriti_exchange_v3:   # aggiunta il 30/09/2026, prima di qualunque risulta
   min_puntate: 200
 S10_divertimento_v2:        # aggiunta il 30/09/2026, prima di qualunque risultato
   min_puntate: 200
+S10_misura_v1:              # aggiunta il 02/10/2026, prima di qualunque risultato: la v2 in ombra su tutte le partite
+  min_puntate: 200
 S06_live_exchange_v1:
   min_puntate: 200

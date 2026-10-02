@@ -265,3 +265,22 @@ def test_deposit_adds_capital_not_profit(tmp_path):
     assert float(st.get("peak_bankroll")) == 60.0
     assert any("39.96" in x or "40" in x for x in said)                     # nuovo stop: picco 60 × 0,666
     assert not live_switch.deposit(ask=lambda q: "SI", out=said.append, client=c, store=st)    # niente di nuovo
+
+
+def test_misura_shadows_every_suitable_match_without_daily_cap():
+    from betbot.strategies import s10_misura_v1 as M
+    ms = [_match(f"T{i}", "tennis", {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}, league="ATP Parigi")
+          for i in range(8)]
+    out = M.propose(_snap(*ms, _lay_match()), {}, {"store": None})
+    assert len(out) == 9 and out[0]["side"] == "LAY"                # prima il lay di valore, poi una per partita
+    assert all(p["strategy_id"] == "S10_misura_v1" and not p.get("fun") for p in out)
+
+
+def test_leo_uses_betfair_close_when_pinnacle_is_stale():
+    import json
+
+    from betbot.agents.coach import exchange_fair
+    f = exchange_fair({"home": {"back": 1.80, "lay": 1.82}, "away": {"back": 2.20, "lay": 2.24}})
+    assert abs(sum(f.values()) - 1) < 1e-9 and f["home"] > f["away"]
+    assert exchange_fair({"home": {"back": 1.8, "lay": 2.5}, "away": {"back": 2.2, "lay": 2.3}}) is None   # libro largo
+    _ = json

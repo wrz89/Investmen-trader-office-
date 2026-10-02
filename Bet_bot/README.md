@@ -104,6 +104,12 @@ Dalle 8 Leo manda su Telegram, e nel registro della dashboard, un riepilogo di t
 
 Per vederlo subito: `python betbot.py bollettino`.
 
+### Più campione per l'esame (S10 misura)
+
+I soldi veri di S10 fanno al massimo 5 puntate al giorno: per le 200 dell'esame servirebbero mesi. **S10 misura** applica la stessa logica di S10 v2 **in ombra**, senza soldi e senza limite al giorno, su tutte le partite adatte di betfair.it: decine di misure al giorno sui prezzi veri. Leo fa l'autopsia di ognuna.
+
+Quando la quota di Pinnacle al via è vecchia (il riferimento gratuito si aggiorna ogni 2-6 ore), Leo misura il CLV contro la chiusura di Betfair stesso, che c'è sempre. Prima in quei casi la "chiusura" era la stessa quota dell'ingresso, e il CLV risultava finto, vicino a zero.
+
 ### Quando conviene entrare (`orizzonti.bat`)
 
 Legge le registrazioni dei prezzi veri di betfair.it e, per ogni partita, guarda i prezzi a 72, 48, 24, 12, 6, 3 e 1 ora dall'inizio.

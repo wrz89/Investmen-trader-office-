@@ -90,3 +90,19 @@ def test_clv_is_measured_on_the_price_taken():
     assert price_clv_of("BACK", 1.90, 0.50) == pytest.approx(-0.05)
     assert price_clv_of("LAY", 3.80, 0.25) == pytest.approx(4.0 / 3.8 - 1)  # bancata a 3,80, giusta 4,00: buono
     assert price_clv_of("LAY", 4.20, 0.25) < 0
+
+
+def test_stale_pinnacle_close_falls_back_to_betfair_close(office):
+    st = office.store
+    for ref_age, expect in ((300.0, "betfair"), (20.0, "pinnacle")):
+        sid = st.execute("INSERT INTO shadow_bets(ts, strategy_id, match_id, label, selection, odds, fair_prob, edge, stake, "
+                         "status, pnl) VALUES('2026-10-02T10:00:00+00:00', 'S10_misura_v1', 'M', 'A - B · A', 'home', 2.0, "
+                         "0.5, 0.0, 1, 'WON', 0.955)").lastrowid
+        track = {"p_close": 0.50, "p_close_bf": 0.55, "ref_age_min": ref_age}
+        st.execute("INSERT INTO coach_entries(ts, src, row_id, strategy_id, match_id, selection, side, odds, fair_prob, edge, "
+                   "features, track) VALUES('2026-10-02T10:00:00+00:00', 'shadow_bets', ?, 'S10_misura_v1', 'M', 'home', "
+                   "'BACK', 2.0, 0.5, 0.0, '{}', ?)", (sid, json.dumps(track)))
+        office.coach.review()
+        les = st.query("SELECT clv, features FROM coach_lessons ORDER BY id DESC LIMIT 1")[0]
+        assert json.loads(les["features"])["close_src"] == expect
+        assert les["clv"] == pytest.approx(2.0 * (0.55 if expect == "betfair" else 0.50) - 1)

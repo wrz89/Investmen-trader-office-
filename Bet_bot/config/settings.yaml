@@ -41,6 +41,7 @@ observe_strategies:            # solo ombra, senza capitale: si attivano solo do
   - S06_live_exchange_v1       # in-play: serve un riferimento live aggiornato (piano a pagamento di The Odds API)
   - S05_favoriti_exchange_v3   # come S05 v2 + filtri sul movimento dei prezzi (6%) e libro ≥ 6 €: in ombra accanto alla v2
   - S10_divertimento_v1        # la v1 (solo back) resta in ombra per il confronto con la v2
+  - S10_misura_v1              # la logica della v2 in ombra su TUTTE le partite adatte: campione per l'esame in settimane
   - S09_lay_valore_v1           # lay di valore sul calcio: contro gli esiti che Betfair prezza sotto Pinnacle (~80% vinte a quota 3-8)
 
 feed:

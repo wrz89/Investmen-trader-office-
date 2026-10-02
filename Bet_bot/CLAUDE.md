@@ -84,6 +84,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - storico_betfair.py: legge lo storico ufficiale Betfair (piano Basic gratuito, LTP minuto per minuto, formato Stream
   API .bz2/.tar in runtime/storico_betfair/), abbina football-data e misura scarto e lay di valore a 24h/6h/1h/15'.
 - allenamento.py ha anche il tennis (tennis-data: risponde 403 dai server esteri, gira sul PC dell'utente).
+- S10_misura_v1 (ombra, mai live): la logica di S10 v2 su tutte le partite adatte, senza limite al giorno, per arrivare
+  in fretta alle 200 puntate dell'esame. Leo: chiusura = Pinnacle se fresco al via (≤ 90'), altrimenti prezzo medio di
+  Betfair alla chiusura (track.p_close_bf, features.close_src); prima una Pinnacle vecchia dava CLV finto ≈ 0.
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
   proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),

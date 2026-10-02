@@ -81,6 +81,19 @@ def fair_now(m: dict) -> dict | None:
     return None
 
 
+def exchange_fair(ex: dict) -> dict | None:
+    """Probabilità dal prezzo medio tra back e lay di Betfair (libro completo e non troppo largo), normalizzate."""
+    mids = {}
+    for sel, b in (ex or {}).items():
+        if not b.get("back") or not b.get("lay") or b["lay"] < b["back"] or b["lay"] > b["back"] * 1.1:
+            return None
+        mids[sel] = (b["back"] + b["lay"]) / 2
+    if len(mids) < 2:
+        return None
+    tot = sum(1 / v for v in mids.values())
+    return {s: (1 / v) / tot for s, v in mids.items()}
+
+
 def our_prob(side: str, p: float | None) -> float | None:
     """Probabilità che la NOSTRA puntata vinca: il back vince se l'esito succede, il lay se non succede."""
     return None if p is None else (1 - p if side == "LAY" else p)
@@ -274,6 +287,11 @@ class Coach(Agent, CoachBook):
                 t["p_min"], t["p_max"] = min(t.get("p_min", p), p), max(t.get("p_max", p), p)
             if b.get("back") or b.get("lay"):
                 t["back_close"], t["lay_close"] = b.get("back"), b.get("lay")
+            bf = exchange_fair(m.get("exchange") or {})
+            if bf and e["selection"] in bf:
+                t["p_close_bf"] = bf[e["selection"]]               # chiusura di Betfair: c'è sempre, a ogni ciclo
+            now = snapshot.get("sim_time") or snapshot.get("ts") or 0
+            t["ref_age_min"] = round((now - m["ref_ts"]) / 60, 1) if m.get("ref_ts") and now else None
             t["ts"] = now_iso()
             self.store.execute("UPDATE coach_entries SET track=? WHERE id=?", (json.dumps(t), e["id"]))
 
@@ -298,11 +316,16 @@ class Coach(Agent, CoachBook):
             if s["status"] == "VOID":
                 self.store.execute("UPDATE coach_entries SET reviewed=1 WHERE id=?", (e["id"],))
                 continue
+            # chiusura: Pinnacle se era fresco al via (≤ 90 minuti), altrimenti il prezzo medio di Betfair alla chiusura.
+            # Col riferimento ogni 2-6 ore Pinnacle "alla chiusura" era spesso la stessa quota dell'ingresso: CLV finto ≈ 0
+            p_close, f["close_src"] = t.get("p_close"), "pinnacle"
+            if t.get("p_close_bf") is not None and (p_close is None or (t.get("ref_age_min") or 0) > 90):
+                p_close, f["close_src"] = t["p_close_bf"], "betfair"
             pe = our_prob(side, e["fair_prob"])
-            pc = our_prob(side, t.get("p_close"))
+            pc = our_prob(side, p_close)
             # CLV "da professionisti": la quota PRESA contro la quota giusta alla chiusura (non contro la nostra stima,
             # che è ottimista per costruzione: si punta proprio quando la stima supera il prezzo)
-            clv = None if trade else price_clv_of(side, e["odds"], t.get("p_close"))
+            clv = None if trade else price_clv_of(side, e["odds"], p_close)
             price_clv = None
             if side == "LAY" and t.get("lay_close"):
                 price_clv = t["lay_close"] / e["odds"] - 1
