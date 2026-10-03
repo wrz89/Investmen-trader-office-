@@ -111,6 +111,22 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),
   execution.py (Betfair e paper), agents/coach.py (Leo: autopsie e regole che possono solo frenare),
   esame.py, test_rapido.py, palestra.py, backtest*.py, feeds/betfair.py, collega_betfair.py.
+- Letteratura e forum (ricerca del 03/10/2026, nessun codice cambiato):
+  • closingline (GitHub, Dixon-Coles su gol/xG 50-50 + Elo + GBM, 5.286 partite): NON batte la chiusura Pinnacle
+    (Brier +2,1%, ROI simulato −10,8%); forma, tiri, formazioni perfette, rosa: nessun segnale in più. Conferma: non
+    costruire un nostro modello di calcio, il vantaggio non è nei dati pubblici.
+  • football-data.co.uk (35.570 partite, 22 campionati): il value rispetto a Pinnacle funziona sui BOOKMAKER morbidi
+    (EV ≥ 5%: rendimento reale 119% su 1.024 puntate), non sull'exchange; per le regole del progetto resta fuori.
+  • favourite-longshot bias: sugli exchange è assente o inverso (Betfair riflette le probabilità vere): il lay di
+    quota 3-5 NON si regge su quel bias ma solo sullo scarto con Pinnacle (da misurare con CLV, non da dare per vero).
+  • "Beating the market with a bad predictive model" (arXiv 2010.12508, NBA 2006-14, 9.093 partite): un modello
+    decorrelato dal mercato rende +1-1,7% con stake tipo Sharpe, ma contro Pinnacle (margine 2,5%) e con reti
+    neurali su 14 anni di box score; con commissione 4,5% e senza dati equivalenti non è replicabile da noi.
+  • in-play xG (arXiv 2605.16066, 140 partite EPL, ROI 4,5% su 17.458 puntate): campione minuscolo e puntate correlate
+    (125 a partita), con puntata fissa il ROI è −3,4%; gli autori lo chiamano preliminare. In più serve in-play con
+    tempi reali (la nostra chiave app ha ritardo 1-180 s): scartato.
+  • KellyBench (arXiv 2604.27865): tutti i modelli di frontiera perdono sulla Premier 2023-24, alcuni vanno a zero:
+    conferma i freni (puntata fissa, stop giornaliero, kill switch) e che l'LLM non è un edge.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
