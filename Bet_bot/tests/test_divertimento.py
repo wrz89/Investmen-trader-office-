@@ -344,3 +344,17 @@ def test_misura_is_wider_than_live_for_lays():
     assert all(p.get("side") != "LAY" for p in V2.propose(_snap(m), {}, {}))        # live: no
     lays = [p for p in M.propose(_snap(m), {}, {"store": None}) if p.get("side") == "LAY"]
     assert lays and lays[0]["odds"] > 5 and lays[0]["ref_ts"] == m["ref_ts"]        # misura: sì, con l'età registrata
+
+
+def test_deposit_accepts_lowercase_si_and_explains_other_answers(tmp_path):
+    from betbot import live_switch
+    from betbot.bankroll import Bankroll
+    from betbot.store import Store
+    st = Store(tmp_path / "l.db")
+    Bankroll(st, 30.0, allow_reset=False)
+    c = type("C", (), {"account_funds": lambda self: {"availableToBetBalance": 60.0, "exposure": 0.0}})()
+    said = []
+    assert not live_switch.deposit(ask=lambda q: "ok", out=said.append, client=c, store=st)
+    assert any("NESSUNA modifica" in x and "ok" in x for x in said)
+    assert live_switch.deposit(ask=lambda q: "si", out=said.append, client=c, store=st)
+    assert Bankroll(st, 0, allow_reset=False).total == 60.0

@@ -141,8 +141,9 @@ def deposit(ask=input, out=print, client=None, store=None) -> bool:
     peak = float(store.get("peak_bankroll") or br.total) + extra
     out(f"Aggiungendo {extra:.2f} € il bankroll diventa {br.total + extra:.2f} €. La puntata NON cambia (2 € fissi, "
         f"rischio dei lay 1-2 €); il bot si fermerà da solo sotto {kill_floor(peak, lim):.2f} €.")
-    if str(ask("Per aggiungerli scrivi SI e premi Invio: ")).strip() != "SI":
-        out("Nessuna modifica.")
+    answer = str(ask("Per aggiungerli scrivi SI e premi Invio: ")).strip()
+    if answer.upper() != "SI":                         # qui basta anche "si": cambia solo la contabilità del bot
+        out(f"Hai scritto «{answer}»: non è SI, quindi NESSUNA modifica. Rilancia deposito.bat e scrivi SI.")
         return False
     br.add_capital(extra)
     out(f"Fatto: bankroll {br.total:.2f} €, capitale {br.initial_capital:.2f} €.")
