@@ -162,6 +162,7 @@ class CoachBook:
                 "sport": f.get("sport") or "n.d.",
                 "lato": f.get("side") or "BACK",
                 "liquidita": _band(f.get("liquidity"), [5, 20, 100, 500], "{:.0f}") + " €",
+                "eta_riferimento": _band(f.get("ref_age_min"), [30, 90, 150], "{:.0f}") + " min",   # Pinnacle vecchio = falso valore?
                 **{k: str(v) for k, v in (f.get("dyn") or {}).items()}}      # dinamiche della palestra (forma, assenze…)
 
     def segments(self) -> list[dict]:
@@ -439,7 +440,8 @@ class Coach(Agent, CoachBook):
         f = {"league": p.get("league"), "odds": p.get("odds"), "minutes_before": mins, "edge": p.get("edge"),
              "source": "Pinnacle" if "Pinnacle" in books else (f"consenso {len(books)} book" if books else "nessuna"),
              "sport": (p.get("sport") or "").split("_")[0] or "n.d.", "side": side,
-             "liquidity": ex.get("lay_size_best" if side == "LAY" else "back_size_best")}
+             "liquidity": ex.get("lay_size_best" if side == "LAY" else "back_size_best"),
+             "ref_age_min": (now - p["ref_ts"]) / 60 if p.get("ref_ts") and now else None}
         vals = self.segment_values(f)
         for r in rules:
             if r["kind"] == "blocca" and vals.get(r["feature"]) == r["value"]:

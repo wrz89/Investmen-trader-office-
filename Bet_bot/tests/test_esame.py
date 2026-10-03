@@ -65,6 +65,6 @@ def test_exam_splits_s10_by_side(tmp_path):
         st.execute("INSERT INTO coach_lessons(ts, entry_id, strategy_id, label, src, outcome, pnl, stake, clv) "
                    "VALUES('x', ?, 'S10_misura_v1', 'x', 'shadow_bets', 'WON', 0.5, 1, ?)", (eid, clv))
     res = {r["strategy_id"]: r for r in esame.evaluate_all(st, ["S10_misura_v1"])}
-    assert set(res) == {"S10_misura_v1", "S10_misura_v1 · solo lay", "S10_misura_v1 · solo back"}
+    assert set(res) == {"S10_misura_v1", "S10_misura_v1 · solo lay", "S10_misura_v1 · solo lay fresco", "S10_misura_v1 · solo back"}
     assert res["S10_misura_v1 · solo lay"]["n"] == 2 and res["S10_misura_v1 · solo lay"]["clv"] == 0.11
     assert res["S10_misura_v1 · solo back"]["n"] == 2 and res["S10_misura_v1"]["n"] == 4

@@ -331,3 +331,16 @@ def test_v2_lay_needs_fresh_pinnacle():
     assert all(p.get("side") != "LAY" for p in old)
     fresh = V2.propose(_snap(_lay_match(ref_ts=T0 - 30 * 60)), {}, {})
     assert any(p.get("side") == "LAY" for p in fresh)
+
+
+def test_misura_is_wider_than_live_for_lays():
+    from betbot.strategies import s10_divertimento_v2 as V2
+    from betbot.strategies import s10_misura_v1 as M
+    ex = {"home": {"back": 1.60, "lay": 1.62, "back_size_best": 80, "lay_size_best": 60},
+          "draw": {"back": 4.2, "lay": 4.3, "back_size_best": 40, "lay_size_best": 40},
+          "away": {"back": 6.8, "lay": 7.0, "back_size_best": 30, "lay_size_best": 30}}
+    m = _match("L3", "soccer_italy_serie_a", ex, books={"Pinnacle": {"home": 1.55, "draw": 4.6, "away": 18.0}})
+    m["ref_ts"] = T0 - 2 * 3600                                          # Pinnacle di 2 ore fa, lay a 9,4
+    assert all(p.get("side") != "LAY" for p in V2.propose(_snap(m), {}, {}))        # live: no
+    lays = [p for p in M.propose(_snap(m), {}, {"store": None}) if p.get("side") == "LAY"]
+    assert lays and lays[0]["odds"] > 5 and lays[0]["ref_ts"] == m["ref_ts"]        # misura: sì, con l'età registrata
