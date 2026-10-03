@@ -1459,7 +1459,7 @@ summary h2 { white-space: nowrap; }
     const liveSec = `<section class="set-sec" id="live-sec"><h3>Soldi veri</h3><div class="live-box">
       ${isLive ? `<p><b>LIVE acceso</b> per ${esc((SET.live_strategies || []).join(", ") || "nessuna strategia")}: 2 € a puntata, al massimo 10 al giorno, fino a 3 aperte insieme. Si ferma da solo sotto i 20 € e dopo 6 € persi nel giorno.</p>
         <div class="field"><button class="btn" id="live-off" type="button">Torna ai soldi finti</button></div>`
-      : `<p>Adesso: <b>soldi finti</b>. Con i soldi veri punta la strategia Divertimento: 2 € fissi, al massimo 10 al giorno, fino a 3 aperte insieme, su calcio, tennis, basket, NFL e baseball. In media si perde l'1-3% di ogni puntata: è per giocare, non un sistema per guadagnare. Non deposita e non preleva mai.</p>
+      : `<p>Adesso: <b>soldi finti</b>. Con i soldi veri punta la strategia 4fun: ${eur(S.limits?.fun_stake_eur ?? 2, 0)} fissi, al massimo ${S.limits?.fun_max_bets_per_day ?? 10} al giorno, fino a ${S.limits?.fun_max_open ?? 3} aperte insieme, solo a prezzi vicini al giusto e su mercati con almeno 100 € al prezzo. In media si perde l'1-2% di ogni puntata: è per giocare, non un sistema per guadagnare. Non deposita e non preleva mai.</p>
         <p>Il bot fa login, controlla il saldo, fa un ordine di prova (2 € a quota 1000, annullato subito) e si riavvia da solo in LIVE.</p>
         <div class="field"><input type="text" id="live-confirm" autocomplete="off" placeholder="scrivi SI per confermare"><button class="btn danger" id="live-on" type="button">Accendi i soldi veri</button></div>`}
       </div></section>`;

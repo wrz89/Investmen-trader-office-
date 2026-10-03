@@ -10,14 +10,15 @@ from __future__ import annotations
 from . import s10_divertimento_v2 as V2
 
 STRATEGY_ID = "S10_misura_v1"
-NAME = "Misura del divertimento (ombra)"
+NAME = "Misura del 4fun (ombra)"
 KIND = "prematch"
 
 # la misura è LARGA di proposito (nessun rischio: è in ombra): lay fino a quota 8 e anche con Pinnacle vecchio fino a
 # 2,5 ore, così il campione dei lay cresce. Leo separa i casi per età del riferimento (segmento "eta_riferimento") e
 # l'esame ha la riga "solo lay con Pinnacle fresco": si vede se il valore con Pinnacle vecchio è falso.
 DEFAULTS = {**V2.DEFAULTS, "max_proposals": 60, "lay_max": 8.0, "lay_max_ref_age_s": 9000,
-            "all_sports": True}              # anche gli sport che il live non gioca (rugby, pallamano, futsal…): sola misura
+            "all_sports": True,
+            "min_ev": -0.03, "min_book_eur": 10.0}      # larga come prima: è la misura, non il live              # anche gli sport che il live non gioca (rugby, pallamano, futsal…): sola misura
 
 
 def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:

@@ -80,7 +80,7 @@ def _rsnap():
 def test_risk_allows_fun_at_minimum_stake_but_not_bad_prices(office):
     state = office.risk.portfolio_state()
     d = office.risk.evaluate(_fun(), _rsnap(), state)
-    assert d["approved"] and d["stake"] == 2.0, d["reasons"]
+    assert d["approved"] and 2.0 <= d["stake"] <= 4.0, d["reasons"]       # 4 € fissi, tagliati al 10% del bankroll (30 €)
     assert not office.risk.evaluate(_fun(edge=-0.04), _rsnap(), state)["approved"]          # perde troppo
     assert not office.risk.evaluate(_fun(spread=0.05), _rsnap(), state)["approved"]         # libro largo
     # una S05 con lo stesso EV negativo resta vietata: la regola vale solo per il divertimento
@@ -225,10 +225,20 @@ def _lay_match(ref_ts=None):
     return m
 
 
+LOOSE = {"min_book_eur": 10.0, "min_ev": -0.03}       # le soglie di prima: qui si prova la logica, non la stretta
+
+
+def test_v2_live_is_strict_on_price_and_liquidity():
+    from betbot.strategies import s10_divertimento_v2 as V2
+    thin = _match("T2", "tennis", {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}, league="ATP Parigi")
+    assert V2.DEFAULTS["min_ev"] == -0.02 and V2.DEFAULTS["min_book_eur"] == 100.0
+    assert all(p["edge"] >= -0.02 for p in V2.propose(_snap(thin), {}, {}))
+
+
 def test_v2_prefers_value_lays_then_backs():
     from betbot.strategies import s10_divertimento_v2 as V2
     tennis = _match("T1", "tennis", {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}, league="ATP Parigi")
-    out = V2.propose(_snap(tennis, _lay_match()), {}, {})
+    out = V2.propose(_snap(tennis, _lay_match()), LOOSE, {})
     assert out[0]["side"] == "LAY" and out[0]["selection"] == "LAY:away" and out[0]["fun"]
     assert out[0]["strategy_id"] == "S10_divertimento_v2" and out[0]["edge"] >= 0.02
     assert out[1]["match_id"] == "T1" and out[1].get("side") != "LAY"
@@ -245,7 +255,7 @@ def test_risk_sizes_fun_lay_at_minimum_backer(office):
                                "exchange": {"away": {"back": 4.6, "lay": 4.7, "back_size": 300.0, "lay_size": 300.0}}}}}
     d = office.risk.evaluate(p, snap, office.risk.portfolio_state())
     assert d["approved"], d["reasons"]
-    assert d["stake"] == pytest.approx(0.5 * (4.7 - 1), abs=0.02)                 # responsabilità con 0,50 € del backer
+    assert 0.5 * (4.7 - 1) - 0.02 <= d["stake"] <= 4.0                            # rischio fino a 4 €, mai sotto 0,50 € del backer
 
 
 def test_live_settings_move_v1_to_v2(tmp_path, monkeypatch):
@@ -311,7 +321,7 @@ def test_v2_live_skips_national_teams_but_misura_keeps_them():
     ex = {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}
     nat = _match("N1", "tennis", ex, league="International Friendlies")
     club = _match("C1", "tennis", ex, league="ATP Parigi")
-    assert [p["match_id"] for p in V2.propose(_snap(nat, club), {}, {})] == ["C1"]
+    assert [p["match_id"] for p in V2.propose(_snap(nat, club), LOOSE, {})] == ["C1"]
     assert {p["match_id"] for p in M.propose(_snap(nat, club), {}, {})} == {"N1", "C1"}
 
 

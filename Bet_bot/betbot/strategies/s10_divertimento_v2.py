@@ -20,7 +20,7 @@ from . import s09_lay_valore_v1 as S09
 from . import s10_divertimento_v1 as V1
 
 STRATEGY_ID = "S10_divertimento_v2"
-NAME = "Divertimento (lay di valore prima)"
+NAME = "4fun (lay di valore prima)"
 KIND = "prematch"
 
 # lay fino a quota 5 (3-8 prima): con 0,50 € del backer il rischio massimo è 2 €, come un back; a quota 8 era 3,50 €
@@ -29,7 +29,10 @@ KIND = "prematch"
 # il "valore" di un lay è lo scarto tra Betfair e Pinnacle: con Pinnacle vecchio di ore lo scarto è spesso solo Pinnacle
 # rimasto indietro (una quota che si muove del 5% in 2 ore è normale, e un EV del 2% sul rischio vale ~1 punto di
 # probabilità). Per i lay Pinnacle deve avere al massimo 90 minuti, come la chiusura di Leo (04/10/2026).
-DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 5.0, "lay_max_ref_age_s": 5400}
+# 05/10/2026 ("stringi"): con i soldi veri solo prezzi vicini al giusto (EV ≥ −2%, prima −3%) e mercati con almeno 100 €
+# al prezzo (prima 10 €): meno puntate ma niente campionati sottili. La misura in ombra resta larga (s10_misura_v1).
+DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 5.0, "lay_max_ref_age_s": 5400,
+            "min_ev": -0.02, "min_book_eur": 100.0}
 
 
 def lay_candidates(snapshot: dict, q: dict) -> list[dict]:
@@ -44,7 +47,7 @@ def lay_candidates(snapshot: dict, q: dict) -> list[dict]:
         m = snapshot["matches"][p["match_id"]]
         p.update(strategy_id=STRATEGY_ID, fun=True, kickoff=m["kickoff"],
                  book_eur=(m["exchange"].get(p["selection"][4:]) or {}).get("lay_size_best") or 0.0,
-                 reason="Divertimento, lay di valore: " + p["reason"])
+                 reason="4fun, lay di valore: " + p["reason"])
         out.append(p)
     return out
 

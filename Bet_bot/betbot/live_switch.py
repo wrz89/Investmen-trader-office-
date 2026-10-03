@@ -71,7 +71,7 @@ def enable(ask=input, out=print, client=None) -> bool:
     lim = live_limits(load_yaml("risk_limits.yaml"), "live")
     out(f"\nSaldo disponibile su betfair.it: {bal:.2f} €\n")
     out("Cosa succede con i SOLDI VERI:")
-    out(f"  • la strategia Divertimento: prima i lay di valore sul calcio (rischio 1-2 €), altrimenti back da 2 €; "
+    out(f"  • la strategia 4fun: prima i lay di valore sul calcio, altrimenti back; puntata fissa {lim.get('fun_stake_eur', 2):.0f} €; "
         f"al massimo {lim.get('fun_max_bets_per_day', 10)} al giorno, fino a 3 aperte insieme, su calcio, tennis, basket, "
         "NFL e baseball;")
     out("  • sceglie il prezzo più vicino al giusto: in media si perde circa l'1-3% di ogni puntata (commissione e spread),")

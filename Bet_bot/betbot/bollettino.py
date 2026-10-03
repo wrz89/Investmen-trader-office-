@@ -97,9 +97,9 @@ def text(b: dict) -> str:
     L.append("")
     if b["proposte"]:
         L.append("Proposta: " + ", ".join(b["proposte"]) + " ha superato l'esame. Se vuoi metterla con i soldi veri al "
-                 "posto del divertimento, dimmelo: il bot non lo fa da solo.")
+                 "posto del 4fun, dimmelo: il bot non lo fa da solo.")
     else:
-        L.append("Nessuna strategia ha ancora superato l'esame: si continua a misurare, il divertimento resta com'è.")
+        L.append("Nessuna strategia ha ancora superato l'esame: si continua a misurare, il 4fun resta com'è.")
     return "\n".join(L)
 
 

@@ -38,7 +38,7 @@ def together(cands: list[dict], k: int, comm: float = 0.045) -> dict:
 
 
 def report(cands: list[dict], bankroll: float | None, limits: dict, now: float, top: int = 10) -> str:
-    L = ["Su cosa punterebbe ADESSO la strategia Divertimento (nessuna puntata viene fatta):", ""]
+    L = ["Su cosa punterebbe ADESSO la strategia 4fun (nessuna puntata viene fatta):", ""]
     if not cands:
         L.append("Nessuna scelta adatta in questo momento (quote 1,40-3,00, libro stretto e liquido, inizio tra 10 minuti "
                  "e 4 ore). Riprova più tardi: la sera e nei weekend ce ne sono di più.")

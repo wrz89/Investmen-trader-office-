@@ -333,8 +333,8 @@ class RiskManager(Agent):
                                          (_day_start_iso(), p["strategy_id"]))[0]["n"]
             fun_open = sum(1 for b in open_bets if b["strategy_id"] == p["strategy_id"])
             check(fun_today < L.get("fun_max_bets_per_day", 10),
-                  f"Puntate di divertimento oggi < {L.get('fun_max_bets_per_day', 10)} ({fun_today})")
-            check(fun_open < L.get("fun_max_open", 1), f"Puntate di divertimento aperte < {L.get('fun_max_open', 1)}")
+                  f"Puntate 4fun oggi < {L.get('fun_max_bets_per_day', 10)} ({fun_today})")
+            check(fun_open < L.get("fun_max_open", 1), f"Puntate 4fun aperte < {L.get('fun_max_open', 1)}")
         same_league = sum(1 for b in open_bets if b.get("league") == p.get("league"))
         check(same_league < L["max_same_league_open"], "Concentrazione per campionato nei limiti")
 
@@ -345,15 +345,19 @@ class RiskManager(Agent):
         if fun:
             # il divertimento punta sempre il minimo: "prudenza" (dimezzare) non cambierebbe nulla. Un prezzo che si
             # allontana (mercato in uscita) dice che qualcuno sa qualcosa contro di noi: si salta (05/10/2026)
-            check(verdict["level"] == "ok", "Mercato non in uscita (divertimento)" +
+            check(verdict["level"] == "ok", "Mercato non in uscita (4fun)" +
                   (f" ({verdict.get('reason')})" if verdict["level"] == "caution" else ""))
 
         base = state["stake_base"]
         min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
         if p.get("side") == "LAY":                               # lay d'apertura: minimo 0,50 € del backer
             min_stake = lay_min_liability(p)
-        if fun:                                                 # divertimento: sempre e solo la puntata minima
-            stake, k_full = min_stake, 0.0
+        if fun:                                                 # 4fun: puntata fissa (fun_stake_eur), mai sotto il minimo
+            target = max(min_stake, float(L.get("fun_stake_eur", min_stake) or min_stake))
+            if p.get("side") == "LAY":                          # sui lay è la responsabilità (perdita massima)
+                from ..execution import round_lay_liability
+                target = max(min_stake, round_lay_liability(target, p["odds"]))
+            stake, k_full = target, 0.0
         elif verdict["level"] == "caution":                     # il dimezzamento va PRIMA dell'arrotondamento a 0,50 €
             stake, k_full = stake_for(p, base * L.get("sentiment_caution_stake_factor", 0.5), L, min_stake)
         else:
@@ -407,7 +411,7 @@ class RiskManager(Agent):
                     "coach_blocked": coach_blocked if coach_blocked and reasons == [coach_blocked] else None}
         if approved:
             how = (f"perdita massima {risk_now:.2f} € allo stop" if p.get("exchange")
-                   else "divertimento: puntata minima fissa" if fun
+                   else f"4fun: puntata fissa {stake:.2f} €" if fun
                    else f"Kelly netto {k_full:.1%} × {L['kelly_fraction']:.2f}")
             self.say(f"APPROVO {p['label']} a {p['odds']:.2f}: puntata {stake:.2f} € ({how}, base {base:.2f} €)"
                      + (f" · sentiment: {verdict['reason']}" if verdict["level"] == "caution" else "") + ".",

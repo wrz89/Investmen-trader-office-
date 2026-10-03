@@ -143,6 +143,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   (aperte/giorno, puntate aperte da >6 h dopo l'inizio = incastrate), motivi dei veti delle ultime ore, lezioni di Leo.
 - Regola "correggi" di Leo: confronta l'EV corretto con la soglia della strategia (fun_min_edge −3% per il
   divertimento, min_edge per le altre). Prima del 05/10/2026 confrontava con 0 e bloccava TUTTO il divertimento.
+- 4fun (05/10/2026, nome nuovo del "divertimento"; gli id restano S10_divertimento_*): puntata fissa fun_stake_eur
+  4 € (lay: rischio 4 €), live solo con EV ≥ −2% (fun_min_edge) e almeno 100 € al prezzo (S10 v2 DEFAULTS); niente
+  puntate col mercato in uscita (sentiment "caution" = veto per il 4fun). S10 misura resta larga (−3%, 10 €).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

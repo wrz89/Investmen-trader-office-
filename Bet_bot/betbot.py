@@ -23,7 +23,7 @@
     python betbot.py esame                esame per il live: quali strategie hanno superato i criteri sui prezzi veri
     python betbot.py copertura            quante partite e quanti crediti servono a The Odds API (e se c'è Pinnacle)
     python betbot.py live on|off          soldi veri SÌ/NO (vai_live.bat / torna_paper.bat): chiede conferma scritta
-    python betbot.py anteprima            su cosa punterebbe adesso il Divertimento (prezzi veri, nessuna puntata)
+    python betbot.py anteprima            su cosa punterebbe adesso il 4fun (prezzi veri, nessuna puntata)
     python betbot.py allenamento          le strategie rigiocano 5 anni senza vedere il risultato, Leo fa l'autopsia
     python betbot.py multiple             doppie e triple virtuali dalle puntate di misura (ombra) e dove si rompono
     python betbot.py storico-betfair      lo storico ufficiale Betfair (runtime/storico_betfair/): lay di valore all'ora vera

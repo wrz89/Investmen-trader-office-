@@ -82,12 +82,12 @@ def check(store, hours: float = HOURS) -> dict:
                           (_day_start_iso(),))[0]["n"]
     fun_open = sum(1 for o in opened if str(o["strategy_id"]).startswith("S10_divertimento"))
     if fun_open >= lim.get("fun_max_open", 3):
-        blocks.append((f"{fun_open} puntate del divertimento già aperte (tetto {lim.get('fun_max_open', 3)})",
+        blocks.append((f"{fun_open} puntate 4fun già aperte (tetto {lim.get('fun_max_open', 3)})",
                        "Riparte quando una si chiude." + (" ATTENZIONE: " + ", ".join(f"#{o['id']} {o['label']}" for o in stuck)
                                                           + " risultano aperte da più di 6 ore dopo l'inizio: controlla su Betfair "
                                                           "('Le mie scommesse') se sono state regolate." if stuck else "")))
     if today_n >= lim.get("fun_max_bets_per_day", 10):
-        blocks.append((f"Già {today_n} puntate del divertimento oggi (tetto {lim.get('fun_max_bets_per_day', 10)})",
+        blocks.append((f"Già {today_n} puntate 4fun oggi (tetto {lim.get('fun_max_bets_per_day', 10)})",
                        "Riparte da sola domani."))
     return {"ts": time.time(), "hours": hours, "blocks": blocks, "open": len(opened), "stuck": len(stuck), "today": today_n, "vetoes": vetoes.most_common(6), "approved": approved,
             "last_bet": last[0]["ts"] if last else None, "rules": rules,
@@ -103,7 +103,7 @@ def text(c: dict) -> str:
     else:
         L += ["Nessun freno generale attivo (kill switch, pause, stop del giorno): il bot cerca e valuta.", ""]
     L.append(f"Puntate approvate: {c['approved']} · ultima puntata vera: {c['last_bet'] or 'mai'} · aperte ora: "
-             f"{c['open']} · divertimento oggi: {c['today']}")
+             f"{c['open']} · 4fun oggi: {c['today']}")
     if c["vetoes"]:
         L.append("Motivi dei veti (il primo di ogni proposta bocciata):")
         L += [f"• {n}× {why}" for why, n in c["vetoes"]]

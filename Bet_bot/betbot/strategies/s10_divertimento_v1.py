@@ -21,7 +21,7 @@ from ..odds import consensus
 from .s05_favoriti_exchange_v1 import ev_net
 
 STRATEGY_ID = "S10_divertimento_v1"
-NAME = "Divertimento"
+NAME = "4fun"
 KIND = "prematch"
 
 DEFAULTS = {"odds_min": 1.40, "odds_max": 3.00, "max_spread": 0.03, "min_book_eur": 10.0, "min_minutes_before": 10,
@@ -125,6 +125,6 @@ def _proposal(ev, m, sel, back, fair, source, n_books, disp, spread, comm, mins,
              "spread": spread, "fun": True, "live": False, "odds_ts": m.get("odds_ts"), "kickoff": m["kickoff"],
              "book_eur": b.get("back_size_best") or b.get("back_size") or 0.0,
              "ref_ts": m.get("ref_ts") if source == "riferimento" else None,
-             "reason": f"Divertimento: {name} a {back:.2f} ({m.get('league') or m.get('sport')}), probabilità giusta "
+             "reason": f"4fun: {name} a {back:.2f} ({m.get('league') or m.get('sport')}), probabilità giusta "
                        f"{fair:.0%} dal {source}, valore atteso {ev:+.1%}, spread {spread:.1%}, "
                        f"{(b.get('back_size_best') or b.get('back_size') or 0):.0f} € al prezzo, inizio tra {mins:.0f} min"}
