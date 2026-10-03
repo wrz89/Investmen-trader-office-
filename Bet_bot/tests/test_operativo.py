@@ -118,7 +118,11 @@ class _FakeOffice:
         self.settings = {"mode": "live", "feed": {"provider": "betfair"}}
         self.shutdown_called = self.report_called = False
         self.auditor = self
+        self.coach = self
         _FakeOffice.instances.append(self)
+
+    def bulletin_on_start(self):
+        return None
 
     async def run_forever(self):
         raise KeyboardInterrupt                   # l'utente preme CTRL+C

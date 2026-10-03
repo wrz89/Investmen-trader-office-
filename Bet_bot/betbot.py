@@ -432,6 +432,9 @@ def main() -> int:
                 print("Test automatici in sottofondo: " + ", ".join(launched) + " (risultati nella dashboard e nel bollettino).")
         except Exception as exc:
             print(f"Test automatici non avviati: {exc}")
+        todays = office.coach.bulletin_on_start()         # bollettino di oggi, se è già passata l'ora e non è uscito
+        if todays:
+            print("\n" + todays + "\n")
         try:
             asyncio.run(office.run_forever())
         except KeyboardInterrupt:

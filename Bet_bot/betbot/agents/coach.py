@@ -475,16 +475,27 @@ class Coach(Agent, CoachBook):
         self.store.set("esame", res)
 
     # ── ciclo e riepilogo ──────────────────────────────────────────────────────
-    def _bulletin(self) -> None:
-        """Una volta al giorno, dalle 8: il bollettino (classifica sui prezzi veri, soldi veri, misure, proposta)."""
+    def _bulletin(self) -> str | None:
+        """Una volta al giorno, dalle 8: il bollettino (classifica sui prezzi veri, soldi veri, misure, proposta).
+        Parte da solo nel ciclo, e anche all'avvio del bot se è già passata l'ora e quello di oggi non è uscito."""
         from .. import bollettino
         from ..bankroll import TZ
         if not bollettino.due(self.store):
-            return
+            return None
         self.store.set("bollettino_day", datetime.now(TZ).strftime("%Y-%m-%d"))
         b = bollettino.build(self.store, self.settings)
         self.store.set("bollettino", {k: v for k, v in b.items() if k != "esame"})
-        self.say(bollettino.save(b), "ok", "report", level="INFO", payload={"agent": "coach", "proposte": b["proposte"]})
+        t = bollettino.save(b)
+        self.say(t, "ok", "report", level="INFO", payload={"agent": "coach", "proposte": b["proposte"]})
+        return t
+
+    def bulletin_on_start(self) -> str | None:
+        """All'avvio: se il bollettino di oggi non è ancora uscito (bot spento alle 8) esce subito e va a video."""
+        try:
+            return self._bulletin()
+        except Exception as exc:
+            self.say(f"Bollettino non preparato: {exc}", "alert", "coach_error", level="WARN")
+            return None
 
     def run(self, snapshot: dict) -> None:
         self.observe(snapshot)

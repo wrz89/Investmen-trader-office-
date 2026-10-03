@@ -76,3 +76,12 @@ def test_autopsy_finds_a_bet_by_name(tmp_path, monkeypatch):
     assert autopsia.run("Berrettini", out=said.append) == 0
     assert "Fritz a 2.10" in said[0] and "LOST" in said[0]
     assert autopsia.run("Nessuno", out=said.append) == 1
+
+
+def test_bulletin_on_start_once_a_day(office, monkeypatch):
+    monkeypatch.setattr(B, "due", lambda store, now=None: store.get("bollettino_day") is None)
+    monkeypatch.setattr(B, "build", lambda store, st: {"proposte": [], "esame": [], "live": [], "ts": 0})
+    monkeypatch.setattr(B, "text", lambda b: "📋 Bollettino di prova")
+    first = office.coach.bulletin_on_start()
+    assert first and "Bollettino" in first
+    assert office.coach.bulletin_on_start() is None        # già uscito oggi

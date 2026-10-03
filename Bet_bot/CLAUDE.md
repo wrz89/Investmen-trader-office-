@@ -107,7 +107,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   bottiglia dei lay è il riferimento Pinnacle (≈15 crediti/giorno col piano gratuito), non le partite. Non contare due
   esiti della stessa partita come campioni indipendenti (il shadow ne apre uno per partita).
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
-  proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
+  proposta; non cambia MAI da solo le live_strategies. Esce anche all'avvio (avvia.bat) se alle 8 il bot era spento
+  e quello di oggi non è ancora uscito: va a video, su Telegram e in runtime/reports/bollettino.md. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),
   execution.py (Betfair e paper), agents/coach.py (Leo: autopsie e regole che possono solo frenare),
   esame.py, test_rapido.py, palestra.py, backtest*.py, feeds/betfair.py, collega_betfair.py.
