@@ -139,6 +139,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   "x<nome>") e li registra; S10 live gioca SOLO l'elenco vagliato (v1.SPORTS), S10 misura (all_sports=True) li misura in
   ombra. Il tetto in live è 30 € (live_kill_below_bankroll / live_max_drawdown_small, solo con mode live: il paper parte
   da 30 € e con quel tetto sarebbe fermo). `deposito.bat` somma al bankroll del bot i soldi versati su Betfair (con "SI").
+- perche.py (`perche.bat`, banner "Perché non punta" in dashboard in live): freni attivi, tetti del divertimento
+  (aperte/giorno, puntate aperte da >6 h dopo l'inizio = incastrate), motivi dei veti delle ultime ore, lezioni di Leo.
+- Regola "correggi" di Leo: confronta l'EV corretto con la soglia della strategia (fun_min_edge −3% per il
+  divertimento, min_edge per le altre). Prima del 05/10/2026 confrontava con 0 e bloccava TUTTO il divertimento.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

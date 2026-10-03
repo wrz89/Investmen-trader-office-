@@ -545,6 +545,25 @@ summary h2 { white-space: nowrap; }
 }
 @media (min-width: 1300px) { .cell.a .kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 
+/* colori tenui per distinguere i blocchi: ogni sezione ha la sua tinta (sfondo leggerissimo, filo in alto, titolo) */
+.cell.a { --tint: #2f9e6a; } .cell.b { --tint: #c4952a; } .cell.c { --tint: #4a7fd6; } .cell.d { --tint: #1f9e9e; }
+.cell.e { --tint: #e0a83a; } .cell.f { --tint: #8a63d2; } .cell.g { --tint: #d0608f; } .cell.h { --tint: #6f8196; }
+.cell.i { --tint: #b45fc9; } .cell.j { --tint: #d9823b; }
+.dash > .cell > .panel { background: color-mix(in srgb, var(--tint) 6%, var(--room));
+  border-color: color-mix(in srgb, var(--tint) 30%, var(--wall)); border-top: 3px solid color-mix(in srgb, var(--tint) 75%, transparent); }
+.dash > .cell > .board { border-top: 3px solid var(--tint); }
+.dash > .cell > .panel h2 { color: color-mix(in srgb, var(--tint) 65%, var(--ink)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .dash > .cell > .panel { background: color-mix(in srgb, var(--tint) 9%, var(--room)); }
+  :root:not([data-theme="light"]) .dash > .cell > .panel h2 { color: color-mix(in srgb, var(--tint) 60%, #ffffff); } }
+:root[data-theme="dark"] .dash > .cell > .panel { background: color-mix(in srgb, var(--tint) 9%, var(--room)); }
+:root[data-theme="dark"] .dash > .cell > .panel h2 { color: color-mix(in srgb, var(--tint) 60%, #ffffff); }
+/* titoli dei blocchi più grandi */
+.panel > header h2, .fold-h h2, .board header h2 { font-size: 15.5px; font-weight: 750; letter-spacing: .06em; }
+.top h1 { font-size: 24px; }
+.kpi { background: color-mix(in srgb, var(--tint, var(--accent)) 7%, var(--paper)); }
+.banner.why-not { background: var(--warn-soft); color: var(--ink); border-left: 4px solid var(--warn); }
+.banner.why-not ul { margin: 4px 0 0; padding-left: 18px; }
+
 /* ── schermo pieno: su monitor larghi tutto in una schermata, ogni blocco scorre da solo ── */
 @media (min-width: 1500px) and (min-height: 820px) {
   html.fill, html.fill body { height: 100%; overflow: hidden; }
@@ -980,6 +999,12 @@ summary h2 { white-space: nowrap; }
       b.push(`<div class="banner ${real.length ? "live" : "warn"}" title="${esc(S.live_gate)}">${real.length
         ? `<b>Soldi veri</b>: ${real.map(esc).join(", ")} · le altre ${shadow} strategie lavorano in ombra, senza soldi`
         : `<b>Live acceso ma nessuna strategia ammessa</b>: tutte in ombra. Passa il mouse per il dettaglio.`}</div>`);
+    }
+    const P = S.perche;                     // perché non punta: freni e motivi dei veti delle ultime 6 ore
+    if (mode === "LIVE" && P && (P.blocks?.length || (!P.approved && P.vetoes?.length))) {
+      const items = (P.blocks || []).map(([w, fix]) => `<li><b>${esc(w)}</b> → ${esc(fix)}</li>`)
+        .concat((P.blocks?.length ? [] : P.vetoes.slice(0, 3)).map(([w, n]) => `<li>${n}× ${esc(w)}</li>`));
+      b.push(`<div class="banner why-not"><b>Perché non punta</b> (ultime 6 ore, nessuna puntata approvata${P.blocks?.length ? "" : ": motivi più frequenti dei veti"}):<ul>${items.join("")}</ul></div>`);
     }
     $("banners").innerHTML = b.join("");
     renderGoal();

@@ -86,6 +86,15 @@ def _coach(store: Store) -> dict | None:
         return None
 
 
+def _perche(store: Store) -> dict | None:
+    try:
+        from .perche import check
+        c = check(store, hours=6)
+        return {**c, "rules": len(c["rules"])}
+    except Exception:
+        return None
+
+
 def build_state(store: Store) -> dict:
     agents = store.query("SELECT * FROM agent_status")
     for a in agents:
@@ -141,6 +150,7 @@ def build_state(store: Store) -> dict:
         "registrazione": _recording(),
         "promotion": load_yaml("promotion_criteria.yaml"),
         "live_gate": store.get("live_gate_text"),
+        "perche": _perche(store),
         "settings_view": {"mode": settings.get("mode"), "feed": settings.get("feed", {}).get("provider"),
                           "execution": (settings.get("execution") or {}).get("provider")},
     }

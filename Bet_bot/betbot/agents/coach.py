@@ -451,9 +451,13 @@ class Coach(Agent, CoachBook):
                 pb = p["fair_prob"] + (r["adjust"] if side == "LAY" else -r["adjust"])
                 q, c = p.get("odds") or 1.0, p.get("commission") or 0.045
                 ev = (1 - pb) * (1 - c) - pb * (q - 1) if side == "LAY" else pb * (q - 1) * (1 - c) - (1 - pb)
-                if ev < 0:
+                # la soglia è quella della strategia: il divertimento accetta fino a −3% (fun_min_edge), le altre il
+                # loro min_edge. Con 0 come soglia ogni back del divertimento (EV già negativo) veniva bloccato.
+                lim = getattr(getattr(self.office, "risk", None), "limits", None) or {}
+                thr = lim.get("fun_min_edge", -0.03) if p.get("fun") else lim.get("min_edge", 0.0)
+                if ev < thr:
                     return False, (f"Lezione di Leo: con la probabilità corretta di {r['adjust']:.1%} "
-                                   f"(la strategia è troppo ottimista) il valore sparisce")
+                                   f"(la strategia è troppo ottimista) il valore scende a {ev:+.1%}, sotto {thr:+.1%}")
         return True, "Nessuna lezione dell'allenatore contraria"
 
     def _exam(self) -> None:

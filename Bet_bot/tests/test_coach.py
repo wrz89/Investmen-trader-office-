@@ -121,3 +121,34 @@ def test_rules_learned_on_s10_misura_also_brake_s10_with_real_money(office):
     assert ok
     ok, _ = office.coach.check({**p, "strategy_id": "S05_favoriti_exchange_v2"}, snap)
     assert ok                                             # altre strategie: la regola non le tocca
+
+
+def test_correggi_rule_uses_strategy_threshold_for_fun(tmp_path, monkeypatch):
+    """Una correzione piccola non deve bloccare il divertimento (EV già negativo per scelta, soglia −3%)."""
+    from betbot import local_settings
+    monkeypatch.setattr(local_settings, "load", lambda: {**local_settings.DEFAULTS})
+    from betbot.config import load_settings
+    from betbot.core import SportOffice
+    from betbot.feeds.mock import MockFeed
+    st = load_settings()
+    office = SportOffice(db_path=tmp_path / "o.db", feed=MockFeed(st))
+    office.store.execute("INSERT INTO coach_rules(created, updated, strategy_id, kind, feature, value, n, adjust, active) "
+                         "VALUES('x','x','S10_misura_v1','correggi','probabilita','tutte',80,0.005,1)")
+    p = {"strategy_id": "S10_divertimento_v2", "match_id": "m", "selection": "home", "odds": 2.0, "fair_prob": 0.51,
+         "commission": 0.045, "fun": True, "league": "Serie A", "sport": "soccer", "edge": -0.02}
+    ok, why = office.coach.check(p, {"ts": 0, "matches": {}})
+    assert ok, why
+    p["fair_prob"] = 0.48                                  # EV corretto ≈ −7%: sotto −3%, si blocca
+    ok, why = office.coach.check(p, {"ts": 0, "matches": {}})
+    assert not ok and "sotto" in why
+
+
+def test_perche_counts_veto_reasons(tmp_path):
+    import json
+    from betbot import perche
+    from betbot.store import Store
+    st = Store(tmp_path / "p.db")
+    for r in ("Rischio aperto entro 2.40 € (x)", "Rischio aperto entro 2.97 € (y)", "Kill switch non attivo"):
+        st.event("risk", "VETO", "INFO", "veto", {"reasons": [r]})
+    c = perche.check(st)
+    assert dict(c["vetoes"])["Rischio aperto entro … €"] == 2 and "Perché il bot non punta" in perche.text(c)
