@@ -121,13 +121,6 @@ def main() -> int:
         print(f"Dashboard su http://localhost:{port}  (CTRL+C per chiudere)")
         if not a.no_browser:
             webbrowser.open(f"http://localhost:{port}")
-        try:                                              # test automatici in sottofondo (quelli in scadenza)
-            from betbot import autotest
-            launched = autotest.start(office)
-            if launched:
-                print("Test automatici in sottofondo: " + ", ".join(launched) + " (risultati nella dashboard e nel bollettino).")
-        except Exception as exc:
-            print(f"Test automatici non avviati: {exc}")
         try:
             import time as _t
             while True:

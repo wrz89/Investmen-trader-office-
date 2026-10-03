@@ -481,6 +481,43 @@ details.fold:not([open]) > summary { margin-bottom: 0; }
   .top .chips .chip { white-space: normal; }
 }
 html, body { overflow-x: hidden; }
+
+/* ── schermo pieno (05/10/2026): su monitor larghi la dashboard riempie tutta la finestra, senza scorrere la pagina;
+   ogni blocco scorre da solo se ha più righe dello spazio. Le sezioni secondarie (Leo, registro…) stanno in una
+   riga in basso e, aperte, si sovrappongono come un pannello. Sotto i 1500 px o 820 px resta il layout a scorrimento. ── */
+@media (min-width: 1500px) and (min-height: 820px) {
+  html.fill, html.fill body { height: 100%; overflow: hidden; }
+  html.fill .wrap { max-width: none; height: 100%; box-sizing: border-box; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  html.fill .top, html.fill .quick { flex: none; position: static; }
+  html.fill .quick { display: none; }                 /* le sezioni in basso si aprono e chiudono da sole */
+  html.fill #banners { flex: none; max-height: 64px; overflow: auto; }
+  html.fill .dash { flex: 1 1 0; min-height: 0; grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: stretch; }
+  html.fill .dash > .cell { min-height: 0; overflow: hidden; display: flex; scroll-margin-top: 0; }
+  html.fill .dash > .cell > * { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; box-sizing: border-box; }
+  html.fill .dash .scroll, html.fill .dash .strats, html.fill .dash .feed, html.fill .dash #exam-list, html.fill .dash #exam-rec { max-height: none; }
+  html.fill .dash > .cell.a { grid-column: 1 / span 4; grid-row: 1; }
+  html.fill .dash > .cell.b { grid-column: 5 / span 4; grid-row: 1; }
+  html.fill .dash > .cell.d { grid-column: 9 / span 4; grid-row: 1; }
+  html.fill .dash > .cell.c { grid-column: 1 / span 8; grid-row: 2 / span 2; }
+  html.fill .dash > .cell.e { grid-column: 9 / span 4; grid-row: 2; }
+  html.fill .dash > .cell.f { grid-column: 9 / span 4; grid-row: 3; }
+  html.fill .dash > .cell.g { grid-column: 1 / span 3; grid-row: 4; }
+  html.fill .dash > .cell.h { grid-column: 4 / span 3; grid-row: 4; }
+  html.fill .dash > .cell.i { grid-column: 7 / span 3; grid-row: 4; }
+  html.fill .dash > .cell.j { grid-column: 10 / span 3; grid-row: 4; }
+  html.fill .dash > .cell.g, html.fill .dash > .cell.h, html.fill .dash > .cell.i, html.fill .dash > .cell.j { min-height: 40px; overflow: visible; }
+  html.fill .dash > .cell:is(.g, .h, .i, .j) > details[open] { position: fixed; left: 10px; right: 10px; bottom: 56px; max-height: 66vh;
+    overflow: auto; z-index: 40; box-shadow: 0 -10px 40px -12px rgba(0, 0, 0, .55); background: var(--room); }
+}
+@media (min-width: 1760px) and (min-height: 820px) {
+  html.fill .dash > .cell.a { grid-column: 1 / span 3; }
+  html.fill .dash > .cell.b { grid-column: 4 / span 3; }
+  html.fill .dash > .cell.d { grid-column: 7 / span 3; }
+  html.fill .dash > .cell.f { grid-column: 10 / span 3; grid-row: 1; }
+  html.fill .dash > .cell.c { grid-column: 1 / span 6; }
+  html.fill .dash > .cell.e { grid-column: 7 / span 6; grid-row: 2 / span 2; }
+}
 </style>
 
 <div class="wrap">
@@ -2339,7 +2376,12 @@ html, body { overflow-x: hidden; }
   // ── motore ──
   function frameCamera() {
     const host = $("hq3"), w = host.clientWidth || 800;
-    const h = w < 640 ? Math.round(w * 0.8) : Math.round(Math.min(Math.max(w * 0.46, 280), 400));
+    let h = w < 640 ? Math.round(w * 0.8) : Math.round(Math.min(Math.max(w * 0.46, 280), 400));
+    if (document.documentElement.classList.contains("fill")) {           // schermo pieno: la sala riempie la sua cella
+      const cell = host.closest(".cell"), sec = host.parentElement;
+      const others = [...sec.children].filter(e => e !== host && !e.hidden).reduce((a, e) => a + e.offsetHeight, 0);
+      h = Math.round(Math.max(240, Math.min(cell.clientHeight - others - 28, w * 0.8)));
+    }
     renderer.setSize(w, h, false);
     renderer.domElement.style.height = h + "px";
     // sul telefono si vede tutta la sala (niente colleghi tagliati fuori); per avvicinarsi: doppio tocco o due dita
@@ -2478,8 +2520,11 @@ html, body { overflow-x: hidden; }
     });
     cv.addEventListener("webglcontextrestored", () => location.reload());
     frameCamera();
-    let lastW = 0;
-    if (window.ResizeObserver) new ResizeObserver(() => { const w = host.clientWidth; if (w === lastW) return; lastW = w; requestAnimationFrame(frameCamera); }).observe(host);
+    let lastW = "";
+    if (window.ResizeObserver) new ResizeObserver(() => {
+      const cell = host.closest(".cell"), k = host.clientWidth + "x" + (cell ? cell.clientHeight : 0) + document.documentElement.className;
+      if (k === lastW) return; lastW = k; requestAnimationFrame(frameCamera);
+    }).observe(host.closest(".cell") || host);
     if (window.IntersectionObserver) new IntersectionObserver(es => { onScreen = es[es.length - 1].isIntersecting; kick(); }).observe(host);
     document.addEventListener("visibilitychange", kick);
     // clic su un collega → il suo registro
@@ -2848,6 +2893,11 @@ html, body { overflow-x: hidden; }
     applyPalette();
   });
   start3D();
+  // schermo pieno su monitor larghi (vedi CSS "html.fill"): la classe segue la finestra
+  const fillMq = window.matchMedia("(min-width: 1500px) and (min-height: 820px)");
+  const setFill = () => document.documentElement.classList.toggle("fill", fillMq.matches);
+  setFill();
+  (fillMq.addEventListener ? fillMq.addEventListener.bind(fillMq, "change") : fillMq.addListener.bind(fillMq))(setFill);
   let resizeT = null;
   window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S) renderKpis(); }, 150); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); $("settings").setAttribute("aria-hidden", "true"); } });
