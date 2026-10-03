@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import ssl
 import time
 from datetime import datetime, timedelta, timezone
@@ -473,6 +474,33 @@ class BetfairFeed(Feed):
         self.watch_ids = {m for m in market_ids if str(m).startswith("1.")}
         self.saved_cat = {k: v for k, v in (saved or {}).items() if k in self.watch_ids}
 
+    NO_AUTO = re.compile(r"horse|greyhound|politic|special|financ|bet|cycling|golf|motor|racing|formula|boxing|mma|cricket|"
+                         r"olymp|gaelic|aussie|chess|esport|e-sport|poker|lotter|casino", re.I)
+
+    def _discover(self) -> None:
+        """Ogni 6 ore cerca da solo gli sport del conto con mercati Match Odds a 2 o 3 esiti che non sono nell'elenco:
+        si leggono e si registrano (e S10 misura li gioca solo in ombra). Mai soldi veri: S10 live ha un elenco suo."""
+        if time.time() - getattr(self, "auto_ts", 0) < 6 * 3600:
+            return
+        self.auto_ts = time.time()
+        tab = getattr(self, "auto_tab", {})
+        known = {v[0] for v in self.sports_tab.values()}
+        for tid, name in (self.available or {}).items():
+            if tid in known or tid in {v[0] for v in tab.values()} or tid == HORSE_RACING or self.NO_AUTO.search(name):
+                continue
+            try:
+                if not self.client.market_types(tid).get("MATCH_ODDS"):
+                    continue
+                cat = self.client.catalogue(tid, "MATCH_ODDS", 168, None, 1, lookback_hours=0)
+                n = len(cat[0].get("runners", [])) if cat else 0
+            except BetfairError:
+                continue
+            if n in (2, 3):
+                key = "x" + re.sub(r"[^a-z0-9]", "", name.lower())[:18]
+                tab[key] = (tid, "MATCH_ODDS", n)
+                SPORT_LABELS.setdefault(key, name)
+        self.auto_tab = tab
+
     def _refresh_catalogue(self) -> None:
         if time.time() - self.cat_ts < 600 and self.cat:
             return
@@ -488,7 +516,11 @@ class BetfairFeed(Feed):
             except BetfairError:
                 self.available = {}
         self.sports_tab = sports_table(self.cfg.get("extra_sports"))
+        if self.cfg.get("auto_sports", True):
+            self._discover()
+            self.sports_tab.update(getattr(self, "auto_tab", {}))
         sports = self.cfg.get("sports") or (["soccer"] if self.cfg.get("soccer", True) else [])
+        sports = list(sports) + sorted(k for k in getattr(self, "auto_tab", {}) if k not in sports)   # scoperti da soli
         sports = [s for s in sports if s in self.sports_tab and (not self.available or self.sports_tab[s][0] in self.available)]
         errors, bad = [], getattr(self, "bad_sports", {})
         for sport in sports:

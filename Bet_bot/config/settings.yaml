@@ -84,6 +84,7 @@ feed:
     race_countries: [GB, IE]
     race_hours: 2
     sports: [soccer, tennis, basketball, americanfootball, baseball, icehockey, volleyball, darts, snooker, tabletennis, rugbyunion, rugbyleague, handball]   # mercati MATCH_ODDS letti (e registrati) da Betfair
+    auto_sports: true                      # scopre da solo ogni 6 ore gli sport del conto (futsal, floorball…): solo lettura e misura in ombra, mai soldi veri
     soccer_hours: 36                       # finestra per gli eventi (tutti gli sport qui sopra)
   odds_api:
     max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito

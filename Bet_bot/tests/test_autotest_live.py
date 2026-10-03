@@ -18,7 +18,7 @@ def _settings(provider="betfair", reference="odds_api", **auto):
 
 def test_plan_respects_rhythm_and_credits(at, tmp_path):
     names = [n for n, _ in at.plan(_settings())]
-    assert names == ["orizzonti", "allenamento", "multiple", "backtest", "nfl", "test_rapido"]
+    assert names == ["orizzonti", "allenamento", "multiple", "backtest", "sport", "nfl", "test_rapido"]
     assert [n for n, _ in at.plan(_settings(provider="mock"))] == ["orizzonti", "allenamento", "multiple", "backtest", "nfl"]     # niente crediti col mock
     (tmp_path / "odds_api_budget.json").write_text(json.dumps({"remaining": 120}))
     assert "test_rapido" not in [n for n, _ in at.plan(_settings())]                               # pochi crediti

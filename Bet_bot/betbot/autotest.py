@@ -22,7 +22,7 @@ from .config import RUNTIME_DIR
 
 STATE = RUNTIME_DIR / "autotest.json"
 DEFAULTS = {"enabled": True, "orizzonti_ore": 24, "allenamento_giorni": 7, "test_rapido_giorni": 7,
-            "test_rapido_min_crediti": 250, "multiple_ore": 24, "backtest_giorni": 7, "nfl_giorni": 30}
+            "test_rapido_min_crediti": 250, "multiple_ore": 24, "backtest_giorni": 7, "nfl_giorni": 30, "sport_ore": 24}
 
 
 def _state() -> dict:
@@ -65,6 +65,8 @@ def plan(settings: dict, now: float | None = None) -> list[tuple[str, str]]:
         out.append(("multiple", "doppie e triple virtuali dalle puntate in ombra"))
     if due("backtest", cfg["backtest_giorni"] * 86400, now):
         out.append(("backtest", "le strategie sullo storico dei prezzi Betfair"))
+    if settings["feed"]["provider"] == "betfair" and due("sport", cfg["sport_ore"] * 3600, now):
+        out.append(("sport", "quali sport ha betfair.it sul tuo conto"))
     if due("nfl", cfg["nfl_giorni"] * 86400, now):
         out.append(("nfl", "football americano sullo storico"))
     if settings["feed"]["provider"] == "betfair" and settings["feed"].get("reference") == "odds_api" \
@@ -109,6 +111,13 @@ def _run_one(name: str) -> str:
         results = [B.run(rows, sid) for sid in ("NAIVE_80", "S05_favoriti_exchange_v1", "S05_favoriti_exchange_v2")]
         B.save(results, rows, "ultimo")
         return f"{len(rows)} partite, report in backtest_ultimo.md"
+    if name == "sport":
+        from . import sport_disponibili
+        rows = sport_disponibili.check()
+        t = sport_disponibili.report(rows)
+        (REPORTS_DIR / "sport_disponibili.md").write_text(t + "\n", encoding="utf-8")
+        out(t)
+        return f"{sum(1 for r in rows if r.get('match_odds'))} sport con partite"
     if name == "nfl":
         from . import backtest_nfl as N
         md = N.report(N.run())

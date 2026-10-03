@@ -12,6 +12,7 @@ import shutil
 import yaml
 
 from . import local_settings
+from .agents.risk import live_limits
 from .config import LOCAL_OVERRIDE, RESTART_FILE, load_yaml
 
 LIVE_STRATEGIES = ["S10_divertimento_v2"]
@@ -67,7 +68,7 @@ def enable(ask=input, out=print, client=None) -> bool:
     client.login()
     funds = client.account_funds()
     bal = float(funds.get("availableToBetBalance") or 0)
-    lim = load_yaml("risk_limits.yaml")
+    lim = live_limits(load_yaml("risk_limits.yaml"), "live")
     out(f"\nSaldo disponibile su betfair.it: {bal:.2f} €\n")
     out("Cosa succede con i SOLDI VERI:")
     out(f"  • la strategia Divertimento: prima i lay di valore sul calcio (rischio 1-2 €), altrimenti back da 2 €; "
@@ -75,7 +76,7 @@ def enable(ask=input, out=print, client=None) -> bool:
         "NFL e baseball;")
     out("  • sceglie il prezzo più vicino al giusto: in media si perde circa l'1-3% di ogni puntata (commissione e spread),")
     out("    il resto è fortuna. Non è un sistema per guadagnare;")
-    out(f"  • si ferma da solo se il saldo scende sotto {lim.get('kill_below_bankroll', 20):.0f} € "
+    out(f"  • si ferma da solo se il saldo scende sotto {lim.get('kill_below_bankroll', 30):.0f} € "
         f"e per il resto del giorno dopo {lim.get('max_daily_loss_eur', 6):.0f} € persi;")
     out("  • non deposita e non preleva mai. Le altre strategie restano in ombra (senza soldi).")
     if bal < 2:
@@ -136,7 +137,7 @@ def deposit(ask=input, out=print, client=None, store=None) -> bool:
     if extra < 1.0:
         out("Non ci sono soldi in più da aggiungere.")
         return False
-    lim = load_yaml("risk_limits.yaml")
+    lim = live_limits(load_yaml("risk_limits.yaml"), "live")
     peak = float(store.get("peak_bankroll") or br.total) + extra
     out(f"Aggiungendo {extra:.2f} € il bankroll diventa {br.total + extra:.2f} €. La puntata NON cambia (2 € fissi, "
         f"rischio dei lay 1-2 €); il bot si fermerà da solo sotto {kill_floor(peak, lim):.2f} €.")

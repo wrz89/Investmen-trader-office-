@@ -16,7 +16,8 @@ KIND = "prematch"
 # la misura è LARGA di proposito (nessun rischio: è in ombra): lay fino a quota 8 e anche con Pinnacle vecchio fino a
 # 2,5 ore, così il campione dei lay cresce. Leo separa i casi per età del riferimento (segmento "eta_riferimento") e
 # l'esame ha la riga "solo lay con Pinnacle fresco": si vede se il valore con Pinnacle vecchio è falso.
-DEFAULTS = {**V2.DEFAULTS, "max_proposals": 60, "lay_max": 8.0, "lay_max_ref_age_s": 9000}
+DEFAULTS = {**V2.DEFAULTS, "max_proposals": 60, "lay_max": 8.0, "lay_max_ref_age_s": 9000,
+            "all_sports": True}              # anche gli sport che il live non gioca (rugby, pallamano, futsal…): sola misura
 
 
 def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:

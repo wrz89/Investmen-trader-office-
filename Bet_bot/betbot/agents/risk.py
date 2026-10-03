@@ -82,6 +82,18 @@ def stake_for(proposal: dict, base: float, limits: dict, min_stake: float = 0.0)
 TRADE_MARKETS = ("exchange_trade", "exchange_win")
 
 
+def live_limits(limits: dict, mode: str | None) -> dict:
+    """Con i soldi veri valgono i tetti `live_*` (se presenti): il paper parte da 30 € e con un tetto a 30 € sarebbe
+    fermo dall'inizio, mentre in live il capitale versato è più alto."""
+    if mode != "live":
+        return limits
+    out = dict(limits)
+    for key in ("kill_below_bankroll", "max_drawdown_small"):
+        if limits.get("live_" + key) is not None:
+            out[key] = limits["live_" + key]
+    return out
+
+
 def kill_floor(peak: float, limits: dict) -> float:
     """Soglia del kill switch sotto `small_bankroll`: sale col picco (picco × (1 − max_drawdown_small)) ma non scende
     mai sotto kill_below_bankroll. Con 30 € di picco resta a ~20 €; con 60 € di picco diventa 40,20 €: un profitto
@@ -152,7 +164,7 @@ class RiskManager(Agent):
 
     def __init__(self, office):
         super().__init__(office)
-        self.limits = load_yaml("risk_limits.yaml")
+        self.limits = live_limits(load_yaml("risk_limits.yaml"), (office.settings or {}).get("mode"))
         self.seal = file_sha256(LIMITS_FILE)
         self.store.set("limits_tampered", False)
 

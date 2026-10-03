@@ -264,7 +264,7 @@ def test_deposit_adds_capital_not_profit(tmp_path):
     assert live_switch.deposit(ask=lambda q: "SI", out=said.append, client=c, store=st)
     assert br.total == 60.0 and br.initial_capital == 60.0 and br.profits == 0.0
     assert float(st.get("peak_bankroll")) == 60.0
-    assert any("39.96" in x or "40" in x for x in said)                     # nuovo stop: picco 60 × 0,666
+    assert any("30.00" in x for x in said)                           # nuovo stop in live: picco 60 × 0,5
     assert not live_switch.deposit(ask=lambda q: "SI", out=said.append, client=c, store=st)    # niente di nuovo
 
 

@@ -27,3 +27,31 @@ def test_extra_sports_merge():
     t = sports_table({"floorball": {"id": 999, "esiti": 2, "nome": "Floorball"}})
     assert t["floorball"] == ("999", "MATCH_ODDS", 2) and "soccer" in t
     assert sports_table({"rotto": {}}).get("rotto") is None
+
+
+def test_auto_discovery_adds_sports_for_shadow_only(monkeypatch):
+    from betbot.feeds import betfair as BF
+    from betbot.strategies import s10_divertimento_v1 as V1, s10_misura_v1 as M
+    feed = BF.BetfairFeed.__new__(BF.BetfairFeed)
+    feed.client = FakeClient()
+    feed.available = {"1": "Soccer", "999": "Floorball", "7": "Horse Racing", "2378961": "Politics"}
+    feed.sports_tab = BF.sports_table(None)
+    feed._discover()
+    assert feed.auto_tab == {"xfloorball": ("999", "MATCH_ODDS", 2)}
+    # live: solo gli sport vagliati; misura: tutti
+    snap = {"ts": 0, "matches": {}}
+    assert M.DEFAULTS["all_sports"] is True and "xfloorball" not in V1.SPORTS
+
+
+def test_live_s10_skips_unvetted_sport_but_misura_measures_it():
+    import time
+    from datetime import datetime, timedelta, timezone
+    from betbot.strategies import s10_divertimento_v2 as V2, s10_misura_v1 as M
+    now = time.time()
+    ko = (datetime.fromtimestamp(now, timezone.utc) + timedelta(minutes=60)).isoformat()
+    ex = {"home": {"back": 2.00, "lay": 2.02, "back_size_best": 50, "lay_size_best": 50},
+          "away": {"back": 2.00, "lay": 2.02, "back_size_best": 50, "lay_size_best": 50}}
+    snap = {"ts": now, "matches": {"m1": {"match_id": "m1", "sport": "xfloorball", "league": "Liga", "status": "SCHEDULED",
+                                          "home": "A", "away": "B", "kickoff": ko, "exchange": ex, "books": {}}}}
+    assert V2.propose(snap, {}, {}) == []
+    assert len(M.propose(snap, {}, {})) == 1

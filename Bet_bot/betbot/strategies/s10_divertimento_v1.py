@@ -27,18 +27,10 @@ KIND = "prematch"
 DEFAULTS = {"odds_min": 1.40, "odds_max": 3.00, "max_spread": 0.03, "min_book_eur": 10.0, "min_minutes_before": 10,
             "max_minutes_before": 240, "min_ev": -0.03, "commission": 0.045, "max_ref_age_s": 9000, "max_proposals": 3,
             "exclude": "challenger|itf|utr|m15|m25|w15|w35|w50|w75|w100|doppio|doubles"}
+# sport con i SOLDI VERI: solo questi. Tutti gli altri che betfair.it offre (rugby, pallamano, futsal, floorball…) si leggono,
+# si registrano e si misurano in ombra (S10 misura passa all_sports=True) finché i dati non dicono che valgono.
 SPORTS = ("soccer", "tennis", "basketball", "americanfootball", "baseball", "icehockey", "volleyball", "darts", "snooker",
-          "tabletennis", "rugbyunion", "rugbyleague", "handball")
-
-
-def sports_allowed() -> tuple:
-    """Sport di base + quelli aggiunti in settings (betfair.extra_sports): si leggono, si registrano e si misurano."""
-    try:
-        from ..config import load_settings
-        extra = tuple(((load_settings().get("feed") or {}).get("betfair") or {}).get("extra_sports") or {})
-    except Exception:
-        extra = ()
-    return SPORTS + extra
+          "tabletennis")
 
 
 def exchange_fair(ex: dict) -> dict | None:
@@ -77,10 +69,9 @@ def candidates(snapshot: dict, params: dict | None = None) -> list[dict]:
     q = {**DEFAULTS, **(params or {})}
     now = snapshot.get("sim_time") or snapshot["ts"]
     cands = []
-    allowed = sports_allowed()
     for m in snapshot["matches"].values():
         ex = m.get("exchange") or {}
-        if m.get("status") != "SCHEDULED" or not ex or not (m.get("sport") or "").startswith(allowed):
+        if m.get("status") != "SCHEDULED" or not ex or (not q.get("all_sports") and not (m.get("sport") or "").startswith(SPORTS)):
             continue
         if (m.get("sport") or "").startswith("tennis") and re.search(q["exclude"], (m.get("league") or "").lower()):
             continue

@@ -135,6 +135,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   (tennis-data); per basket, hockey, pallavolo, pallamano, rugby ecc. non esiste uno storico gratuito con quote
   affidabili (solo a pagamento): lì "allenarsi" = registrare i prezzi veri e misurare il CLV in ombra (S10 misura,
   segmento "sport" di Leo), non rigiocare il passato.
+- Sport nuovi (auto_sports, ogni 6 h): il feed scopre da solo gli sport del conto con Match Odds a 2-3 esiti (chiave
+  "x<nome>") e li registra; S10 live gioca SOLO l'elenco vagliato (v1.SPORTS), S10 misura (all_sports=True) li misura in
+  ombra. Il tetto in live è 30 € (live_kill_below_bankroll / live_max_drawdown_small, solo con mode live: il paper parte
+  da 30 € e con quel tetto sarebbe fermo). `deposito.bat` somma al bankroll del bot i soldi versati su Betfair (con "SI").
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
