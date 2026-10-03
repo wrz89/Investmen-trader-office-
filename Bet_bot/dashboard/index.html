@@ -102,6 +102,7 @@ a { color: var(--accent); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .banner { padding: 10px 14px; border-radius: var(--r); background: var(--bad-soft); color: var(--bad); font-weight: 600; }
 .banner.warn { background: var(--warn-soft); color: var(--warn); }
+.banner.live { background: var(--ok-soft); color: var(--ok); }
 
 /* ── pannelli ─────────────────────────── */
 .panel { background: var(--room); border: 1px solid var(--wall); border-radius: var(--r); box-shadow: var(--shadow); padding: 16px; min-width: 0; }
@@ -482,41 +483,122 @@ details.fold:not([open]) > summary { margin-bottom: 0; }
 }
 html, body { overflow-x: hidden; }
 
-/* ── schermo pieno (05/10/2026): su monitor larghi la dashboard riempie tutta la finestra, senza scorrere la pagina;
-   ogni blocco scorre da solo se ha più righe dello spazio. Le sezioni secondarie (Leo, registro…) stanno in una
-   riga in basso e, aperte, si sovrappongono come un pannello. Sotto i 1500 px o 820 px resta il layout a scorrimento. ── */
+/* ══ Design 2 (05/10/2026): leggibilità prima di tutto ══════════════════════════════════════════════════════════
+   Gerarchia: 1) quanto ho e come va (striscia dei numeri), 2) cosa sta giocando e com'è andata, 3) il resto.
+   Un solo carattere per il testo (Plex Sans), il monospazio solo per le cifre; etichette brevi su una riga;
+   le spiegazioni lunghe restano nei tooltip e nelle sezioni in basso. */
+:root { --muted: #4f5d54; --r: 10px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --muted: #a3b2a8; --room: #141d18; --wall: #26352d; } }
+:root[data-theme="dark"] { --muted: #a3b2a8; --room: #141d18; --wall: #26352d; }
+body { background-image: none; font-size: 14.5px; }
+h2 { font: 650 12.5px/1.2 var(--f-body); letter-spacing: .07em; text-transform: uppercase; }
+.panel { box-shadow: none; border-radius: var(--r); }
+.panel > header, .fold-h { flex-wrap: nowrap; align-items: baseline; }
+.panel > header p, .board header p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-size: 12.5px; }
+.panel > header h2, .board header h2 { flex: none; }
+th { font: 600 11px/1.3 var(--f-body); letter-spacing: .06em; }
+td { padding: 8px 8px; }
+td.r, td.mono { white-space: nowrap; }
+summary h2 { white-space: nowrap; }
+.pill { font: 650 10.5px/1.5 var(--f-body); letter-spacing: .05em; padding: 1px 8px; }
+.chip { font: 500 12px/1.4 var(--f-body); }
+.why { font-size: 12px !important; line-height: 1.4 !important; max-width: none !important; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; cursor: help; }
+.why:hover { -webkit-line-clamp: unset; }
+.board { border-radius: var(--r); box-shadow: none; }
+.banner { border-radius: var(--r); font-weight: 500; font-size: 13.5px; padding: 8px 14px; }
+.banner b { font-weight: 700; }
+
+/* striscia dei numeri: etichetta, cifra grande, una riga di dettaglio */
+.kpis { gap: 8px; }
+.kpi { padding: 10px 14px; gap: 2px; background: var(--paper); border-radius: 8px; }
+.kpi .lab { font: 600 11px/1.3 var(--f-body); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .val { font: 600 24px/1.15 var(--f-data); white-space: nowrap; }
+.kpi .sub { font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.kpi .meter { margin: 3px 0 1px; }
+
+/* strategie e esame: schede corte, i dettagli nei tooltip */
+.strat .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.strat .head h3 { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+.strat .head .pill { flex: none; }
+.strat .line { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.strat .line b { color: var(--ink); font-weight: 600; }
+
+/* strategie: sempre in forma breve (nome, stato, numeri); descrizione e versione nel tooltip */
+.strat > :not(.head):not(.line) { display: none; }
+.strat { padding: 10px 12px; gap: 4px; }
+.dash .strats { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+
+/* layout a scorrimento (portatili): numeri su tutta la larghezza, poi sala | in gioco, tabellone | esame */
+@media (min-width: 1100px) {
+  .dash > .cell.a { grid-column: 1 / -1; grid-row: 1; }
+  .cell.a > .panel { display: grid; grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 380px); gap: 0 12px; align-items: center; }
+  .cell.a > .panel > header { display: none; }
+  .cell.a .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cell.a .chart { height: 120px; margin: 0; }
+  .dash > .cell.c { grid-column: 1; grid-row: 2; }
+  .dash > .cell.d { grid-column: 2; grid-row: 2; }
+  .dash > .cell.e { grid-column: 1; grid-row: 3; }
+  .dash > .cell.b { grid-column: 2; grid-row: 3; }
+  .dash > .cell.f { grid-column: 1 / -1; grid-row: 4; }
+  .dash > .cell.d .scroll { max-height: 300px; }
+}
+@media (min-width: 1300px) { .cell.a .kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* ── schermo pieno: su monitor larghi tutto in una schermata, ogni blocco scorre da solo ── */
 @media (min-width: 1500px) and (min-height: 820px) {
   html.fill, html.fill body { height: 100%; overflow: hidden; }
-  html.fill .wrap { max-width: none; height: 100%; box-sizing: border-box; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  html.fill .wrap { max-width: none; height: 100%; padding: 10px 14px; display: flex; flex-direction: column; gap: 10px; }
   html.fill .top, html.fill .quick { flex: none; position: static; }
-  html.fill .quick { display: none; }                 /* le sezioni in basso si aprono e chiudono da sole */
-  html.fill #banners { flex: none; max-height: 64px; overflow: auto; }
+  html.fill .quick { display: none; }
+  html.fill #banners { flex: none; display: grid; gap: 6px; }
+  html.fill #banners:empty { display: none; }
   html.fill .dash { flex: 1 1 0; min-height: 0; grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: stretch; }
+    grid-template-rows: auto minmax(0, 1.12fr) minmax(0, 1fr) auto; gap: 10px; align-items: stretch; }
   html.fill .dash > .cell { min-height: 0; overflow: hidden; display: flex; scroll-margin-top: 0; }
-  html.fill .dash > .cell > * { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; box-sizing: border-box; }
-  html.fill .dash .scroll, html.fill .dash .strats, html.fill .dash .feed, html.fill .dash #exam-list, html.fill .dash #exam-rec { max-height: none; }
-  html.fill .dash > .cell.a { grid-column: 1 / span 4; grid-row: 1; }
-  html.fill .dash > .cell.b { grid-column: 5 / span 4; grid-row: 1; }
-  html.fill .dash > .cell.d { grid-column: 9 / span 4; grid-row: 1; }
-  html.fill .dash > .cell.c { grid-column: 1 / span 8; grid-row: 2 / span 2; }
-  html.fill .dash > .cell.e { grid-column: 9 / span 4; grid-row: 2; }
-  html.fill .dash > .cell.f { grid-column: 9 / span 4; grid-row: 3; }
-  html.fill .dash > .cell.g { grid-column: 1 / span 3; grid-row: 4; }
-  html.fill .dash > .cell.h { grid-column: 4 / span 3; grid-row: 4; }
-  html.fill .dash > .cell.i { grid-column: 7 / span 3; grid-row: 4; }
-  html.fill .dash > .cell.j { grid-column: 10 / span 3; grid-row: 4; }
-  html.fill .dash > .cell.g, html.fill .dash > .cell.h, html.fill .dash > .cell.i, html.fill .dash > .cell.j { min-height: 40px; overflow: visible; }
-  html.fill .dash > .cell:is(.g, .h, .i, .j) > details[open] { position: fixed; left: 10px; right: 10px; bottom: 56px; max-height: 66vh;
-    overflow: auto; z-index: 40; box-shadow: 0 -10px 40px -12px rgba(0, 0, 0, .55); background: var(--room); }
+  html.fill .dash > .cell > * { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
+  html.fill .dash .scroll, html.fill .dash .strats, html.fill .dash .feed, html.fill .dash #exam-list, html.fill .dash #exam-rec { max-height: none; overflow: visible; }
+
+  /* 1 · numeri: tutta la larghezza, grafico a destra */
+  html.fill .dash > .cell.a { grid-column: 1 / -1; grid-row: 1; overflow: visible; }
+  html.fill .cell.a > .panel { display: grid; grid-template-columns: minmax(0, 1fr) clamp(260px, 22vw, 420px); gap: 0 14px; align-items: stretch; overflow: visible; padding: 10px; }
+  html.fill .cell.a > .panel > header { display: none; }
+  html.fill .cell.a .kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  html.fill .cell.a .chart { height: 104px; margin: 0; align-self: center; }
+  /* 2 · sala e tabellone a sinistra, in gioco al centro, esame e strategie a destra */
+  html.fill .dash > .cell.c { grid-column: 1 / span 5; grid-row: 2; }
+  html.fill .dash > .cell.e { grid-column: 1 / span 5; grid-row: 3; }
+  html.fill .dash > .cell.d { grid-column: 6 / span 4; grid-row: 2 / span 2; }
+  html.fill .dash > .cell.b { grid-column: 10 / span 3; grid-row: 2; }
+  html.fill .dash > .cell.f { grid-column: 10 / span 3; grid-row: 3; }
+  /* 3 · sezioni secondarie: una barra di schede in basso, che si aprono sopra il resto */
+  html.fill .dash > .cell:is(.g, .h, .i, .j) { grid-row: 4; overflow: visible; min-height: 0; }
+  html.fill .dash > .cell.g { grid-column: 1 / span 3; } html.fill .dash > .cell.h { grid-column: 4 / span 3; }
+  html.fill .dash > .cell.i { grid-column: 7 / span 3; } html.fill .dash > .cell.j { grid-column: 10 / span 3; }
+  html.fill .dash > .cell:is(.g, .h, .i, .j) > details { padding: 9px 14px; overflow: visible; }
+  html.fill .dash > .cell:is(.g, .h, .i, .j) > details > summary { margin: 0; flex-wrap: nowrap; }
+  html.fill .dash > .cell:is(.g, .h, .i, .j) > details > summary p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html.fill .dash > .cell:is(.g, .h, .i, .j) > details[open] { position: fixed; left: 14px; right: 14px; bottom: 64px; max-height: 70vh;
+    overflow: auto; z-index: 40; padding: 14px 18px; box-shadow: 0 -16px 50px -14px rgba(0, 0, 0, .6); }
+
+  /* sala: la spiegazione dei comandi va nel tooltip, restano i colleghi */
+  html.fill .cell.c .hq-foot .hq-note { display: none; }
+  html.fill .cell.c .hq-tools .btn { padding: 4px 9px; font-size: 12px; }
+  html.fill .cell.c > .panel > header { flex-wrap: nowrap; }
+  /* esame: barra di avanzamento e CLV, il resto nelle sezioni */
+  html.fill .cell.b .rule, html.fill .cell.b .how, html.fill .cell.b .miss, html.fill .cell.b .aside { display: none; }
+  html.fill .cell.b .exams { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  html.fill .cell.b .ex { gap: 6px; padding: 10px 12px; }
+  html.fill .cell.b .exam-empty p.muted { display: none; }
+  /* strategie: una riga per strategia */
+  html.fill .cell.f .strats { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  html.fill .cell.f .strat { padding: 9px 12px; gap: 3px; }
+  html.fill .cell.f .strat > :not(.head):not(.line) { display: none; }
+  html.fill .cell.f details > summary p { display: none; }
 }
-@media (min-width: 1760px) and (min-height: 820px) {
-  html.fill .dash > .cell.a { grid-column: 1 / span 3; }
-  html.fill .dash > .cell.b { grid-column: 4 / span 3; }
-  html.fill .dash > .cell.d { grid-column: 7 / span 3; }
-  html.fill .dash > .cell.f { grid-column: 10 / span 3; grid-row: 1; }
-  html.fill .dash > .cell.c { grid-column: 1 / span 6; }
-  html.fill .dash > .cell.e { grid-column: 7 / span 6; grid-row: 2 / span 2; }
+@media (min-width: 1500px) and (min-height: 820px) and (max-width: 1759px) {
+  html.fill .cell.a .kpis .kpi:nth-child(6) { display: none; }
+  html.fill .cell.a .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 </style>
 
@@ -892,7 +974,13 @@ html, body { overflow-x: hidden; }
     if (!live) b.push(`<div class="banner warn">Fotografia in sola lettura${S.settings_view?.feed === "mock" ? " di una simulazione: partite e quote vengono dal feed simulato, nessun soldo vero" : ""}. Generata ${new Date((S.generated || 0) * 1000).toLocaleString("it-IT")}.</div>`);
     if (S.kill_switch) b.push(`<div class="banner">KILL SWITCH ATTIVO: ${esc(S.kill_switch)}. Nessuna nuova puntata. Reset solo manuale: <span class="mono">python betbot.py reset-kill-switch</span></div>`);
     if (rs.cooldown_until) b.push(`<div class="banner warn">Pausa per serie negativa fino alle ${new Date(rs.cooldown_until * 1000).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}.</div>`);
-    if (S.live_gate) b.push(`<div class="banner warn">Modalità live: ${esc(S.live_gate)}</div>`);
+    if (S.live_gate) {                  // "S10_x: SOLDI VERI; S05_y: paper (…)" → una riga leggibile, il dettaglio nel tooltip
+      const parts = String(S.live_gate).split(/;\s*/).map(t => t.split(/:\s*/)).filter(x => x[0]);
+      const real = parts.filter(x => /SOLDI VERI/.test(x[1] || "")).map(x => x[0]), shadow = parts.length - real.length;
+      b.push(`<div class="banner ${real.length ? "live" : "warn"}" title="${esc(S.live_gate)}">${real.length
+        ? `<b>Soldi veri</b>: ${real.map(esc).join(", ")} · le altre ${shadow} strategie lavorano in ombra, senza soldi`
+        : `<b>Live acceso ma nessuna strategia ammessa</b>: tutte in ombra. Passa il mouse per il dettaglio.`}</div>`);
+    }
     $("banners").innerHTML = b.join("");
     renderGoal();
   }
@@ -954,7 +1042,7 @@ html, body { overflow-x: hidden; }
     const pts = (S.bankroll_curve || []).map(r => r.bankroll);
     const svg = $("chart");
     if (pts.length < 2) { svg.innerHTML = `<text x="12" y="90">Il grafico appare dopo i primi cicli.</text>`; return; }
-    const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || 800)), H = 170, padL = 46, padR = 8, padT = 10, padB = 18;
+    const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || 800)), H = Math.max(90, Math.round(svg.getBoundingClientRect().height || 170)), padL = 46, padR = 8, padT = 10, padB = 18;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     const peak0 = Math.max(...pts, init), killLine = floor ?? peak0 * (1 - (L.max_drawdown || .12));
     let lo = Math.min(...pts, killLine), hi = peak0;
@@ -1004,7 +1092,7 @@ html, body { overflow-x: hidden; }
     const ob = S.open_bets || [];
     $("open-note").textContent = ob.length ? `${ob.length} aperte · ${eur(ob.reduce((s, b) => s + b.stake, 0))} in gioco` : "";
     $("open-bets").innerHTML = ob.length ? `<thead><tr><th>#</th><th>Evento</th><th class="r">Quota</th><th class="r">Puntata</th><th>Tipo</th></tr></thead><tbody>` +
-      ob.map(b => `<tr><td class="mono">${b.id}</td><td>${esc(b.label)}<div class="muted" style="font-size:11px">${esc(b.strategy_id)} · ${esc(b.bookmaker)} · EV ${pct(b.edge, 1, true)}</div>${b.reason ? `<div class="why">Perché: ${esc(b.reason)}</div>` : ""}</td>
+      ob.map(b => `<tr><td class="mono">${b.id}</td><td>${esc(b.label)}<div class="muted" style="font-size:11px">${esc(b.strategy_id)} · ${esc(b.bookmaker)} · EV ${pct(b.edge, 1, true)}</div>${b.reason ? `<div class="why" title="${esc(b.reason)}">Perché: ${esc(b.reason)}</div>` : ""}</td>
         <td class="r mono">${odds(b.odds)}</td><td class="r mono">${eur(b.stake)}</td><td><span class="pill ${MODE[b.mode]?.[1] || ""}">${MODE[b.mode]?.[0] || esc(b.mode)}</span></td></tr>`).join("") + `</tbody>`
       : `<tbody><tr><td class="empty">Nessuna puntata aperta.</td></tr></tbody>`;
     const h = S.bets || [];
@@ -1031,7 +1119,8 @@ html, body { overflow-x: hidden; }
       const [pc, pt] = na ? ["", "RITIRATA"] : STRAT_PILL[s.status] || ["", s.status || "—"];
       const pill = `<span class="pill ${pc}">${esc(pt)}</span>`;
       const note = na ? "ritirata: non gira più, i numeri sono solo storia" : STRAT_NOTE[s.status] || "";
-      return `<div class="strat"><div class="head"><h3>${esc(s.name)}</h3>${pill}</div>
+      const line = `<div class="line"><b>${m ? m.bets : 0}</b> chiuse · ROI <b>${m && m.bets ? pct(m.roi, 1, true) : "—"}</b> · P&amp;L <b class="${m && m.pnl > 0 ? "pos" : m && m.pnl < 0 ? "neg" : ""}">${m ? eur(m.pnl) : "—"}</b>${sh ? ` · ombra <b>${sh.n}</b>` : ""}${live.includes(s.id) ? ` · <b class="pos">soldi veri</b>` : ""}</div>`;
+      return `<div class="strat" title="${esc(s.id)} — ${esc(note)}${p.description ? "\n" + esc(p.description) : ""}"><div class="head"><h3>${esc(s.name)}</h3>${pill}</div>${line}
         ${note ? `<div style="font-size:12px;font-weight:600">${esc(note)}</div>` : ""}
         ${na ? "" : `<div class="muted" style="font-size:12px">${esc(p.description || "")}</div>`}
         <dl><dt>Versione</dt><dd>${esc(s.id)}</dd>
