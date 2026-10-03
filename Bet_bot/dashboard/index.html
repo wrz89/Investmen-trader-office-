@@ -398,6 +398,89 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   .why { font-size: 11px; color: var(--muted, inherit); opacity: .85; margin-top: 2px; line-height: 1.35; max-width: 60ch; }
   .live-box { border: 1px solid currentColor; border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+
+/* ── dashboard compatta (04/10/2026): due colonne su schermo largo, sezioni secondarie richiudibili ── */
+.wrap { max-width: 1560px; gap: 10px; padding-block: 10px 24px; }
+.top p#subtitle { display: none; }
+.top .eyebrow { margin-bottom: 2px; }
+.panel { padding: 10px 12px; }
+.panel > header, .fold-h { margin-bottom: 8px; }
+h2 { font-size: 13px; }
+.kpis { gap: 6px; }
+.kpi { padding: 6px 9px; }
+.kpi .val { font-size: 18px; }
+.chart { height: 110px; margin-top: 6px; }
+.quick { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 6px 8px; background: var(--paper); border: 1px solid var(--wall); border-radius: var(--r); box-shadow: var(--shadow); }
+.quick a { font: 600 12px/1 var(--f-data); letter-spacing: .04em; text-transform: uppercase; text-decoration: none; color: var(--ink);
+  padding: 6px 9px; border-radius: 999px; background: var(--room); border: 1px solid var(--wall); }
+.quick a:hover { border-color: var(--accent); color: var(--accent); }
+.quick .btn { margin-left: auto; padding: 5px 9px; font-size: 12px; }
+.dash { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.dash > .cell { min-width: 0; scroll-margin-top: 56px; }
+.dash > .cell > * { height: auto; }
+@media (min-width: 1100px) {
+  .dash > .cell.c { grid-column: 1; grid-row: 2 / span 2; }          /* sala a sinistra, alta quanto "in gioco" + tabellone */
+  .dash > .cell.d { grid-column: 2; grid-row: 2; }
+  .dash > .cell.e { grid-column: 2; grid-row: 3; }
+}
+@media (max-width: 1099px) { .dash { grid-template-columns: minmax(0, 1fr); } }
+.dash .scroll { max-height: 250px; overflow: auto; }
+.dash .strats { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; max-height: 360px; overflow: auto; }
+.dash .feed { max-height: 320px; overflow: auto; }
+.dash #exam-list, .dash #exam-rec { max-height: 210px; overflow: auto; }
+.dash .rule, .dash .explain, .dash .hq-foot .hq-note { font-size: 12px; margin: 0 0 6px; }
+.hq-foot { margin-top: 6px; }
+.cell.c .hq-people { max-height: 74px; overflow: auto; }
+details.fold > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "▸"; color: var(--accent); font-size: 13px; width: 1em; }
+details.fold[open] > summary::before { content: "▾"; }
+details.fold > summary p { margin: 0; color: var(--muted); font-size: 12px; flex: 1 1 200px; }
+details.fold:not([open]) > summary { margin-bottom: 0; }
+.dash .cell.g, .dash .cell.h { grid-column: 1 / -1; }
+@media (min-width: 1100px) { .dash .cell.h { grid-column: 1; } .dash .cell.i, .dash .cell.j { grid-column: 2; } }
+
+/* rifinitura: testata su una riga, righe più basse, sala + tabellone a sinistra, in gioco + strategie a destra */
+.btn { white-space: nowrap; }
+.top { align-items: center; gap: 6px 14px; }
+.top .eyebrow { display: none; }
+.top h1 { font-size: 20px; }
+.top .chips { margin-top: 4px; gap: 5px; }
+.top-right { flex: 0 1 460px; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; justify-items: stretch; }
+.top-right .top-actions { flex-wrap: nowrap; }
+.goal { padding: 6px 10px; gap: 3px; }
+.goal small { display: none; }
+.dash .cell.b .rule { display: none; }
+.dash #exam-rec { max-height: 150px; }
+.dash .exam-empty { padding: 8px 10px; gap: 5px; }
+.dash .exam-empty p { font-size: 12px; }
+.dash .chart { height: 90px; }
+.dash .scroll { max-height: 210px; }
+@media (min-width: 1100px) {
+  .dash > .cell.c { grid-column: 1; grid-row: 2; }
+  .dash > .cell.d { grid-column: 2; grid-row: 2; }
+  .dash > .cell.e { grid-column: 1; grid-row: 3; }
+  .dash > .cell.f { grid-column: 2; grid-row: 3; }
+  .dash .strats { max-height: 250px; }
+}
+@media (max-width: 700px) { .top-right { grid-template-columns: minmax(0, 1fr); flex-basis: 100%; } }
+
+.top-right { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; flex: 0 1 auto; min-width: 0; gap: 8px; }
+.top-right .goal { width: 250px; flex: 0 0 auto; }
+.dash #exam-rec { max-height: 96px; }
+.dash #exam-list { max-height: 110px; }
+.hq-tools .btn { padding: 4px 8px; font-size: 12px; }
+
+@media (max-width: 700px) {
+  .top-right { flex-basis: 100%; justify-content: flex-start; }
+  .top-right .top-actions { flex-wrap: wrap; }
+  .top-right .goal { width: 100%; }
+  .quick a { padding: 5px 8px; }
+  .top .chips { flex-wrap: wrap; }
+  .top .chips .chip { white-space: normal; }
+}
+html, body { overflow-x: hidden; }
 </style>
 
 <div class="wrap">
@@ -420,20 +503,25 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
 
   <div id="banners"></div>
 
-  <section class="panel" aria-label="Bankroll">
+  <nav class="quick" id="quick" aria-label="Vai a">
+    <a href="#s-soldi">Soldi</a><a href="#s-esame">Esame</a><a href="#s-sala">Sala</a><a href="#s-partite">Partite</a>
+    <a href="#s-gioco">In gioco</a><a href="#s-strategie">Strategie</a><a href="#s-leo">Leo</a><a href="#s-registro">Registro</a>
+    <button class="btn" id="btn-foldall" type="button" title="Apri o chiudi le sezioni secondarie">Chiudi tutto</button>
+  </nav>
+
+  <div class="dash">
+    <div class="cell a" id="s-soldi"><section class="panel" aria-label="Bankroll">
     <header><h2>Bankroll e reinvestimento</h2><p id="kpi-note"></p></header>
     <div class="kpis" id="kpis"></div>
     <svg class="chart" id="chart" viewBox="0 0 800 170" role="img" aria-label="Andamento del bankroll"></svg>
-  </section>
-
-  <section class="panel exam" id="exam" aria-label="Esame per il live">
+  </section></div>
+    <div class="cell b" id="s-esame"><section class="panel exam" id="exam" aria-label="Esame per il live">
     <header><h2>Esame per il live</h2><p id="exam-note"></p></header>
     <p class="rule"><b>Criteri decisi prima dei risultati</b>: almeno 200 puntate sui prezzi veri, CLV positivo anche nel caso peggiore, ROI positivo. La decisione di passare ai soldi veri resta tua.</p>
     <div id="exam-rec"></div>
     <div id="exam-list"></div>
-  </section>
-
-  <section class="panel" aria-label="La sala">
+  </section></div>
+    <div class="cell c" id="s-sala"><section class="panel" aria-label="La sala">
     <header><h2>La sala</h2>
       <div class="hq-tools">
         <button class="btn" id="btn-daynight" type="button">Notte</button>
@@ -453,28 +541,23 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       <p class="hq-note" id="floor-note" role="status">Trascina per girare la sala, tasto destro per spostarti, Ctrl + rotellina per lo zoom, doppio clic su un collega per avvicinarti. Il biglietto giallo è una puntata: va da chi l'ha trovata a Bruno (rischio) e poi a Pietro (banco).</p>
       <div class="hq-people" id="hq-people" aria-label="Apri il registro di un collega"></div>
     </div>
-  </section>
-
-  <div class="cols">
-    <section class="board" aria-label="Tabellone">
-      <header><h2>Tabellone</h2><p id="board-note"></p></header>
-      <div class="scroll"><table id="matches"></table></div>
-    </section>
-    <section class="panel" aria-label="Puntate in gioco">
+  </section></div>
+    <div class="cell d" id="s-gioco"><section class="panel" aria-label="Puntate in gioco">
       <header><h2>In gioco</h2><p id="open-note"></p></header>
       <div class="scroll"><table id="open-bets"></table></div>
       <header style="margin-top:16px"><h2>Ultime chiuse</h2><p id="hist-note"></p></header>
       <div class="scroll"><table id="history"></table></div>
-    </section>
-  </div>
-
-  <section class="panel" aria-label="Strategie">
-    <header><h2>Lavagna delle strategie</h2><p>Una versione per file: per cambiare una strategia se ne crea una nuova.</p></header>
+    </section></div>
+    <div class="cell e" id="s-partite"><section class="board" aria-label="Tabellone">
+      <header><h2>Tabellone</h2><p id="board-note"></p></header>
+      <div class="scroll"><table id="matches"></table></div>
+    </section></div>
+    <div class="cell f" id="s-strategie"><details class="panel fold" open aria-label="Strategie">
+    <summary class="fold-h"><h2>Lavagna delle strategie</h2><p>Una versione per file: per cambiare una strategia se ne crea una nuova.</p></summary>
     <div class="strats" id="strats"></div>
-  </section>
-
-  <section class="panel school" id="school" aria-label="Scuola degli errori">
-    <header><h2>Scuola degli errori (Leo)</h2><p id="school-note">Leo, l'allenatore, fa l'autopsia di ogni puntata chiusa e trasforma gli errori che si ripetono in regole che possono solo frenare.</p></header>
+  </details></div>
+    <div class="cell g" id="s-leo"><details class="panel school fold" id="school" aria-label="Scuola degli errori">
+    <summary class="fold-h"><h2>Scuola degli errori (Leo)</h2><p id="school-note">Leo, l'allenatore, fa l'autopsia di ogni puntata chiusa e trasforma gli errori che si ripetono in regole che possono solo frenare.</p></summary>
     <p class="explain"><b>CLV</b> = quanto il mercato, quando la partita inizia, ci ha dato ragione (+) o torto (−). <b>Bravura</b> è un CLV positivo; <b>fortuna</b> è vincere con il CLV contro: non si ripete.</p>
     <div class="kpis" id="school-kpis"></div>
     <div class="school-grid">
@@ -486,24 +569,20 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
       <div><h3>Regole imparate</h3><p class="hint">Le regole possono solo frenare: le proposte bloccate si seguono in ombra, e la regola si ritira se i dati nuovi la smentiscono.</p><ul class="rules" id="school-rules"></ul></div>
       <div><h3>Ultime autopsie</h3><p class="hint">Le puntate chiuse più recenti, con la causa e la spiegazione di Leo.</p><ul class="lessons" id="school-lessons"></ul></div>
     </div>
-  </section>
-
-  <div class="cols">
-    <section class="panel" aria-label="Registro">
-      <header><h2>Registro</h2><p>Immutabile: il database rifiuta modifiche e cancellazioni.</p></header>
+  </details></div>
+    <div class="cell h" id="s-registro"><details class="panel fold" aria-label="Registro">
+      <summary class="fold-h"><h2>Registro</h2><p>Immutabile: il database rifiuta modifiche e cancellazioni.</p></summary>
       <div class="feed-filters" id="filters"></div>
       <ul class="feed" id="feed"></ul>
-    </section>
-    <div style="display:grid;gap:18px;align-content:start;min-width:0">
-      <section class="panel" aria-label="Sentiment">
-        <header><h2>Sentiment</h2><p>Può solo frenare: veto o puntata dimezzata.</p></header>
+    </details></div>
+    <div class="cell i" id="s-sentiment"><details class="panel fold" aria-label="Sentiment">
+        <summary class="fold-h"><h2>Sentiment</h2><p>Può solo frenare: veto o puntata dimezzata.</p></summary>
         <div id="sentiment"></div>
-      </section>
-      <section class="panel md" aria-label="Backtest">
-        <header><h2>Ultimo backtest</h2><p id="bt-note"></p></header>
+      </details></div>
+    <div class="cell j" id="s-backtest"><details class="panel md fold" aria-label="Backtest">
+        <summary class="fold-h"><h2>Ultimo backtest</h2><p id="bt-note"></p></summary>
         <div class="scroll" id="backtest"></div>
-      </section>
-    </div>
+      </details></div>
   </div>
 
   <footer class="foot"><span id="foot-note"></span><span>Dati e segreti restano sul tuo PC, nella cartella runtime/.</span></footer>
@@ -2260,7 +2339,7 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   // ── motore ──
   function frameCamera() {
     const host = $("hq3"), w = host.clientWidth || 800;
-    const h = w < 640 ? Math.round(w * 0.8) : Math.round(Math.min(Math.max(w * 0.58, 360), 700));
+    const h = w < 640 ? Math.round(w * 0.8) : Math.round(Math.min(Math.max(w * 0.46, 280), 400));
     renderer.setSize(w, h, false);
     renderer.domElement.style.height = h + "px";
     // sul telefono si vede tutta la sala (niente colleghi tagliati fuori); per avvicinarsi: doppio tocco o due dita
@@ -2776,6 +2855,31 @@ footer.foot { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wr
   // ogni 3 s con la pagina davanti, ogni 30 s con la scheda nascosta; al ritorno si aggiorna subito
   (function poll() { setTimeout(() => { if (live || !S) tick(); poll(); }, document.hidden ? 30000 : 3000); })();
   document.addEventListener("visibilitychange", () => { if (!document.hidden && (live || !S)) tick(); });
+})();
+</script>
+
+<script>
+// dashboard compatta: le sezioni richiudibili ricordano se erano aperte; la barra in alto le apre e porta lì
+(function () {
+  const KEY = "bb-fold-";
+  const folds = [...document.querySelectorAll("details.fold")];
+  const fid = d => (d.closest(".cell") || d).id;
+  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  folds.forEach(d => {
+    const saved = get(KEY + fid(d));
+    if (saved === "1") d.open = true; else if (saved === "0") d.open = false;
+    d.addEventListener("toggle", () => { set(KEY + fid(d), d.open ? "1" : "0"); label(); });
+  });
+  function label() { const any = folds.some(d => d.open); const b = document.getElementById("btn-foldall"); if (b) b.textContent = any ? "Chiudi tutto" : "Apri tutto"; }
+  document.getElementById("btn-foldall")?.addEventListener("click", () => { const any = folds.some(d => d.open); folds.forEach(d => { d.open = !any; }); label(); });
+  document.querySelectorAll("#quick a").forEach(a => a.addEventListener("click", e => {
+    const t = document.querySelector(a.getAttribute("href")); if (!t) return;
+    e.preventDefault();
+    const d = t.matches("details") ? t : t.querySelector("details"); if (d) d.open = true;
+    t.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+  label();
 })();
 </script>
 </body>

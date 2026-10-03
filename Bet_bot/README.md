@@ -52,6 +52,13 @@ Per aggiornare il programma: **`aggiorna.bat`** (scarica da GitHub solo il codic
 - Il verdetto è una di tre possibilità: *segnale presente*, *segnale assente* o *non ancora chiaro*.
 - È un'indicazione, non una prova. Ripetuto in giorni diversi, i numeri si sommano.
 
+### La dashboard compatta
+
+Su schermo largo i pannelli stanno su due colonne: **soldi ed esame** in alto, **sala 3D e puntate in gioco** subito sotto, tabellone e strategie dopo. Si vede quasi tutto senza scorrere.
+- La barra fissa in alto (**Soldi, Esame, Sala, Partite, In gioco, Strategie, Leo, Registro**) porta direttamente alla sezione e la apre.
+- Leo, Registro, Sentiment e Backtest sono richiudibili (con la freccia a sinistra del titolo) e restano chiusi finché non li apri; la dashboard ricorda cosa avevi aperto. **Chiudi tutto / Apri tutto** li gestisce in blocco.
+- La sala 3D è più bassa; tabelle e liste lunghe scorrono dentro il loro riquadro invece di allungare la pagina.
+
 ### Soldi veri per divertimento (`vai_live.bat` / `torna_paper.bat`)
 
 La strategia **S10 Divertimento** punta ogni giorno su qualunque sport di betfair.it (calcio, tennis, basket, NFL, baseball), anche in settimana.
