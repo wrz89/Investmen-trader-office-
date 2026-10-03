@@ -87,6 +87,12 @@ def test_risk_allows_fun_at_minimum_stake_but_not_bad_prices(office):
     assert not office.risk.evaluate(_fun(fun=False, strategy_id="S05_favoriti_exchange_v2"), _rsnap(), state)["approved"]
 
 
+def test_fun_skips_market_moving_against(office, monkeypatch):
+    monkeypatch.setattr(office.sentiment, "verdict", lambda p: {"level": "caution", "reason": "mercato in uscita: probabilità -4.4%"})
+    d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
+    assert not d["approved"] and any("Mercato non in uscita" in r for r in d["reasons"])
+
+
 def test_fun_caps_per_day_and_open(office):
     from betbot.store import now_iso
     ins = ("INSERT INTO bets (ts, mode, strategy_id, match_id, league, market, selection, bookmaker, odds, stake, status) "

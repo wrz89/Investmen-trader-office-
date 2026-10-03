@@ -342,6 +342,11 @@ class RiskManager(Agent):
         verdict = sentiment.verdict(p) if sentiment else {"level": "ok"}
         check(verdict["level"] != "block", "Sentiment e mercato non contrari" +
               (f" ({verdict.get('reason')})" if verdict["level"] == "block" else ""))
+        if fun:
+            # il divertimento punta sempre il minimo: "prudenza" (dimezzare) non cambierebbe nulla. Un prezzo che si
+            # allontana (mercato in uscita) dice che qualcuno sa qualcosa contro di noi: si salta (05/10/2026)
+            check(verdict["level"] == "ok", "Mercato non in uscita (divertimento)" +
+                  (f" ({verdict.get('reason')})" if verdict["level"] == "caution" else ""))
 
         base = state["stake_base"]
         min_stake = getattr(getattr(self.office, "executor", None), "min_stake", 0.0)
