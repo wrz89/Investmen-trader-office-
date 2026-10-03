@@ -48,8 +48,17 @@ def check(store, hours: float = HOURS) -> dict:
         blocks.append(("Pausa per serie negativa fino alle "
                        + datetime.fromtimestamp(rs["cooldown_until"]).strftime("%H:%M"), "Riparte da sola."))
     if rs.get("daily_stop"):
-        blocks.append((f"Stop del giorno: persi {rs.get('loss_today', 0):.2f} € (limite {rs.get('daily_budget', 0):.2f} €)",
-                       "Riparte da sola domani."))
+        ev = store.query("SELECT ts, message FROM events WHERE kind='circuit' AND message LIKE 'Circuit breaker: persi%' "
+                         "ORDER BY id DESC LIMIT 1")
+        when = ""
+        if ev:
+            try:
+                when = " alle " + datetime.fromisoformat(ev[0]["ts"]).astimezone().strftime("%H:%M") + f" ({ev[0]['message'].split(': ', 1)[1].split('.')[0]})"
+            except (ValueError, IndexError):
+                when = ""
+        blocks.append((f"Stop del giorno scattato{when}. Ora persi {rs.get('loss_today', 0):.2f} € su un limite di "
+                       f"{rs.get('daily_budget', 0):.2f} €: lo stop resta fino a mezzanotte anche se nel frattempo si recupera",
+                       "Riparte da solo domani."))
     if store.get("limits_tampered"):
         blocks.append(("File dei limiti cambiato a bot acceso", "Riavvia il bot (chiudi la finestra e lancia avvia.bat)."))
     if (store.get("telegram_pause_until") or 0) > time.time():
