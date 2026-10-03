@@ -78,7 +78,7 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 ## Dove guardare nel codice
 - orizzonti.py: CLV e liquidità di betfair.it a 72/48/24/12/6/3/1 ore dall'inizio, dalle registrazioni (le registrazioni
   hanno `ref_ts` dal 30/09/2026: prima l'età di Pinnacle si stima dal primo momento in cui la quota cambia).
-- autotest.py: con `avvia` lancia in sottofondo orizzonti (1/giorno), allenamento (1/settimana), test rapido
+- autotest.py: con `avvia` lancia in sottofondo orizzonti (1/giorno), multiple (1/giorno), allenamento, backtest (1/settimana), NFL (1/mese), test rapido
   (1/settimana, ≥250 crediti). Live dalla dashboard: /api/live/on|off → live_switch + riavvio (runtime/riavvio.richiesta,
   `avvia` esce con 3, avvia.bat riparte subito).
 - storico_betfair.py (NON usabile dall'Italia: historicdata.betfair.com blocca gli IP italiani e la VPN è vietata, non

@@ -18,12 +18,13 @@ def _settings(provider="betfair", reference="odds_api", **auto):
 
 def test_plan_respects_rhythm_and_credits(at, tmp_path):
     names = [n for n, _ in at.plan(_settings())]
-    assert names == ["orizzonti", "allenamento", "test_rapido"]
-    assert [n for n, _ in at.plan(_settings(provider="mock"))] == ["orizzonti", "allenamento"]     # niente crediti col mock
+    assert names == ["orizzonti", "allenamento", "multiple", "backtest", "nfl", "test_rapido"]
+    assert [n for n, _ in at.plan(_settings(provider="mock"))] == ["orizzonti", "allenamento", "multiple", "backtest", "nfl"]     # niente crediti col mock
     (tmp_path / "odds_api_budget.json").write_text(json.dumps({"remaining": 120}))
     assert "test_rapido" not in [n for n, _ in at.plan(_settings())]                               # pochi crediti
     at._mark("orizzonti")
-    at._mark("allenamento")
+    for n in ("allenamento", "multiple", "backtest", "nfl"):
+        at._mark(n)
     assert [n for n, _ in at.plan(_settings(provider="mock"))] == []                               # già fatti
     assert at.plan(_settings(enabled=False)) == []
 
@@ -39,7 +40,7 @@ def test_start_runs_in_background_and_reports(at, monkeypatch):
     monkeypatch.setattr(at.threading, "Thread", Now)
     office = type("O", (), {"settings": _settings(provider="mock"),
                             "coach": type("C", (), {"say": staticmethod(lambda msg, *a, **k: said.append(msg))})()})()
-    assert at.start(office) == ["orizzonti", "allenamento"]
+    assert at.start(office) == ["orizzonti", "allenamento", "multiple", "backtest", "nfl"]
     assert any("fatto orizzonti" in m for m in said) and not at.plan(_settings(provider="mock"))
 
 

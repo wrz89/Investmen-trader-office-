@@ -77,7 +77,8 @@ In alternativa `vai_live.bat` fa tutto: login, mostra il saldo, chiede di scrive
 
 Con `avvia.bat` partono da soli, in sottofondo e senza fermare il bot, i test in scadenza:
 - `orizzonti`: una volta al giorno, dalle registrazioni, gratis;
-- allenamento dei ragazzi: una volta a settimana;
+- allenamento dei ragazzi e backtest delle strategie sullo storico Betfair: una volta a settimana, gratis;
+- `multiple` (multiple virtuali): una volta al giorno; backtest NFL: una volta al mese;
 - test rapido: una volta a settimana, con il feed Betfair e almeno 250 crediti di The Odds API. Aspetta da solo la finestra migliore.
 
 I risultati arrivano nel registro della dashboard e nel bollettino. I ritmi si cambiano in `autotest` (runtime/impostazioni.yaml).
