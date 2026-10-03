@@ -26,7 +26,7 @@ def criteria(strategy_id: str) -> dict:
     return {**(cfg.get("default") or {}), **(cfg.get(strategy_id) or {})}
 
 
-def evaluate(store, strategy_id: str) -> dict:
+def evaluate(store, strategy_id: str, side: str | None = None) -> dict:
     c = criteria(strategy_id)
     rows = store.query("SELECT l.outcome, l.pnl, l.stake, l.clv, e.features, e.odds, e.side, e.src FROM coach_lessons l "
                        "JOIN coach_entries e ON e.id = l.entry_id WHERE l.strategy_id=? AND l.outcome IN ('WON','LOST')",
@@ -34,6 +34,8 @@ def evaluate(store, strategy_id: str) -> dict:
     real = []
     for r in rows:
         f = json.loads(r["features"] or "{}")
+        if side and (r["side"] or "BACK") != side:
+            continue
         if f.get("feed") in REAL_FEEDS:
             # ombre lay: stake = puntata del backer; libro delle puntate: stake = responsabilità (già il rischio)
             lay_shadow = r["side"] == "LAY" and r["src"] == "shadow_bets"
@@ -62,7 +64,8 @@ def evaluate(store, strategy_id: str) -> dict:
         verdict = "PRONTA"
     else:
         verdict = "IN ESAME"
-    return {"strategy_id": strategy_id, "verdict": verdict, "n": n, "need": need, "clv": mean, "clv_lo": lo, "clv_hi": hi,
+    label = strategy_id + (" · solo lay" if side == "LAY" else " · solo back" if side == "BACK" else "")
+    return {"strategy_id": label, "verdict": verdict, "n": n, "need": need, "clv": mean, "clv_lo": lo, "clv_hi": hi,
             "roi": roi, "win_rate": sum(1 for r in real if r["outcome"] == "WON") / n if n else None,
             "reasons": reasons, "criteria": c}
 
@@ -70,7 +73,12 @@ def evaluate(store, strategy_id: str) -> dict:
 def evaluate_all(store, strategy_ids: list[str]) -> list[dict]:
     from .agents.coach import CoachBook
     CoachBook(store)                                   # crea le tabelle di Leo se il database è di una versione precedente
-    return [evaluate(store, sid) for sid in strategy_ids]
+    out = []
+    for sid in strategy_ids:
+        out.append(evaluate(store, sid))
+        if sid.startswith("S10"):                  # il divertimento mescola lay (vantaggio possibile) e back (nessuno): si separano
+            out += [evaluate(store, sid, "LAY"), evaluate(store, sid, "BACK")]
+    return out
 
 
 def report(results: list[dict]) -> str:

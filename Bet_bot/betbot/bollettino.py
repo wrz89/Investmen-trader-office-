@@ -53,7 +53,7 @@ def build(store, settings: dict) -> dict:
     order = {"PRONTA": 0, "IN ESAME": 1, "BOCCIATA": 2}
     exam.sort(key=lambda r: (order[r["verdict"]], -(r["clv_lo"] if r["clv_lo"] is not None else -9), -r["n"]))
     live = set(settings.get("live_strategies") or []) if settings.get("mode") == "live" else set()
-    proposals = [r["strategy_id"] for r in exam if r["verdict"] == "PRONTA" and r["strategy_id"] not in live]
+    proposals = [r["strategy_id"] for r in exam if r["verdict"] == "PRONTA" and r["strategy_id"].split(" · ")[0] not in live]
     from .multiple import summary as multiple_summary
     return {"ts": time.time(), "live": sorted(live), "soldi_veri": real_money(store), "esame": exam,
             "multiple": multiple_summary(store),

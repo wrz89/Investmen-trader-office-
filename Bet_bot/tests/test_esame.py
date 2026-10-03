@@ -48,3 +48,23 @@ def test_positive_clv_but_losing_money_is_not_ready(office):
     _add(office, 250, 0.02, won_rate=0.6)                  # lay a 4: con il 60% di vinte si perde
     r = esame.evaluate(office.store, "S09_lay_valore_v1")
     assert r["verdict"] == "IN ESAME" and "ROI non positivo" in r["reasons"]
+
+
+def test_exam_splits_s10_by_side(tmp_path):
+    import json
+
+    from betbot import esame
+    from betbot.agents.coach import CoachBook
+    from betbot.store import Store
+    st = Store(tmp_path / "o.db")
+    CoachBook(st)
+    for i, (side, clv) in enumerate((("LAY", 0.10), ("LAY", 0.12), ("BACK", -0.01), ("BACK", 0.0))):
+        eid = st.execute("INSERT INTO coach_entries(ts, src, row_id, strategy_id, match_id, selection, side, odds, fair_prob, "
+                         "edge, features, track, reviewed) VALUES('x', 'shadow_bets', ?, 'S10_misura_v1', ?, 'home', ?, 3.0, "
+                         "0.5, 0.02, ?, '{}', 1)", (i, f"M{i}", side, json.dumps({"feed": "betfair"}))).lastrowid
+        st.execute("INSERT INTO coach_lessons(ts, entry_id, strategy_id, label, src, outcome, pnl, stake, clv) "
+                   "VALUES('x', ?, 'S10_misura_v1', 'x', 'shadow_bets', 'WON', 0.5, 1, ?)", (eid, clv))
+    res = {r["strategy_id"]: r for r in esame.evaluate_all(st, ["S10_misura_v1"])}
+    assert set(res) == {"S10_misura_v1", "S10_misura_v1 · solo lay", "S10_misura_v1 · solo back"}
+    assert res["S10_misura_v1 · solo lay"]["n"] == 2 and res["S10_misura_v1 · solo lay"]["clv"] == 0.11
+    assert res["S10_misura_v1 · solo back"]["n"] == 2 and res["S10_misura_v1"]["n"] == 4

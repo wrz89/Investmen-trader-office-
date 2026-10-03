@@ -25,7 +25,7 @@ def test_bulletin_ranks_and_proposes_only_what_passed(office, monkeypatch):
     from betbot import esame
     fake = {"S05_favoriti_exchange_v3": ("PRONTA", 230, 0.012, 0.003), "S09_lay_valore_v1": ("BOCCIATA", 210, -0.02, -0.03)}
 
-    def ev(store, sid):
+    def ev(store, sid, side=None):
         v, n, clv, lo = fake.get(sid, ("IN ESAME", 12, None, None))
         return {"strategy_id": sid, "verdict": v, "n": n, "need": 200, "clv": clv, "clv_lo": lo,
                 "clv_hi": None if lo is None else clv + 0.01, "roi": clv, "win_rate": None, "reasons": [], "criteria": {}}

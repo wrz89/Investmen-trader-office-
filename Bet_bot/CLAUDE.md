@@ -96,6 +96,11 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - S10 v2 con soldi veri esclude nazionali e amichevoli (regex NATIONAL in s10_divertimento_v2.py, 04/10/2026, dopo
   una perdita su Italia-Francia): i dati di verifica sono tutti di club. S10 misura le tiene, per misurarle in ombra.
   Lay solo fino a quota 5 (rischio ≤ 2 €).
+- Audit del 04/10/2026: (1) i lay di S10 v2 usavano Pinnacle vecchio fino a 2,5 ore (il rinfresco su richiesta vale solo
+  per i favoriti 1,10-1,40 di S05): lo "scarto" poteva essere solo Pinnacle rimasto indietro → ora lay solo con Pinnacle
+  ≤ 90' (lay_max_ref_age_s); (2) l'esame mescolava lay e back del divertimento → ora righe separate "· solo lay" /
+  "· solo back" (esame.evaluate_all). Molteplicità: con 7+ strategie in esame al 95% la probabilità che una passi per
+  caso è ~30%: la prova principale è "S10 · solo lay" (CLV > 0), le altre sono esplorative (a 99%).
 - bollettino.py: ogni mattina dalle 8 Leo manda (Telegram, kind "report") classifica dell'esame, soldi veri, misure e
   proposta; non cambia MAI da solo le live_strategies. `python betbot.py bollettino` lo mostra subito.
 - betbot/core.py (ciclo), agents/risk.py (Risk Manager e freni), agents/banco.py (ordini e chiusure),

@@ -26,13 +26,16 @@ KIND = "prematch"
 # lay fino a quota 5 (3-8 prima): con 0,50 € del backer il rischio massimo è 2 €, come un back; a quota 8 era 3,50 €
 # (scelta del 04/10/2026 dopo una perdita "troppo rischiosa"; sui dati 2024-26 le fasce alte sono solo 35 lay su 95,
 # con CLV positivo ma troppo pochi per dire che valgano il rischio doppio)
-DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 5.0}
+# il "valore" di un lay è lo scarto tra Betfair e Pinnacle: con Pinnacle vecchio di ore lo scarto è spesso solo Pinnacle
+# rimasto indietro (una quota che si muove del 5% in 2 ore è normale, e un EV del 2% sul rischio vale ~1 punto di
+# probabilità). Per i lay Pinnacle deve avere al massimo 90 minuti, come la chiusura di Leo (04/10/2026).
+DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 5.0, "lay_max_ref_age_s": 5400}
 
 
 def lay_candidates(snapshot: dict, q: dict) -> list[dict]:
     now = snapshot.get("sim_time") or snapshot["ts"]
     fresh = {k: m for k, m in snapshot["matches"].items()
-             if not m.get("ref_ts") or now - m["ref_ts"] <= q["max_ref_age_s"]}     # riferimento vecchio: niente lay
+             if m.get("ref_ts") and now - m["ref_ts"] <= q["lay_max_ref_age_s"]}   # niente riferimento fresco: niente lay
     lays = S09.propose({**snapshot, "matches": fresh},
                        {"min_edge": q["lay_min_edge"], "lay_min": q["lay_min"], "lay_max": q["lay_max"],
                         "min_minutes_before": q["min_minutes_before"]}, {})

@@ -323,3 +323,11 @@ def test_fun_allows_three_open_with_sixty_euros(office):
     office.store.execute(ins, (now_iso(), "C"))
     d = office.risk.evaluate(_fun(strategy_id="S10_divertimento_v2"), _rsnap(), office.risk.portfolio_state())
     assert not d["approved"]                                              # la quarta no
+
+
+def test_v2_lay_needs_fresh_pinnacle():
+    from betbot.strategies import s10_divertimento_v2 as V2
+    old = V2.propose(_snap(_lay_match(ref_ts=T0 - 2 * 3600)), {}, {})              # Pinnacle di 2 ore fa
+    assert all(p.get("side") != "LAY" for p in old)
+    fresh = V2.propose(_snap(_lay_match(ref_ts=T0 - 30 * 60)), {}, {})
+    assert any(p.get("side") == "LAY" for p in fresh)
