@@ -59,7 +59,7 @@ max_drawdown_small: 0.334       # …o sotto picco × (1 − 0,334): la soglia s
 live_kill_below_bankroll: 30.0
 live_max_drawdown_small: 0.5
 max_daily_loss_eur: 6.0         # stop fino a domani dopo 6 € persi nel giorno (scelta dell'utente il 02/10/2026; prima 4)
-max_daily_loss: 0.05            # sopra i 100 €: −5% nel giorno → stop fino a domani
+max_daily_loss: 0.09            # sopra i 100 €: −9% nel giorno → stop fino a domani (scelta dell'utente il 05/10/2026; prima 5%)
 max_drawdown: 0.15              # sopra i 100 €: −15% dal massimo → KILL SWITCH (reset solo dal PC)
 max_losing_streak: 6
 cooldown_minutes: 120
