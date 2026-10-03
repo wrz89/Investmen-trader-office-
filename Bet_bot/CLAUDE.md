@@ -128,6 +128,13 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
     tempi reali (la nostra chiave app ha ritardo 1-180 s): scartato.
   • KellyBench (arXiv 2604.27865): tutti i modelli di frontiera perdono sulla Premier 2023-24, alcuni vanno a zero:
     conferma i freni (puntata fissa, stop giornaliero, kill switch) e che l'LLM non è un edge.
+- sport_disponibili.py (`sport_disponibili.bat`): sola lettura, elenca gli sport del conto betfair.it con n. di Match
+  Odds ed esiti e stampa le righe `extra_sports` per quelli non ancora letti (futsal, floorball, bandy…). Rugby a 15/13
+  e pallamano sono già nell'elenco (id Betfair 5, 1477, 468328, da verificare col comando: se il conto non li ha o hanno
+  un numero di esiti diverso si saltano da soli). Storico con quote: gratis solo calcio (football-data) e tennis
+  (tennis-data); per basket, hockey, pallavolo, pallamano, rugby ecc. non esiste uno storico gratuito con quote
+  affidabili (solo a pagamento): lì "allenarsi" = registrare i prezzi veri e misurare il CLV in ombra (S10 misura,
+  segmento "sport" di Leo), non rigiocare il passato.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

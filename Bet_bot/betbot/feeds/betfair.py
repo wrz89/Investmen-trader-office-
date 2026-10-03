@@ -47,16 +47,33 @@ STREAM_HOST, STREAM_PORT = "stream-api.betfair.com", 443
 HORSE_RACING, SOCCER, TENNIS, BASKETBALL, AMERICAN_FOOTBALL, BASEBALL = "7", "1", "2", "7522", "6423", "7511"
 # altri sport a due esiti (Match Odds testa a testa): se il conto .it non li ha, o il mercato ha 3 esiti, si saltano da soli
 ICE_HOCKEY, VOLLEYBALL, DARTS, SNOOKER, TABLE_TENNIS = "7524", "998917", "3503", "6422", "2593"
+RUGBY_UNION, RUGBY_LEAGUE, HANDBALL = "5", "1477", "468328"
 # sport → (eventTypeId Betfair, tipo di mercato, esiti attesi)
 # Football americano (NFL, NCAA): Match Odds a due esiti, supplementari compresi. Se finisce pari dopo i
 # supplementari Betfair applica il "dead heat": due runner WINNER, metà puntata pagata a quota piena → result "tie".
 SPORTS = {"soccer": (SOCCER, "MATCH_ODDS", 3), "tennis": (TENNIS, "MATCH_ODDS", 2), "basketball": (BASKETBALL, "MATCH_ODDS", 2),
           "americanfootball": (AMERICAN_FOOTBALL, "MATCH_ODDS", 2), "baseball": (BASEBALL, "MATCH_ODDS", 2),
           "icehockey": (ICE_HOCKEY, "MATCH_ODDS", 2), "volleyball": (VOLLEYBALL, "MATCH_ODDS", 2),
-          "darts": (DARTS, "MATCH_ODDS", 2), "snooker": (SNOOKER, "MATCH_ODDS", 2), "tabletennis": (TABLE_TENNIS, "MATCH_ODDS", 2)}
+          "darts": (DARTS, "MATCH_ODDS", 2), "snooker": (SNOOKER, "MATCH_ODDS", 2), "tabletennis": (TABLE_TENNIS, "MATCH_ODDS", 2),
+          "rugbyunion": (RUGBY_UNION, "MATCH_ODDS", 2), "rugbyleague": (RUGBY_LEAGUE, "MATCH_ODDS", 2),
+          "handball": (HANDBALL, "MATCH_ODDS", 3)}
 SPORT_LABELS = {"soccer": "Calcio", "tennis": "Tennis", "basketball": "Basket", "americanfootball": "Football americano",
                 "baseball": "Baseball", "icehockey": "Hockey su ghiaccio", "volleyball": "Pallavolo", "darts": "Freccette",
-                "snooker": "Snooker", "tabletennis": "Ping pong"}
+                "snooker": "Snooker", "tabletennis": "Ping pong", "rugbyunion": "Rugby a 15", "rugbyleague": "Rugby a 13",
+                "handball": "Pallamano"}
+
+
+def sports_table(extra: dict | None = None) -> dict:
+    """Gli sport noti + quelli aggiunti a mano in settings (betfair.extra_sports: {chiave: {id, esiti, nome}}), per
+    gli sport che `sport-disponibili` trova sul conto e che qui non sono ancora elencati (futsal, floorball, bandy…)."""
+    out = dict(SPORTS)
+    for key, v in (extra or {}).items():
+        try:
+            out[key] = (str(v["id"]), v.get("mercato", "MATCH_ODDS"), int(v.get("esiti", 2)))
+            SPORT_LABELS.setdefault(key, v.get("nome") or key)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
 
 
 def split_event_name(name: str) -> tuple[str, str] | None:
@@ -168,7 +185,7 @@ class BetfairClient:
             h["X-Application"] = self.app_key
         return h
 
-    READ_METHODS = {"listMarketCatalogue", "listMarketBook", "listEventTypes", "listCurrentOrders", "listClearedOrders",
+    READ_METHODS = {"listMarketCatalogue", "listMarketBook", "listEventTypes", "listMarketTypes", "listCurrentOrders", "listClearedOrders",
                     "getAccountFunds"}
 
     def rpc(self, method: str, params: dict, url: str = BETTING, service: str = "SportsAPING/v1.0",
@@ -256,6 +273,11 @@ class BetfairClient:
         """Sport disponibili per questo conto: {id: nome}. Su betfair.it l'ippica (7) non deve esserci."""
         res = self.rpc("listEventTypes", {"filter": {}})
         return {str(e["eventType"]["id"]): e["eventType"]["name"] for e in res}
+
+    def market_types(self, event_type: str) -> dict[str, int]:
+        """Tipi di mercato di uno sport con il numero di mercati aperti: {MATCH_ODDS: 12, …}."""
+        res = self.rpc("listMarketTypes", {"filter": {"eventTypeIds": [event_type]}})
+        return {r["marketType"]: int(r.get("marketCount") or 0) for r in res}
 
     def books(self, market_ids: list[str]) -> list[dict]:
         out = []
@@ -465,13 +487,14 @@ class BetfairFeed(Feed):
                 self.available = self.client.event_types()
             except BetfairError:
                 self.available = {}
+        self.sports_tab = sports_table(self.cfg.get("extra_sports"))
         sports = self.cfg.get("sports") or (["soccer"] if self.cfg.get("soccer", True) else [])
-        sports = [s for s in sports if s in SPORTS and (not self.available or SPORTS[s][0] in self.available)]
+        sports = [s for s in sports if s in self.sports_tab and (not self.available or self.sports_tab[s][0] in self.available)]
         errors, bad = [], getattr(self, "bad_sports", {})
         for sport in sports:
             if bad.get(sport, 0) >= 3:                       # sport rifiutato 3 volte di fila: si smette di provarlo
                 continue
-            event_type, market_type, _ = SPORTS[sport]
+            event_type, market_type, _ = self.sports_tab[sport]
             try:
                 found = self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40)
             except BetfairError as exc:                      # uno sport che il conto non ha non deve spegnere gli altri
@@ -531,7 +554,7 @@ class BetfairFeed(Feed):
             else:
                 runners = cat.get("runners", [])
                 sport = cat["_kind"]
-                n_out = SPORTS.get(sport, (None, None, 3))[2]
+                n_out = getattr(self, "sports_tab", SPORTS).get(sport, (None, None, 3))[2]
                 names = split_event_name(cat["event"]["name"])
                 if len(runners) != n_out or not names:
                     continue
