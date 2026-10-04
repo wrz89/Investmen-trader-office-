@@ -116,6 +116,7 @@ autotest:                  # test che partono da soli con avvia.bat, in sottofon
   nfl_giorni: 30           # backtest football americano (gratis)
 
 coach:                     # Leo, l'allenatore: autopsia di ogni puntata e regole imparate dagli errori
-  min_n: 30                # puntate minime in un segmento prima di trarre una lezione
+  min_n: 60                # puntate minime in un segmento prima di trarre una lezione (era 30: con ~40 segmenti
+                           # controllati insieme, su 30 puntate qualche falso allarme è atteso; 05/10/2026)
   apply_rules: true        # le regole possono SOLO bloccare (mai allargare i limiti); false = solo osservazione
   max_rules: 12

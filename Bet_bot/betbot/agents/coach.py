@@ -386,6 +386,14 @@ class Coach(Agent, CoachBook):
                 self.say(f"Regola ritirata per {s['strategy_id']} ({s['feature'].replace('_', ' ')} = {s['value']}): i dati "
                          f"nuovi non confermano più l'errore (CLV {s['clv']:+.1%} su {s['n']}).", "ok", "rule", level="WARN",
                          payload={"agent": "coach", **s})
+        # alzare min_n deve valere anche per le regole già attive: una regola nata su meno di min_n puntate si ritira
+        for r in self.store.query("SELECT id, strategy_id, feature, value, n FROM coach_rules WHERE active=1 AND kind='blocca' AND n < ?",
+                                  (self.min_n,)):
+            self.store.execute("UPDATE coach_rules SET active=0, updated=? WHERE id=?", (now_iso(), r["id"]))
+            changes.append(("ritirata", {"strategy_id": r["strategy_id"], "feature": r["feature"], "value": r["value"], "n": r["n"]}))
+            self.say(f"Regola ritirata per {r['strategy_id']} ({r['feature'].replace('_', ' ')} = {r['value']}): era nata su "
+                     f"{r['n']} puntate, meno delle {self.min_n} richieste ora. Si ricrea da sola se i dati la confermano.",
+                     "ok", "rule", level="WARN", payload={"agent": "coach"})
         self._calibrate()
         return changes
 
