@@ -186,7 +186,7 @@ class BetfairClient:
             h["X-Application"] = self.app_key
         return h
 
-    READ_METHODS = {"listMarketCatalogue", "listMarketBook", "listEventTypes", "listMarketTypes", "listCurrentOrders", "listClearedOrders",
+    READ_METHODS = {"listMarketCatalogue", "listMarketBook", "listEventTypes", "listMarketTypes", "listCompetitions", "listCurrentOrders", "listClearedOrders",
                     "getAccountFunds"}
 
     def rpc(self, method: str, params: dict, url: str = BETTING, service: str = "SportsAPING/v1.0",
@@ -258,7 +258,7 @@ class BetfairClient:
         return self.rpc("getAccountFunds", {}, ACCOUNT, "AccountAPING/v1.0")
 
     def catalogue(self, event_type: str, market_type: str, hours: float, countries: list[str] | None = None,
-                  max_results: int = 30, lookback_hours: float = 4.0) -> list[dict]:
+                  max_results: int = 30, lookback_hours: float = 4.0, competition_ids: list[str] | None = None) -> list[dict]:
         """Mercati da `lookback_hours` fa (partite già iniziate: in-play e posizioni aperte) fino a `hours` avanti."""
         now = datetime.now(timezone.utc)
         mfilter = {"eventTypeIds": [event_type], "marketTypeCodes": [market_type],
@@ -266,6 +266,8 @@ class BetfairClient:
                                        "to": (now + timedelta(hours=hours)).isoformat(timespec="seconds").replace("+00:00", "Z")}}
         if countries:
             mfilter["marketCountries"] = countries
+        if competition_ids:
+            mfilter["competitionIds"] = competition_ids
         return self.rpc("listMarketCatalogue", {"filter": mfilter, "maxResults": max_results, "sort": "FIRST_TO_START",
                                                 "marketProjection": ["EVENT", "RUNNER_DESCRIPTION", "MARKET_START_TIME",
                                                                      "COMPETITION", "MARKET_DESCRIPTION"]})
@@ -274,6 +276,11 @@ class BetfairClient:
         """Sport disponibili per questo conto: {id: nome}. Su betfair.it l'ippica (7) non deve esserci."""
         res = self.rpc("listEventTypes", {"filter": {}})
         return {str(e["eventType"]["id"]): e["eventType"]["name"] for e in res}
+
+    def competitions(self, event_type: str) -> dict[str, str]:
+        """Campionati dello sport con mercati aperti: {id: nome}."""
+        res = self.rpc("listCompetitions", {"filter": {"eventTypeIds": [event_type]}})
+        return {str(r["competition"]["id"]): r["competition"]["name"] for r in res}
 
     def market_types(self, event_type: str) -> dict[str, int]:
         """Tipi di mercato di uno sport con il numero di mercati aperti: {MATCH_ODDS: 12, …}."""
@@ -501,6 +508,29 @@ class BetfairFeed(Feed):
                 SPORT_LABELS.setdefault(key, name)
         self.auto_tab = tab
 
+    def _priority_soccer(self, event_type: str, market_type: str) -> list[dict]:
+        """listMarketCatalogue restituisce i primi 40 mercati per orario d'inizio: di domenica mattina sono tutti campionati
+        minori e quelli grandi (con Pinnacle, gli unici dove un lay si può verificare) restano fuori. Si chiedono a parte,
+        per id di campionato (listCompetitions, ogni 6 ore)."""
+        from . import league_key
+        if not hasattr(self.client, "competitions"):
+            return []
+        if time.time() - getattr(self, "comp_ts", 0) > 6 * 3600 or not hasattr(self, "comp_ids"):
+            try:
+                comps = self.client.competitions(event_type)
+                self.comp_ids = [cid for cid, name in comps.items() if league_key(name)]
+                self.comp_ts = time.time()
+            except BetfairError:
+                self.comp_ids = getattr(self, "comp_ids", [])
+        out = []
+        for i in range(0, len(self.comp_ids), 6):            # pochi campionati per volta: il limite di dati per richiesta
+            try:
+                out += self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 50,
+                                             competition_ids=self.comp_ids[i:i + 6])
+            except BetfairError:
+                continue
+        return out
+
     def _refresh_catalogue(self) -> None:
         if time.time() - self.cat_ts < 600 and self.cat:
             return
@@ -534,6 +564,8 @@ class BetfairFeed(Feed):
                 errors.append(f"{sport}: {exc}")
                 continue
             bad.pop(sport, None)
+            if sport == "soccer":                           # i campionati con Pinnacle NON devono restare fuori dal limite di risultati
+                found = list(found) + self._priority_soccer(event_type, market_type)
             for m in found:
                 cat[m["marketId"]] = {**m, "_kind": sport}
         self.bad_sports = bad

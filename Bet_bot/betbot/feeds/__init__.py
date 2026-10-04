@@ -44,7 +44,8 @@ LEAGUE_KEYS = [
     (r"french ligue 1|^ligue 1$", "soccer_france_ligue_one"), (r"dutch eredivisie|^eredivisie$", "soccer_netherlands_eredivisie"),
     (r"portuguese primeira|primeira liga", "soccer_portugal_primeira_liga"),
     (r"champions league", "soccer_uefa_champs_league"), (r"europa league", "soccer_uefa_europa_league"),
-    (r"conference league", "soccer_uefa_europa_conference_league"), (r"scottish premiership", "soccer_spl"),
+    (r"conference league", "soccer_uefa_europa_conference_league"), (r"nations league", "soccer_uefa_nations_league"),
+    (r"argentinian primera division|argentine primera division|liga profesional", "soccer_argentina_primera_division"), (r"scottish premiership", "soccer_spl"),
     (r"turkish super", "soccer_turkey_super_league"), (r"belgian first|jupiler", "soccer_belgium_first_div"),
 ]
 
