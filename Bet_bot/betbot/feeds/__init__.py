@@ -56,9 +56,9 @@ def league_key(league: str | None) -> str | None:
 
 
 def lay_reference_needs(snap: dict, max_age_s: float = 2400, min_back: float = 2.9, max_back: float = 5.3,
-                        window_s: tuple[float, float] = (1200, 14400)) -> set[str]:
+                        window_s: tuple[float, float] = (1200, 28800)) -> set[str]:
     """Campionati di calcio in cui c'è un possibile lay (esito a quota 2,9-5,3, libro stretto, inizio tra 20 minuti e
-    4 ore) e il riferimento Pinnacle manca o ha più di 40 minuti. Il lay di valore esiste solo contro un Pinnacle
+    8 ore) e il riferimento Pinnacle manca o ha più di 40 minuti. Il lay di valore esiste solo contro un Pinnacle
     fresco: prima di questa regola i 15 crediti al giorno si spendevano a tappeto e Pinnacle era quasi sempre vecchio."""
     now = snap.get("sim_time") or snap["ts"]
     keys = set()

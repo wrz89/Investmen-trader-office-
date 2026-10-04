@@ -18,7 +18,8 @@ KIND = "prematch"
 # l'esame ha la riga "solo lay con Pinnacle fresco": si vede se il valore con Pinnacle vecchio è falso.
 DEFAULTS = {**V2.DEFAULTS, "max_proposals": 60, "lay_max": 8.0, "lay_max_ref_age_s": 9000,
             "all_sports": True,
-            "min_ev": -0.03, "min_book_eur": 10.0}      # larga come prima: è la misura, non il live              # anche gli sport che il live non gioca (rugby, pallamano, futsal…): sola misura
+            "min_ev": -0.03, "min_book_eur": 10.0,
+            "lay_min_edge": 0.01, "max_minutes_before": 480}   # più lay in ombra: EV da 1% e fino a 8 ore prima, per il campione      # larga come prima: è la misura, non il live              # anche gli sport che il live non gioca (rugby, pallamano, futsal…): sola misura
 
 
 def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
