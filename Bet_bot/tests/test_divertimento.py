@@ -80,7 +80,7 @@ def _rsnap():
 def test_risk_allows_fun_at_minimum_stake_but_not_bad_prices(office):
     state = office.risk.portfolio_state()
     d = office.risk.evaluate(_fun(), _rsnap(), state)
-    assert d["approved"] and 2.0 <= d["stake"] <= 4.0, d["reasons"]       # 4 € fissi, tagliati al 10% del bankroll (30 €)
+    assert d["approved"] and 2.0 <= d["stake"] <= 5.0, d["reasons"]       # 5 € fissi, tagliati al 20% del bankroll (30 €)
     assert not office.risk.evaluate(_fun(edge=-0.04), _rsnap(), state)["approved"]          # perde troppo
     assert not office.risk.evaluate(_fun(spread=0.05), _rsnap(), state)["approved"]         # libro largo
     # una S05 con lo stesso EV negativo resta vietata: la regola vale solo per il divertimento
@@ -97,15 +97,15 @@ def test_fun_caps_per_day_and_open(office):
     from betbot.store import now_iso
     ins = ("INSERT INTO bets (ts, mode, strategy_id, match_id, league, market, selection, bookmaker, odds, stake, status) "
            "VALUES (?, 'paper', 'S10_divertimento_v1', ?, 'X', 'h2h', 'home', 'Betfair', 1.8, 2, ?)")
-    for mid in ("A", "A2", "A3"):                                   # tre aperte insieme: il massimo
+    for mid in ("A", "A2", "A3", "A4", "A5", "A6"):                 # sei aperte insieme: il massimo
         office.store.execute(ins, (now_iso(), mid, "OPEN"))
     d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
-    assert not d["approved"] and any("aperte < 3" in r for r in d["reasons"])
+    assert not d["approved"] and any("aperte < 6" in r for r in d["reasons"])
     office.store.execute("UPDATE bets SET status='LOST', pnl=-2 WHERE status='OPEN'")
-    for mid in "BCDEFGHIJ":
+    for mid in "BCDEFGHIJKLMNOPQRST":                               # 19 + 6 chiuse = oltre le 20 di oggi
         office.store.execute(ins, (now_iso(), mid, "WON"))
     d = office.risk.evaluate(_fun(), _rsnap(), office.risk.portfolio_state())
-    assert not d["approved"] and any("oggi < 10" in r for r in d["reasons"])
+    assert not d["approved"] and any("oggi < 20" in r for r in d["reasons"])
 
 
 # ── vai_live / torna_paper ────────────────────────────────────────────────
@@ -255,7 +255,7 @@ def test_risk_sizes_fun_lay_at_minimum_backer(office):
                                "exchange": {"away": {"back": 4.6, "lay": 4.7, "back_size": 300.0, "lay_size": 300.0}}}}}
     d = office.risk.evaluate(p, snap, office.risk.portfolio_state())
     assert d["approved"], d["reasons"]
-    assert 0.5 * (4.7 - 1) - 0.02 <= d["stake"] <= 4.0                            # rischio fino a 4 €, mai sotto 0,50 € del backer
+    assert 0.5 * (4.7 - 1) - 0.02 <= d["stake"] <= 5.0                            # rischio fino a 5 €, mai sotto 0,50 € del backer
 
 
 def test_live_settings_move_v1_to_v2(tmp_path, monkeypatch):
@@ -335,10 +335,12 @@ def test_fun_allows_three_open_with_sixty_euros(office):
         office.store.execute(ins, (now_iso(), mid))
     st = office.risk.portfolio_state()
     d = office.risk.evaluate(_fun(strategy_id="S10_divertimento_v2"), _rsnap(), st)
-    assert d["approved"] and d["stake"] == 2.0, d["reasons"]               # la terza ci sta: 6 € di rischio su 60 €
-    office.store.execute(ins, (now_iso(), "C"))
+    d = office.risk.evaluate(_fun(strategy_id="S10_divertimento_v2"), _rsnap(), st)
+    assert d["approved"] and 2.0 <= d["stake"] <= 5.0, d["reasons"]       # con 60 € e il 20%: 12 € di rischio aperto
+    for mid in ("C", "D", "E", "F"):                                      # sei aperte: 12 € di rischio = il tetto del 20%
+        office.store.execute(ins, (now_iso(), mid))
     d = office.risk.evaluate(_fun(strategy_id="S10_divertimento_v2"), _rsnap(), office.risk.portfolio_state())
-    assert not d["approved"]                                              # la quarta no
+    assert not d["approved"]                                              # la settima no
 
 
 def test_v2_lay_needs_fresh_pinnacle():
@@ -383,7 +385,7 @@ def test_backs_capped_per_day_so_lays_keep_the_budget(office):
     assert [p for p in V2.propose(_snap(tennis), LOOSE, {"store": office.store}) if p.get("side") != "LAY"]
     ins = ("INSERT INTO bets (ts, mode, strategy_id, match_id, league, market, selection, bookmaker, odds, stake, status) "
            "VALUES (?, 'live', 'S10_divertimento_v2', ?, 'X', 'h2h', 'home', 'Betfair', 1.8, 4, 'WON')")
-    for i in range(4):
+    for i in range(8):
         office.store.execute(ins, (now_iso(), f"B{i}"))
     assert not [p for p in V2.propose(_snap(tennis), LOOSE, {"store": office.store}) if p.get("side") != "LAY"]
 

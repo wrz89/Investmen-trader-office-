@@ -29,8 +29,8 @@ max_open_risk_pct: 0.08         # somma delle perdite massime delle posizioni ap
                                 # più grande si RIDUCE allo spazio che resta (veto solo sotto i 2 €). Sotto i 100 €,
                                 # senza niente di aperto, il tetto non scende sotto la puntata minima: una da 2 €
                                 # alla volta resta possibile fino al kill switch
-max_open_bets: 4
-max_bets_per_day: 10
+max_open_bets: 7                # (era 4) il 4fun a 6 aperte + 1 puntata incastrata in attesa di regolamento
+max_bets_per_day: 20            # (era 10) vale per il 4fun; le altre strategie sono in ombra
 max_exchange_trades_per_day: 40
 max_exposure_per_match_pct: 0.04
 max_same_league_open: 3
@@ -67,10 +67,10 @@ cooldown_minutes: 120
 # ── 4fun (S10, ex "divertimento"): poche puntate scelte, puntata fissa ──
 fun_stake_eur: 5.0            # puntata fissa dei back e rischio massimo dei lay (scelta dell'utente il 05/10/2026: meno puntate,
                                # più alte; prima 2 € = il minimo di betfair.it)
-fun_max_bets_per_day: 10       # al massimo 10 puntate al giorno (scelta dell'utente il 02/10/2026; prima 3, poi 5)
-fun_open_risk_pct: 0.10        # per il 4fun il rischio aperto arriva al 10% del bankroll (21 € con 210 €: 3 puntate da 4 € ci stanno)
-fun_max_backs_per_day: 4       # al massimo 4 back al giorno (CLV −0,6%, nessun vantaggio misurato): il resto del budget è dei lay
-fun_max_open: 3                # fino a 3 puntate aperte insieme (scelta dell'utente il 04/10/2026; prima 1)
+fun_max_bets_per_day: 20       # al massimo 20 puntate al giorno (scelta dell'utente il 05/10/2026: raddoppiate da 10; prima 3, poi 5)
+fun_open_risk_pct: 0.20        # per il 4fun il rischio aperto arriva al 20% del bankroll (era 10%: con 160 € sono 32 €, cioè 6 puntate da 5 €)
+fun_max_backs_per_day: 8       # al massimo 8 back al giorno (raddoppiati insieme alle puntate) (CLV −0,6%, nessun vantaggio misurato): il resto del budget è dei lay
+fun_max_open: 6                # fino a 6 puntate aperte insieme (era 3; prima 1) (scelta dell'utente il 04/10/2026; prima 1)
 fun_min_edge: -0.025            # mai un prezzo che perde più del 2,5% atteso (commissione compresa: a quota 1,80 vale già 2%)
 fun_max_spread: 0.03           # senza riferimento esterno: back e lay di Betfair entro il 3%
 

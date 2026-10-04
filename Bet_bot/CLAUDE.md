@@ -170,6 +170,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   Under forte: 49,7% (quota equa 2,01) mentre il sito parla di 1,80-2,00 (EV ≤ 0). Le loro regole selezionano partite
   che il mercato già prezza così: nessun vantaggio. Unico spunto non ancora testato: il flusso di denaro (volume
   abbinato per esito) sull'exchange come segnale; oggi si registrano solo prezzi e quantità al miglior prezzo.
+- 4fun raddoppiato (05/10/2026): fun_max_bets_per_day 20 (era 10), fun_max_backs_per_day 8, fun_max_open 6, rischio aperto
+  del 4fun al 20% (fun_open_risk_pct), max_open_bets 7 e max_bets_per_day 20 generali. Resta tutto il resto (5 €, EV ≥ −2,5%,
+  100 € al prezzo, stop del giorno 9%): le puntate in più arrivano solo se rispettano gli stessi vincoli.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
