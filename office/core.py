@@ -11,6 +11,7 @@ import uuid
 
 from .accumulation import Accumulation
 from .funding_watch import FundingWatch
+from .nexus import Nexus
 from .account import PaperAccount, today
 from .agents.auditor import Auditor
 from .agents.execution import Execution
@@ -59,6 +60,7 @@ class Office:
         self.news = NewsAnalyst(self)
         self.accumulation = Accumulation(self)
         self.funding = FundingWatch(self)
+        self.nexus = Nexus(self)
         self.agents = [self.pm, self.scanner, self.researcher, self.quant,
                        self.risk, self.execution, self.auditor, self.news]
         self.store.set("office_meta", {
@@ -110,6 +112,10 @@ class Office:
             self.funding.run()                 # osservatorio funding: solo lettura dati
         except Exception as exc:
             self.scanner.log(f"Osservatorio funding: errore ({exc}). Nessun effetto sul trading.", "WARN", "funding")
+        try:
+            self.nexus.run()                   # Nexus: capitale di 30 € con libro separato, al massimo una decisione al giorno
+        except Exception as exc:
+            self.store.event("nexus", f"Nexus: errore ({exc}). Nessun effetto sul trading.", "WARN", "nexus")
 
         # 1) gestione posizioni aperte (uscite prima degli ingressi)
         by_id = {s["module"].STRATEGY_ID: s for s in strategies_state}

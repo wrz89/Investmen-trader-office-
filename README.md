@@ -43,6 +43,7 @@ python ufficio.py report        # report del giorno
 python ufficio.py stato         # riepilogo veloce
 python ufficio.py reset-kill-switch
 python ufficio.py mercati       # coppie EUR/USDC più liquide su Bybit
+python ufficio.py nexus         # rapporto di Nexus (capitale di 30 €)
 ```
 
 Tutti i dati prodotti (database, storico, registro strategie, report) finiscono in `runtime/`.
@@ -73,6 +74,7 @@ Il token del bot resta in `runtime/local_settings.json`, solo sul tuo PC. Può e
 - **Acquisti reali dell'accumulo** (`office/live_exchange.py`, decisione dell'utente del 29/09/2026): con una chiave API di Bybit EU inserita dalle Impostazioni. La chiave è rifiutata se permette prelievi o non è legata a un IP; serve un ordine di prova da 5 € e l'interruttore "Acquisti reali". Il modulo può solo comprare le monete del piano, con tetto mensile pari all'importo pianificato; soldi veri e prova hanno registri separati. Chiave e segreto restano in `runtime/`.
 - **Ordini limite nell'accumulo**: offerta al miglior prezzo di acquisto (maker 0,10%); dopo 24 ore senza esecuzione si annulla e si compra a mercato. In paper conta come eseguito solo se il prezzo scende sotto il limite.
 - **Osservatorio funding** (`config/funding_watch.yaml`, `office/funding_watch.py`): solo lettura dei tassi di finanziamento dei perpetui, stima netta sul capitale del "compro + vendo il perpetuo". Nessun ordine; revisione fissata prima di osservare (90 giorni, ≥ 5% netto).
+- **Nexus** (`config/nexus.yaml`, `office/nexus.py`): allocatore autonomo di un capitale di **30 €** con libro separato e immutabile, mai aggiunto ad altro denaro. A ogni ciclo (al massimo una decisione al giorno) valuta i candidati con numeri scritti prima (costo, ritorno atteso, probabilità) e tiene la liquidità finché nessuno supera le regole: riserva minima 10 €, tetto 12 € per spesa, niente abbonamenti, valore atteso netto ≥ 50% della spesa e ≥ 1 €, cancelli di trazione prima di spendere. Il codice non paga nulla da solo: `python ufficio.py nexus --spesa ID --euro X` registra un'autorizzazione che rispetta le regole, altrimenti rifiuta. Non tocca né il conto delle strategie né l'accumulo.
 - **Strategie lente** (`SIZING = "allocation"`, es. STRATEGY_06): size fissa al tetto per asset, validate sui rendimenti giornalieri contro compra e tieni (criteri `slow` in `config/quant_gates.yaml`).
 - **Costi reali**: se le commissioni in `settings.yaml` superano quelle della validazione, `ricerca` riverifica le strategie approvate (file separato `*.costaudit-*.json`); l'esito può solo bocciare.
 - **Il piano d'investimento** (`config/investment_plan.yaml`) è mostrato nella dashboard: profilo, quote massime, tempi, proiezioni e rischi.

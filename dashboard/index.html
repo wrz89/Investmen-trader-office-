@@ -774,6 +774,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
         ${F.assets.map((a) => { const o = a.observed, h = a.history; return `<div class="row"><span><b>${esc(a.symbol.split("/")[0])}</b> · dal ${esc(F.start)}</span><span class="num">${o ? `${spct(o.net_annual_on_capital, 1)}/anno · a favore ${pct(o.positive_share, 0)}` : "in attesa di dati"}</span></div>
           ${h ? `<div class="row"><small>prima dell'osservazione, ${fmt(h.days, 0)} giorni (solo contesto): lordo ${spct(h.gross_annual, 1)}, netto sul capitale ${spct(h.net_annual_on_capital, 1)}</small></div>` : ""}`; }).join("")}
         <p>Revisione dopo ${F.review.min_days} giorni: serve almeno ${pct(F.review.min_net_annual_on_capital, 0)} l'anno netto e pagamenti a favore nel ${pct(F.review.min_positive_share, 0)} dei casi. ${esc(F.review.decision)}</p></div>` : "";
+    const N = S.nexus;
+    const NV = { "ipotesi attiva": "ok", "spesa approvabile": "ok", "in attesa del cancello": "warn", "bocciata": "bad", "riserva": "" };
+    const nexusCard = N ? `<div class="card"><div class="card-head"><h3>Nexus · capitale di ${fmt(N.budget, 0)} €</h3><span class="tag ${N.spent > 0 ? "warn" : "ok"}">${esc(N.posture)}</span></div>
+        <div class="metrics">
+          <div class="metric"><small>Saldo</small><b>${fmt(N.balance, 2)} €</b></div>
+          <div class="metric"><small>Spesi</small><b class="${N.spent > 0 ? "neg" : ""}">${fmt(N.spent, 2)} €</b></div>
+          <div class="metric"><small>Incassati</small><b class="${N.income > 0 ? "pos" : ""}">${fmt(N.income, 2)} €</b></div>
+          <div class="metric"><small>Spendibile oltre la riserva</small><b>${fmt(N.runway_eur, 2)} €</b></div>
+        </div>
+        ${(N.candidates || []).map((c) => `<div class="row"><span><b>${esc(c.name)}</b>${c.venture?.review_by && !c.venture.closed ? ` <small>· revisione ${esc(c.venture.review_by)}</small>` : ""}${c.traction_target ? ` <small>· ${esc(c.traction_metric)} ${fmt(c.venture?.traction || 0, 0)} / ${c.traction_target}</small>` : ""}</span><span class="num"><span class="tag ${NV[c.verdict] ?? ""}">${esc(c.verdict)}</span> ${fmt(c.cost_eur, 2)} € · atteso ${c.expected_net_eur >= 0 ? "+" : ""}${fmt(c.expected_net_eur, 2)} €</span></div>`).join("")}
+        ${N.last ? `<p><b>Ultima decisione</b> (${esc(hhmm(N.last.ts))}): ${esc(N.last.action)}</p><p><b>Prossimo traguardo:</b> ${esc(N.last.milestone || "—")}</p>` : "<p>Prima decisione al prossimo ciclo dell'ufficio.</p>"}
+        <p>Regole: riserva minima ${fmt(N.rules.min_cash_reserve_eur, 0)} €, tetto ${fmt(N.rules.max_single_spend_eur, 0)} € per spesa, niente abbonamenti, valore atteso netto ≥ ${pct(N.rules.min_expected_net_ratio, 0)} della spesa e ≥ ${fmt(N.rules.min_expected_net_eur, 0)} €. Libro separato e immutabile: Nexus non tocca né le strategie né l'accumulo, e il denaro non aumenta mai.</p></div>` : "";
     $("#plan").innerHTML = `
       <div>
         ${accCard}
@@ -790,6 +802,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
             <div class="bar"><i class="${r.v >= paid ? "" : "b"}" style="width:${(r.v / hi * 100).toFixed(1)}%"></i><s style="left:${(paid / hi * 100).toFixed(1)}%"></s></div></div>`).join("")}</div>
           <p>La tacca indica quanto hai versato. Sono scenari, non promesse: nessuno può garantire un rendimento.</p></div>
         ${fundCard}
+        ${nexusCard}
         <div class="card"><div class="card-head"><h3>Chi fa cosa</h3></div>
           <div class="eyebrow">Tu, una volta sola</div><ul class="plain">${(P.you_do || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
           <div class="eyebrow">L'ufficio, da solo</div><ul class="plain">${(P.office_does || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>

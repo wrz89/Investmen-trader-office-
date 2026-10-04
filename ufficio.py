@@ -8,6 +8,10 @@
     python ufficio.py stato              riepilogo veloce nel terminale
     python ufficio.py reset-kill-switch  riattiva l'ufficio dopo un kill switch (decisione umana)
     python ufficio.py mercati            elenca le coppie EUR/USDC più liquide dell'exchange
+    python ufficio.py nexus              rapporto di Nexus (capitale di 30 € con libro separato)
+    python ufficio.py nexus --spesa ID --euro X --nota "..."     registra una spesa autorizzata
+    python ufficio.py nexus --incasso ID --euro X --nota "..."   registra un incasso
+    python ufficio.py nexus --trazione ID --valore N             aggiorna la metrica di trazione
 """
 from __future__ import annotations
 
@@ -50,12 +54,18 @@ def main() -> None:
         return 1
     parser = argparse.ArgumentParser(description="Crypto Trading Office")
     parser.add_argument("comando", choices=["ricerca", "avvia", "ciclo", "dashboard", "report", "stato",
-                                            "reset-kill-switch", "snapshot", "mercati"])
+                                            "reset-kill-switch", "snapshot", "mercati", "nexus"])
     parser.add_argument("--exchange", help="sovrascrive l'exchange dei dati live (es. kraken)")
     parser.add_argument("--storico", help="sovrascrive l'exchange per lo storico (es. bitstamp)")
     parser.add_argument("--giorno", help="giorno del report, AAAA-MM-GG")
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--file", default="snapshot.json")
+    parser.add_argument("--spesa", metavar="ID", help="nexus: registra una spesa per l'ipotesi ID")
+    parser.add_argument("--incasso", metavar="ID", help="nexus: registra un incasso dall'ipotesi ID")
+    parser.add_argument("--trazione", metavar="ID", help="nexus: aggiorna la trazione dell'ipotesi ID")
+    parser.add_argument("--euro", type=float, help="nexus: importo in euro")
+    parser.add_argument("--valore", type=float, help="nexus: valore della metrica di trazione")
+    parser.add_argument("--nota", default="", help="nexus: nota per il libro")
     args = parser.parse_args()
 
     from office.config import load_settings
@@ -86,7 +96,7 @@ def main() -> None:
             webbrowser.open(f"http://localhost:{port}")
         return 0
 
-    offline = args.comando in ("report", "stato", "reset-kill-switch", "snapshot")
+    offline = args.comando in ("report", "stato", "reset-kill-switch", "snapshot", "nexus")
     office = Office(overrides, connect_market=not offline)
     if args.exchange:
         office.derivatives = None
@@ -151,6 +161,20 @@ def main() -> None:
             office.store.set("peak_equity", office.store.get("risk_state", {}).get("equity"))
             office.risk.say("Kill switch resettato manualmente dall'utente.", "ok", "kill_switch", level="WARN")
             print("Reset eseguito.")
+    elif args.comando == "nexus":
+        from office.nexus import render_report
+        n = office.nexus
+        try:
+            if args.spesa:
+                n.spend(args.spesa, args.euro or 0, args.nota)
+            elif args.incasso:
+                n.income(args.incasso, args.euro or 0, args.nota)
+            elif args.trazione:
+                n.record_traction(args.trazione, args.valore or 0)
+        except ValueError as exc:
+            print(f"Rifiutato: {exc}")
+            return 1
+        print(render_report(n.decide()))
     elif args.comando == "snapshot":
         from office.state import build_state
         with open(args.file, "w", encoding="utf-8") as fh:

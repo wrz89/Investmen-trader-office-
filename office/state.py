@@ -32,6 +32,14 @@ def _funding(store: Store) -> dict | None:
         return None
 
 
+def _nexus(store: Store) -> dict | None:
+    try:
+        from .nexus import Nexus
+        return Nexus(type("O", (), {"store": store, "settings": load_settings()})()).summary()
+    except Exception:
+        return None
+
+
 def build_state(store: Store) -> dict:
     agents = store.query("SELECT * FROM agent_status")
     for a in agents:
@@ -108,6 +116,7 @@ def build_state(store: Store) -> dict:
         "accumulation": _accumulation(store),
         "live_balance": store.get("live_balance"),
         "funding": _funding(store),
+        "nexus": _nexus(store),
         "meta": store.get("office_meta", {}),
         "cycle": store.get("cycle", {}),
         "agents": agents,

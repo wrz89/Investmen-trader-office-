@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────────
+#  NEXUS — allocatore autonomo di un capitale di 30 €
+#  Avviato il 04/10/2026. Nexus NON è una strategia di trading e non tocca
+#  né il conto delle strategie né il piano di accumulo: ha un libro separato
+#  e immutabile. Decide da solo come impiegare 30 € (mercati, infrastruttura
+#  digitale, prodotti, o liquidità) ma ogni centesimo speso deve avere un
+#  ritorno atteso scritto PRIMA, e le soglie non si abbassano dopo i risultati.
+# ─────────────────────────────────────────────────────────────
+enabled: true
+budget_eur: 30.00
+currency: EUR
+started: "2026-10-04"
+cycle_hours: 24               # al massimo una decisione al giorno: niente agitazione
+
+# Regole applicate dal codice (non dalla buona volontà)
+rules:
+  min_cash_reserve_eur: 10.00      # sotto questa liquidità non si spende più: è l'autonomia residua
+  max_single_spend_eur: 12.00      # nessuna spesa singola oltre il 40% del capitale
+  max_recurring_eur_month: 0.00    # niente abbonamenti: i costi fissi distruggono una micro-liquidità
+  min_expected_net_ratio: 0.50     # ritorno netto atteso ≥ 50% della spesa entro la revisione
+  min_expected_net_eur: 1.00       # sotto 1 € di valore atteso non vale nemmeno la decisione (es. Earn: 3 centesimi)
+  min_probability: 0.50            # probabilità stimata (scritta prima) di raggiungere quel ritorno
+  review_days: 30                  # ogni ipotesi ha una data di revisione; senza trazione si chiude
+  fallback_after_days: 90          # se dopo 90 giorni nessuna ipotesi ha superato il suo cancello,
+  fallback: accumulation_topup     # il capitale confluisce nel piano di accumulo esistente (decide l'utente)
+
+# Candidati valutati a ogni ciclo. I numeri sono stime scritte PRIMA di agire.
+# cost_eur = quanto costa provarci; expected_return_eur = ritorno lordo atteso entro la
+# revisione se l'ipotesi regge; probability = quanto è probabile che regga.
+candidates:
+  - id: bybit_spot_trading
+    name: Trading a pronti dei 30 € su Bybit EU
+    kind: mercati
+    cost_eur: 0.0                 # il costo vero sono le commissioni: calcolate dal codice (0,25% + 0,25% + slippage + spread)
+    expected_return_eur: 0.0      # nessuna strategia approvata dall'ufficio: vantaggio atteso = 0
+    probability: 0.0
+    note: "L'ufficio ha bocciato o tiene in osservazione tutte le strategie. Senza un vantaggio dimostrato, operare costa solo commissioni"
+  - id: bybit_earn_usdc
+    name: USDC in Earn flessibile (1,02% l'anno)
+    kind: rendimento
+    cost_eur: 0.0
+    expected_return_eur: 0.03     # 30 € × 1,02% × 30/365
+    probability: 0.95
+    note: "Già rinviato nel piano: ritorno irrilevante e gli USDC passano di proprietà a Bybit EU"
+  - id: funding_carry
+    name: Incasso del funding (pronti + perpetuo venduto)
+    kind: mercati
+    cost_eur: 0.0
+    expected_return_eur: 0.0
+    probability: 0.0
+    note: "Richiede lo short: vietato dalle regole. Già seguito dall'osservatorio funding, decide l'utente dopo 90 giorni"
+  - id: paid_ads
+    name: Pubblicità a pagamento per un prodotto digitale
+    kind: marketing
+    cost_eur: 30.0
+    expected_return_eur: 0.0
+    probability: 0.10
+    note: "30 € comprano 30-60 clic: senza una pagina che già converte da sola è denaro bruciato e irreversibile"
+  - id: domain_landing
+    name: Dominio e sito per un micro-prodotto validato
+    kind: infrastruttura
+    cost_eur: 12.0                # dominio .it/.com per un anno; hosting gratuito
+    expected_return_eur: 30.0     # un solo cliente pilota (officina) che paga 30 € per il modulo prenotazioni
+    probability: 0.20             # oggi, senza prove di domanda
+    probability_after_gate: 0.60  # se 5 officine hanno già chiesto il servizio, una su due circa paga
+    gate: "mvp_zero_cost ha raccolto almeno 5 richieste qualificate in 30 giorni"
+    note: "Si compra il dominio SOLO dopo che la versione gratuita ha dimostrato domanda"
+  - id: mvp_zero_cost
+    name: Prodotto digitale a costo zero (pagina + modulo richieste su hosting gratuito)
+    kind: prodotto
+    cost_eur: 0.0
+    expected_return_eur: 0.0      # fase di validazione: il ritorno atteso è INFORMAZIONE, non euro
+    probability: 0.50
+    active: true                  # unica ipotesi aperta: l'unica che costa 0 € e produce dati
+    traction_metric: richieste qualificate ricevute
+    traction_target: 5
+    note: "Nicchia nota all'utente (officine e gommisti): prenotazioni e preventivi via WhatsApp. Si misura la domanda prima di spendere"
+  - id: accumulation_topup
+    name: Versare i 30 € nel piano di accumulo (BTC/ETH/SOL/XRP)
+    kind: riserva
+    cost_eur: 0.03                # commissione maker 0,10%
+    expected_return_eur: 0.0      # rendimento di mercato: nessun vantaggio dimostrato, nessuna stima onesta possibile
+    probability: 0.50
+    note: "Non è un'impresa: è la destinazione di riserva se nessuna ipotesi supera il suo cancello entro 90 giorni"
