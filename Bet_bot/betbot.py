@@ -488,6 +488,14 @@ def main() -> int:
             return 0
         ans = input(f"Kill switch attivo ({reason}). Confermi il reset manuale? [si/no] ")
         if ans.strip().lower() in ("si", "sì", "s"):
+            if office.settings.get("mode") == "live":        # prima si riallinea il bankroll al saldo vero: senza, il kill switch ripartirebbe
+                try:
+                    office.executor.client.login()
+                    new = office.realign_live_bankroll()
+                    if new is not None:
+                        print(f"Bankroll riallineato al saldo vero di Betfair: {new:.2f} €.")
+                except Exception as exc:
+                    print(f"Riallineamento al saldo Betfair non riuscito ({exc}): reset senza riallineamento.")
             office.store.set("kill_switch", None)
             office.store.set("peak_bankroll", office.bankroll.total)
             office.risk.say("Kill switch resettato manualmente dall'utente.", "ok", "kill_switch", level="WARN")
