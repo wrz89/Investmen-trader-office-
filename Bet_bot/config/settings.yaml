@@ -89,8 +89,12 @@ feed:
   odds_api:
     max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito
     min_remaining: 50              # sotto 50 crediti rimasti il riferimento si ferma (e S05 con lui)
-    odds_refresh_seconds: 7200     # piano gratuito: ogni 2 ore
-    scores_refresh_seconds: 21600
+    odds_refresh_seconds: 43200    # solo NBA/NFL (se in stagione), ogni 12 ore. Il calcio NON si scarica a tappeto: solo
+                                   # su richiesta, un campionato alla volta, quando c'è un lay possibile (feeds/__init__.py)
+    scores_refresh_seconds: 0      # spento: con Betfair i risultati li dà Betfair (prima costavano 2 crediti per sport)
+    soccer_on_demand: true         # true = calcio solo su richiesta (lay possibile); false = a tappeto ogni odds_refresh_seconds
+    on_demand_min_gap_seconds: 2400    # stesso campionato al massimo ogni 40 minuti…
+    on_demand_max_per_league_day: 4    # …e 4 volte al giorno
   api_football:
     live_refresh_seconds: 120
     stats_from_minute: 55

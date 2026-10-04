@@ -35,6 +35,48 @@ def _needs_fresh_reference(snap: dict, ref_ts: float, max_age_s: float = 1800, w
     return False
 
 
+# campionato di Betfair → chiave di The Odds API (Pinnacle ce l'ha). Chiave sbagliata = 404, e la si smette di provare.
+LEAGUE_KEYS = [
+    (r"italian serie a|^serie a$", "soccer_italy_serie_a"), (r"italian serie b", "soccer_italy_serie_b"),
+    (r"english premier|^premier league$", "soccer_epl"), (r"english championship", "soccer_efl_champ"),
+    (r"spanish la liga|^la liga$", "soccer_spain_la_liga"), (r"spanish segunda|la liga 2", "soccer_spain_segunda_division"),
+    (r"german bundesliga$|^bundesliga$", "soccer_germany_bundesliga"), (r"german bundesliga 2|2\. bundesliga", "soccer_germany_bundesliga2"),
+    (r"french ligue 1|^ligue 1$", "soccer_france_ligue_one"), (r"dutch eredivisie|^eredivisie$", "soccer_netherlands_eredivisie"),
+    (r"portuguese primeira|primeira liga", "soccer_portugal_primeira_liga"),
+    (r"champions league", "soccer_uefa_champs_league"), (r"europa league", "soccer_uefa_europa_league"),
+    (r"conference league", "soccer_uefa_europa_conference_league"), (r"scottish premiership", "soccer_spl"),
+    (r"turkish super", "soccer_turkey_super_league"), (r"belgian first|jupiler", "soccer_belgium_first_div"),
+]
+
+
+def league_key(league: str | None) -> str | None:
+    import re
+    t = (league or "").lower()
+    return next((k for rx, k in LEAGUE_KEYS if re.search(rx, t)), None)
+
+
+def lay_reference_needs(snap: dict, max_age_s: float = 2400, min_back: float = 2.9, max_back: float = 5.3,
+                        window_s: tuple[float, float] = (1200, 14400)) -> set[str]:
+    """Campionati di calcio in cui c'è un possibile lay (esito a quota 2,9-5,3, libro stretto, inizio tra 20 minuti e
+    4 ore) e il riferimento Pinnacle manca o ha più di 40 minuti. Il lay di valore esiste solo contro un Pinnacle
+    fresco: prima di questa regola i 15 crediti al giorno si spendevano a tappeto e Pinnacle era quasi sempre vecchio."""
+    now = snap.get("sim_time") or snap["ts"]
+    keys = set()
+    for m in snap.get("matches", {}).values():
+        if m.get("status") != "SCHEDULED" or not m.get("exchange") or not str(m.get("sport", "")).startswith("soccer"):
+            continue
+        if not window_s[0] <= datetime.fromisoformat(m["kickoff"]).timestamp() - now <= window_s[1]:
+            continue
+        if m.get("ref_ts") and now - m["ref_ts"] <= max_age_s:
+            continue
+        if any(min_back <= (b.get("back") or 0) <= max_back and (b.get("lay") or 9) / (b.get("back") or 1) - 1 <= 0.05
+               for b in m["exchange"].values()):
+            k = league_key(m.get("league"))
+            if k:
+                keys.add(k)
+    return keys
+
+
 def merge_reference(matches: dict, ref_matches: dict, max_kickoff_gap_h: float = 3.0) -> int:
     """Copia su ogni partita dell'exchange le quote dei bookmaker di riferimento della stessa partita."""
     from .api_football import same_team
@@ -78,6 +120,8 @@ class CompositeFeed(Feed):
         if self.reference is not None:
             if _needs_fresh_reference(snap, getattr(self.reference, "odds_ts", 0.0)):
                 self.reference.force = True                      # c'è un candidato vicino all'inizio: riferimento su richiesta
+            if hasattr(self.reference, "request"):
+                self.reference.request(lay_reference_needs(snap))     # riferimento fresco solo dove c'è un lay da verificare
             try:
                 ref = await self.reference.fetch()
                 n = merge_reference(snap["matches"], ref["matches"])

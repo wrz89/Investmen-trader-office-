@@ -71,7 +71,23 @@ def propose(snapshot: dict, params: dict, ctx: dict) -> list[dict]:
     if _at_limit((ctx or {}).get("store")):
         return []
     ok = [p for p in candidates(snapshot, q) if not NATIONAL.search(p.get("league") or "")]
+    if _backs_used_up((ctx or {}).get("store")):          # i back non hanno vantaggio misurato: non finiscono il budget dei lay
+        ok = [p for p in ok if p.get("side") == "LAY"]
     return ok[:q["max_proposals"]]
+
+
+def _backs_used_up(store) -> bool:
+    """Oltre fun_max_backs_per_day back al giorno (default 4) restano solo i lay: è l'unica ipotesi con un vantaggio."""
+    if store is None:
+        return False
+    from ..agents.risk import _day_start_iso
+    from ..config import load_yaml
+    cap = load_yaml("risk_limits.yaml").get("fun_max_backs_per_day")
+    if cap is None:
+        return False
+    n = store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND strategy_id=? AND ts >= ? AND selection NOT LIKE 'LAY:%'",
+                    (STRATEGY_ID, _day_start_iso()))[0]["n"]
+    return n >= cap
 
 
 def _at_limit(store) -> bool:

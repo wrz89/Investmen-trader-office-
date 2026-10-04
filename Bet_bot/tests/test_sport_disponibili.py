@@ -55,3 +55,32 @@ def test_live_s10_skips_unvetted_sport_but_misura_measures_it():
                                           "home": "A", "away": "B", "kickoff": ko, "exchange": ex, "books": {}}}}
     assert V2.propose(snap, {}, {}) == []
     assert len(M.propose(snap, {}, {})) == 1
+
+
+def test_lay_reference_needs_and_on_demand_budget(monkeypatch, tmp_path):
+    import time
+    from datetime import datetime, timedelta, timezone
+    from betbot.feeds import lay_reference_needs, league_key
+    now = time.time()
+    ko = lambda mins: (datetime.fromtimestamp(now, timezone.utc) + timedelta(minutes=mins)).isoformat()
+    ex = {"away": {"back": 4.2, "lay": 4.3}, "home": {"back": 1.7, "lay": 1.72}}
+    snap = {"ts": now, "matches": {
+        "a": {"status": "SCHEDULED", "sport": "soccer", "league": "Italian Serie A", "kickoff": ko(120), "exchange": ex},
+        "b": {"status": "SCHEDULED", "sport": "soccer", "league": "English Premier League", "kickoff": ko(120), "exchange": ex,
+              "ref_ts": now - 600},                                   # riferimento fresco: niente richiesta
+        "c": {"status": "SCHEDULED", "sport": "tennis", "league": "ATP", "kickoff": ko(120), "exchange": ex},
+        "d": {"status": "SCHEDULED", "sport": "soccer", "league": "Lega sconosciuta", "kickoff": ko(120), "exchange": ex}}}
+    assert lay_reference_needs(snap) == {"soccer_italy_serie_a"} and league_key("Brazilian Serie A") is None
+
+    from betbot.feeds import odds_api
+    monkeypatch.setattr(odds_api, "api_key", lambda: "k")
+    monkeypatch.setattr(odds_api.OddsApiFeed, "_budget", lambda self: {"day": "x", "used": 0, "remaining": 400, "_path": str(tmp_path / "b.json")})
+    f = odds_api.OddsApiFeed({"feed": {"sports": [], "odds_api": {"soccer_on_demand": True, "scores_refresh_seconds": 0}}})
+    calls = []
+    monkeypatch.setattr(f, "_refresh_odds", lambda t, keys=None: calls.append(keys))
+    f.request(["soccer_italy_serie_a", "soccer_epl"])
+    f._refresh_on_demand(now)
+    assert calls == [["soccer_epl"], ["soccer_italy_serie_a"]]
+    f.request(["soccer_epl"])
+    f._refresh_on_demand(now + 60)                      # entro 40 minuti: niente nuovo credito
+    assert len(calls) == 2

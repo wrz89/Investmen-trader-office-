@@ -45,6 +45,13 @@ class OddsApiFeed(Feed):
         self.scores_ts = 0.0
         self.matches: dict[str, dict] = {}
         self.budget_note = ""
+        self.pending: set[str] = set()           # campionati da riscaricare ora (richiesti da un lay possibile)
+        self.key_ts: dict[str, float] = {}       # ultima lettura per campionato
+        self.key_day: dict[str, tuple[str, int]] = {}
+        self.bad_keys: set[str] = set()          # chiavi che The Odds API non conosce (404): non si riprovano
+        self.min_gap = float(cfg.get("on_demand_min_gap_seconds", 2400))
+        self.max_per_key_day = int(cfg.get("on_demand_max_per_league_day", 4))
+        self.soccer_on_demand = bool(cfg.get("soccer_on_demand", False))
 
     # ── budget delle richieste (piano gratuito: 500 al mese) ────────────────────────
     def _budget(self) -> dict:
@@ -104,15 +111,19 @@ class OddsApiFeed(Feed):
         now = time.time()
         self.budget_note = ""
         n_sports = max(1, len(self._sport_keys(now)))
-        if now - self.odds_ts >= self.odds_every or getattr(self, "force", False):
+        self._refresh_on_demand(now)
+        if self.odds_every > 0 and (now - self.odds_ts >= self.odds_every or getattr(self, "force", False)):
             self.force = False
-            ok, why = self.budget_ok(n_sports)
-            if ok:
-                self._refresh_odds(now)
-            else:
+            # il calcio non si scarica a tappeto: costerebbe 1 credito per campionato anche senza partite adatte.
+            # Si scarica solo su richiesta (un lay possibile in quel campionato, vedi _refresh_on_demand)
+            keys = [k for k in self._sport_keys(now) if not (self.soccer_on_demand and k.startswith("soccer"))]
+            ok, why = self.budget_ok(max(1, len(keys)))
+            if ok and keys:
+                self._refresh_odds(now, keys)
+            elif not ok:
                 self.budget_note = why
             self.odds_ts = now
-        if now - self.scores_ts >= self.scores_every:
+        if self.scores_every > 0 and now - self.scores_ts >= self.scores_every:
             ok, why = self.budget_ok(2 * n_sports)
             if ok:
                 self._refresh_scores(now)
@@ -132,6 +143,36 @@ class OddsApiFeed(Feed):
                            "source": f"The Odds API (richieste rimaste: {self.remaining})"
                                      + (f" · riferimento fermo: {self.budget_note}" if self.budget_note else "")},
                 "matches": {k: dict(v) for k, v in self.matches.items()}, "races": {}}
+
+    def request(self, keys) -> None:
+        """Un lay possibile (o un favorito in fascia) chiede il riferimento fresco di questi campionati."""
+        self.pending |= {k for k in keys if k and k not in self.bad_keys}
+
+    def _refresh_on_demand(self, now: float) -> None:
+        """Riscarica SOLO i campionati richiesti (1 credito ciascuno), con un intervallo minimo e un tetto al giorno per
+        campionato: così i crediti gratuiti (≈15 al giorno) vanno dove c'è un lay da verificare."""
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        todo, self.pending = sorted(self.pending), set()
+        for key in todo:
+            day, n = self.key_day.get(key, (today, 0))
+            if day != today:
+                day, n = today, 0
+            if now - self.key_ts.get(key, 0) < self.min_gap or n >= self.max_per_key_day:
+                continue
+            ok, why = self.budget_ok(1)
+            if not ok:
+                self.budget_note = why
+                break
+            try:
+                self._refresh_odds(now, [key])
+            except FeedError as exc:
+                if "404" in str(exc) or "422" in str(exc):
+                    self.bad_keys.add(key)                  # campionato che The Odds API non ha: non si riprova
+                self.budget_note = f"{key}: {exc}"
+                continue
+            self.key_ts[key] = now
+            self.key_day[key] = (day, n + 1)
+            self.odds_ts = max(self.odds_ts, 0.0)
 
     def _sport_keys(self, now: float) -> list[str]:
         """Chiavi fisse (feed.sports, solo quelle con quote reali e in stagione) + quelle attive dei gruppi in
@@ -155,10 +196,10 @@ class OddsApiFeed(Feed):
                      and not s.get("has_outrights") and s["key"] not in keys]
         return keys
 
-    def _refresh_odds(self, now: float) -> None:
+    def _refresh_odds(self, now: float, keys: list[str] | None = None) -> None:
         f = self.settings["feed"]
         matches = self.matches
-        for sport in self._sport_keys(now):
+        for sport in (keys if keys is not None else self._sport_keys(now)):
             events = self._get(f"/sports/{sport}/odds", regions=f.get("regions", "eu"),
                                markets=f.get("markets", "h2h"), oddsFormat="decimal")
             for ev in events:

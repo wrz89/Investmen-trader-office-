@@ -374,3 +374,15 @@ def test_deposit_accepts_lowercase_si_and_explains_other_answers(tmp_path):
     assert any("NESSUNA modifica" in x and "ok" in x for x in said)
     assert live_switch.deposit(ask=lambda q: "si", out=said.append, client=c, store=st)
     assert Bankroll(st, 0, allow_reset=False).total == 60.0
+
+
+def test_backs_capped_per_day_so_lays_keep_the_budget(office):
+    from betbot.store import now_iso
+    from betbot.strategies import s10_divertimento_v2 as V2
+    tennis = _match("T1", "tennis", {"home": BOOK(1.80, 1.82, 500), "away": BOOK(2.20, 2.24, 500)}, league="ATP Parigi")
+    assert [p for p in V2.propose(_snap(tennis), LOOSE, {"store": office.store}) if p.get("side") != "LAY"]
+    ins = ("INSERT INTO bets (ts, mode, strategy_id, match_id, league, market, selection, bookmaker, odds, stake, status) "
+           "VALUES (?, 'live', 'S10_divertimento_v2', ?, 'X', 'h2h', 'home', 'Betfair', 1.8, 4, 'WON')")
+    for i in range(4):
+        office.store.execute(ins, (now_iso(), f"B{i}"))
+    assert not [p for p in V2.propose(_snap(tennis), LOOSE, {"store": office.store}) if p.get("side") != "LAY"]

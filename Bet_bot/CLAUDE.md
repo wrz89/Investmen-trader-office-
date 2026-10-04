@@ -146,6 +146,15 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - 4fun (05/10/2026, nome nuovo del "divertimento"; gli id restano S10_divertimento_*): puntata fissa fun_stake_eur
   4 € (lay: rischio 4 €), live solo con EV ≥ −2% (fun_min_edge) e almeno 100 € al prezzo (S10 v2 DEFAULTS); niente
   puntate col mercato in uscita (sentiment "caution" = veto per il 4fun). S10 misura resta larga (−3%, 10 €).
+- Crediti Pinnacle (05/10/2026): PRIMA 5 chiavi × ogni 2 h + punteggi = il budget di 15/giorno finiva in 2 giri, quindi
+  Pinnacle era quasi sempre vecchio (>90') e i lay non partivano mai (0 lay su 100+ puntate). ORA: calcio solo su
+  richiesta (feeds/__init__.lay_reference_needs: esito a quota 2,9-5,3, libro stretto, inizio 20'-4 h, Pinnacle assente
+  o >40'), un campionato alla volta, ≥40' tra due letture e max 4 al giorno per campionato; NBA/NFL ogni 12 h; punteggi
+  spenti. Chiave di campionato sconosciuta (404) = non si riprova. Limite: i campionati nella mappa LEAGUE_KEYS.
+- Elo dai risultati NON aggiunge informazione oltre la chiusura Pinnacle: 46.874 partite 2015-2026, walk-forward per
+  stagione, log-loss mercato 0,98464 / calibrato 0,98468 / +Elo 0,98460 (guadagno 0,00008, rumore). Conoscere "meglio
+  le squadre" dai soli risultati non batte il mercato; non costruire un modello di squadre per scommettere.
+- fun_max_backs_per_day 4: i back (CLV −0,6%) non finiscono il budget giornaliero, il resto è dei lay.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
