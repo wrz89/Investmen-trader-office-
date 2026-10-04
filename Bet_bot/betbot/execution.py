@@ -286,6 +286,15 @@ class Executor:
         # size e prezzo medio VERI: il Banco calcola il risultato di ogni esito da questi, non dal limite
         return {"ok": True, "price": r["avg_price"] or price, "size": r["matched"]}
 
+    def manual_profit(self, market_id: str, selection_id: str, own_ids: set) -> float:
+        """Profitto lordo delle puntate sullo stesso esito fatte FUORI dal bot (cash out o altre puntate a mano dal sito):
+        così il risultato registrato è quello vero del conto. Se Betfair non risponde, 0."""
+        try:
+            return round(sum(o["profit"] for o in self.client.cleared_market(market_id, selection_id)
+                             if o["betId"] not in own_ids), 2)
+        except Exception:
+            return 0.0
+
     def settled_live(self, bets: list[dict]) -> dict[str, dict]:
         ids = [(json.loads(b["extra"]) or {}).get("betfair", {}).get("bet_id") for b in bets if b.get("extra")]
         ids = [i for i in ids if i]

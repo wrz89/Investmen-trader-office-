@@ -349,6 +349,14 @@ class BetfairClient:
             out += [{**o, "status": status} for o in res.get("clearedOrders", [])]
         return out
 
+    def cleared_market(self, market_id: str, selection_id: str | None = None) -> list[dict]:
+        """Tutte le puntate regolate di un mercato (anche quelle fatte a mano dal sito, come un cash out):
+        [{"betId", "profit", "side", "selectionId"}]."""
+        res = self.rpc("listClearedOrders", {"betStatus": "SETTLED", "marketIds": [market_id], "includeItemDescription": False})
+        out = [{"betId": o.get("betId"), "profit": float(o.get("profit", 0.0)), "side": o.get("side"),
+                "selectionId": str(o.get("selectionId"))} for o in res.get("clearedOrders", [])]
+        return [o for o in out if selection_id is None or o["selectionId"] == str(selection_id)]
+
     def cleared(self, bet_ids: list[str]) -> dict[str, dict]:
         """Esito delle puntate chiuse: {bet_id: {"profit" (lordo), "outcome", "status"}}.
         status: SETTLED (regolata), VOIDED (annullata: rimborso), LAPSED/CANCELLED (mai abbinata: rimborso)."""

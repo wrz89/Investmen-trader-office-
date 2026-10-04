@@ -277,11 +277,21 @@ class Banco(Agent):
                     continue
                 if c["status"] != "SETTLED":             # annullata, scaduta o cancellata: rimborso della puntata
                     self._close(b, "VOID", b["stake"], f"Betfair: {c['status'].lower()}")
-                elif c["profit"] > 0:
-                    self._close(b, "WON", b["stake"] + c["profit"] * (1 - self._commission(b)),
-                                f"regolata da Betfair ({c['outcome']}), commissione sulla vincita")
+                    n += 1
+                    continue
+                # un cash out (o un'altra puntata) fatto a mano dal sito sullo stesso esito cambia il risultato vero:
+                # si somma, altrimenti il bankroll del bot si scosta dal conto e scatta il kill switch
+                own = {o["bet_id"] for o in self.store.query("SELECT bet_id FROM orders WHERE bet_id IS NOT NULL")} | {ref.get("bet_id")}
+                manual = 0.0
+                if hasattr(self.office.executor, "manual_profit") and ref.get("market_id"):
+                    manual = self.office.executor.manual_profit(ref["market_id"], ref.get("selection_id"), own)
+                total = c["profit"] + manual
+                note = f" (con {manual:+.2f} € di cash out/puntate fatte a mano dal sito)" if abs(manual) > 0.004 else ""
+                if total > 0:
+                    self._close(b, "WON", b["stake"] + total * (1 - self._commission(b)),
+                                f"regolata da Betfair ({c['outcome']}){note}, commissione sulla vincita")
                 else:
-                    self._close(b, "LOST", b["stake"] + c["profit"], f"regolata da Betfair ({c['outcome']})")
+                    self._close(b, "LOST", max(0.0, b["stake"] + total), f"regolata da Betfair ({c['outcome']}){note}")
                 n += 1
         for bet in open_bets:
             if bet["mode"] == "live":
