@@ -386,3 +386,17 @@ def test_backs_capped_per_day_so_lays_keep_the_budget(office):
     for i in range(4):
         office.store.execute(ins, (now_iso(), f"B{i}"))
     assert not [p for p in V2.propose(_snap(tennis), LOOSE, {"store": office.store}) if p.get("side") != "LAY"]
+
+
+def test_stuck_open_bet_does_not_occupy_a_fun_slot(office, monkeypatch):
+    import time
+    from betbot import clock
+    from betbot.agents.risk import _stuck
+    from betbot.store import now_iso
+    now = time.time()
+    monkeypatch.setattr(clock, "now", lambda: now)
+    from datetime import datetime, timezone
+    iso = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat()
+    office.store.execute("INSERT INTO matches(match_id, kickoff) VALUES('OLD', ?)", (iso(now - 10 * 3600),))
+    office.store.execute("INSERT INTO matches(match_id, kickoff) VALUES('NEW', ?)", (iso(now - 1 * 3600),))
+    assert _stuck(office.store, {"match_id": "OLD"}) and not _stuck(office.store, {"match_id": "NEW"})

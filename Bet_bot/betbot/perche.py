@@ -5,6 +5,7 @@ dei veti delle ultime ore (il primo motivo di ogni veto, contato). Non sblocca n
 """
 from __future__ import annotations
 
+import collections
 import json
 import re
 import time
@@ -36,7 +37,12 @@ def lay_diagnosis(snap: dict, settings: dict) -> dict:
         b = json.loads((RUNTIME_DIR / "odds_api_budget.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         b = {}
-    return {"ts": time.time(), "soccer": len(soccer), "in_window": len(in_win), "candidates": len(cand), "fresh_ref": len(fresh),
+    from .feeds import league_key
+    cov, unc = collections.Counter(), collections.Counter()
+    for m in cand:
+        (cov if league_key(m.get("league")) else unc)[m.get("league") or "?"] += 1
+    return {"ts": time.time(), "covered": cov.most_common(5), "uncovered": unc.most_common(6),
+            "soccer": len(soccer), "in_window": len(in_win), "candidates": len(cand), "fresh_ref": len(fresh),
             "lays": len(lays), "best_edge": max((p["edge"] for p in lays), default=None),
             "credits_used_today": b.get("used"), "credits_left": b.get("remaining")}
 
@@ -103,7 +109,7 @@ def check(store, hours: float = HOURS) -> dict:
     from .agents.risk import _day_start_iso
     today_n = store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND strategy_id LIKE 'S10_divertimento%' AND ts >= ?",
                           (_day_start_iso(),))[0]["n"]
-    fun_open = sum(1 for o in opened if str(o["strategy_id"]).startswith("S10_divertimento"))
+    fun_open = sum(1 for o in opened if str(o["strategy_id"]).startswith("S10_divertimento") and o not in stuck)
     if fun_open >= lim.get("fun_max_open", 3):
         blocks.append((f"{fun_open} puntate 4fun già aperte (tetto {lim.get('fun_max_open', 3)})",
                        "Riparte quando una si chiude." + (" ATTENZIONE: " + ", ".join(f"#{o['id']} {o['label']}" for o in stuck)
@@ -139,6 +145,10 @@ def text(c: dict) -> str:
               f"quota 3-5, di cui {d['fresh_ref']} con Pinnacle fresco → {d['lays']} lay di valore"
               + (f" (miglior EV {d['best_edge']:+.1%})" if d.get("best_edge") is not None else "")
               + f". Crediti Odds API: {d['credits_used_today']} usati oggi, {d['credits_left']} rimasti."]
+        if d.get("covered") or d.get("uncovered"):
+            L.append("  Con Pinnacle disponibile: " + (", ".join(f"{n} ({k})" for n, k in d.get("covered", [])) or "nessun campionato")
+                     + " · senza Pinnacle (non coperti, nessun lay possibile): "
+                     + (", ".join(f"{n} ({k})" for n, k in d.get("uncovered", [])) or "—"))
         if d["candidates"] and not d["fresh_ref"]:
             L.append("  → ci sono partite adatte ma Pinnacle è vecchio o assente: il riferimento viene richiesto da solo (max "
                      "1 credito per campionato ogni 40 minuti). Se resta così per ore, controlla i crediti o il campionato.")

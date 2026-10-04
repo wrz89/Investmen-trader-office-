@@ -97,8 +97,10 @@ def _at_limit(store) -> bool:
     from ..config import load_yaml
     lim = load_yaml("risk_limits.yaml")
     day = _day_start_iso()
-    rows = store.query("SELECT status, ts FROM bets WHERE mode!='shadow' AND strategy_id=? AND (status='OPEN' OR ts >= ?)",
+    rows = store.query("SELECT b.status, b.ts, b.match_id FROM bets b WHERE b.mode!='shadow' AND b.strategy_id=? AND (b.status='OPEN' OR b.ts >= ?)",
                        (STRATEGY_ID, day))
+    from ..agents.risk import _stuck
+    rows = [r for r in rows if not (r["status"] == "OPEN" and _stuck(store, r))]       # puntate incastrate: non occupano un posto
     return (sum(1 for r in rows if r["status"] == "OPEN") >= lim.get("fun_max_open", 1)
             or sum(1 for r in rows if r["ts"] >= day) >= lim.get("fun_max_bets_per_day", 10))
 

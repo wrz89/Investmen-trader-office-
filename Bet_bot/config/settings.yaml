@@ -93,6 +93,7 @@ feed:
                                    # su richiesta, un campionato alla volta, quando c'è un lay possibile (feeds/__init__.py)
     scores_refresh_seconds: 0      # spento: con Betfair i risultati li dà Betfair (prima costavano 2 crediti per sport)
     soccer_on_demand: true         # true = calcio solo su richiesta (lay possibile); false = a tappeto ogni odds_refresh_seconds
+    on_demand_reserve: 9           # dei 15 crediti al giorno, 9 restano sempre liberi per i lay (NBA/NFL non li possono toccare)
     on_demand_min_gap_seconds: 2400    # stesso campionato al massimo ogni 40 minuti…
     on_demand_max_per_league_day: 4    # …e 4 volte al giorno
   api_football:

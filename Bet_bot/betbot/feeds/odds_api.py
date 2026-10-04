@@ -52,6 +52,7 @@ class OddsApiFeed(Feed):
         self.min_gap = float(cfg.get("on_demand_min_gap_seconds", 2400))
         self.max_per_key_day = int(cfg.get("on_demand_max_per_league_day", 4))
         self.soccer_on_demand = bool(cfg.get("soccer_on_demand", False))
+        self.on_demand_reserve = int(cfg.get("on_demand_reserve", 9))     # crediti del giorno riservati ai lay
 
     # ── budget delle richieste (piano gratuito: 500 al mese) ────────────────────────
     def _budget(self) -> dict:
@@ -117,7 +118,7 @@ class OddsApiFeed(Feed):
             # il calcio non si scarica a tappeto: costerebbe 1 credito per campionato anche senza partite adatte.
             # Si scarica solo su richiesta (un lay possibile in quel campionato, vedi _refresh_on_demand)
             keys = [k for k in self._sport_keys(now) if not (self.soccer_on_demand and k.startswith("soccer"))]
-            ok, why = self.budget_ok(max(1, len(keys)))
+            ok, why = self.budget_ok(max(1, len(keys)) + (self.on_demand_reserve if self.soccer_on_demand else 0))   # i crediti per i lay restano liberi
             if ok and keys:
                 self._refresh_odds(now, keys)
             elif not ok:

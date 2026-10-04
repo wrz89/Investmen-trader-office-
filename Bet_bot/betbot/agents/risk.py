@@ -331,7 +331,7 @@ class RiskManager(Agent):
         if fun:
             fun_today = self.store.query("SELECT COUNT(*) n FROM bets WHERE mode!='shadow' AND ts >= ? AND strategy_id=?",
                                          (_day_start_iso(), p["strategy_id"]))[0]["n"]
-            fun_open = sum(1 for b in open_bets if b["strategy_id"] == p["strategy_id"])
+            fun_open = sum(1 for b in open_bets if b["strategy_id"] == p["strategy_id"] and not _stuck(self.store, b))
             check(fun_today < L.get("fun_max_bets_per_day", 10),
                   f"Puntate 4fun oggi < {L.get('fun_max_bets_per_day', 10)} ({fun_today})")
             check(fun_open < L.get("fun_max_open", 1), f"Puntate 4fun aperte < {L.get('fun_max_open', 1)}")
@@ -420,6 +420,17 @@ class RiskManager(Agent):
             self.say(f"VETO {p['label']}: {reasons[0]}" + (f" (+{len(reasons) - 1})" if len(reasons) > 1 else ""),
                      "blocked", "veto", payload=decision)
         return decision
+
+
+def _stuck(store, bet: dict, hours: float = 6.0) -> bool:
+    """Puntata ancora aperta da più di `hours` ore dopo l'inizio della partita (mercato non regolato, partita sospesa):
+    il suo rischio conta ancora, ma non occupa più uno dei posti delle puntate aperte del 4fun."""
+    r = store.query("SELECT kickoff FROM matches WHERE match_id=?", (bet["match_id"],))
+    try:
+        ko = datetime.fromisoformat(str(r[0]["kickoff"]).replace("Z", "+00:00")).timestamp() if r and r[0]["kickoff"] else None
+    except ValueError:
+        ko = None
+    return bool(ko and clock.now() - ko > hours * 3600)
 
 
 def _day_start_iso() -> str:
