@@ -231,8 +231,8 @@ LOOSE = {"min_book_eur": 10.0, "min_ev": -0.03}       # le soglie di prima: qui 
 def test_v2_live_is_strict_on_price_and_liquidity():
     from betbot.strategies import s10_divertimento_v2 as V2
     thin = _match("T2", "tennis", {"home": BOOK(1.80, 1.82), "away": BOOK(2.20, 2.24)}, league="ATP Parigi")
-    assert V2.DEFAULTS["min_ev"] == -0.02 and V2.DEFAULTS["min_book_eur"] == 100.0
-    assert all(p["edge"] >= -0.02 for p in V2.propose(_snap(thin), {}, {}))
+    assert V2.DEFAULTS["min_ev"] == -0.025 and V2.DEFAULTS["min_book_eur"] == 100.0
+    assert all(p["edge"] >= -0.025 for p in V2.propose(_snap(thin), {}, {}))
 
 
 def test_v2_prefers_value_lays_then_backs():

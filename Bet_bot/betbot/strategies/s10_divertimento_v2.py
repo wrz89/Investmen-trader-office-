@@ -29,10 +29,10 @@ KIND = "prematch"
 # il "valore" di un lay è lo scarto tra Betfair e Pinnacle: con Pinnacle vecchio di ore lo scarto è spesso solo Pinnacle
 # rimasto indietro (una quota che si muove del 5% in 2 ore è normale, e un EV del 2% sul rischio vale ~1 punto di
 # probabilità). Per i lay Pinnacle deve avere al massimo 90 minuti, come la chiusura di Leo (04/10/2026).
-# 05/10/2026 ("stringi"): con i soldi veri solo prezzi vicini al giusto (EV ≥ −2%, prima −3%) e mercati con almeno 100 €
+# 05/10/2026 ("stringi"): con i soldi veri solo prezzi vicini al giusto (EV ≥ −2,5%, prima −3%) e mercati con almeno 100 €
 # al prezzo (prima 10 €): meno puntate ma niente campionati sottili. La misura in ombra resta larga (s10_misura_v1).
 DEFAULTS = {**V1.DEFAULTS, "lay_min_edge": 0.02, "lay_min": 3.0, "lay_max": 5.0, "lay_max_ref_age_s": 5400,
-            "min_ev": -0.02, "min_book_eur": 100.0}
+            "min_ev": -0.025, "min_book_eur": 100.0}
 
 
 def lay_candidates(snapshot: dict, q: dict) -> list[dict]:

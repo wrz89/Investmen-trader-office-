@@ -65,13 +65,13 @@ max_losing_streak: 6
 cooldown_minutes: 120
 
 # ── 4fun (S10, ex "divertimento"): poche puntate scelte, puntata fissa ──
-fun_stake_eur: 4.0            # puntata fissa dei back e rischio massimo dei lay (scelta dell'utente il 05/10/2026: meno puntate,
+fun_stake_eur: 5.0            # puntata fissa dei back e rischio massimo dei lay (scelta dell'utente il 05/10/2026: meno puntate,
                                # più alte; prima 2 € = il minimo di betfair.it)
 fun_max_bets_per_day: 10       # al massimo 10 puntate al giorno (scelta dell'utente il 02/10/2026; prima 3, poi 5)
 fun_open_risk_pct: 0.10        # per il 4fun il rischio aperto arriva al 10% del bankroll (21 € con 210 €: 3 puntate da 4 € ci stanno)
 fun_max_backs_per_day: 4       # al massimo 4 back al giorno (CLV −0,6%, nessun vantaggio misurato): il resto del budget è dei lay
 fun_max_open: 3                # fino a 3 puntate aperte insieme (scelta dell'utente il 04/10/2026; prima 1)
-fun_min_edge: -0.02            # mai un prezzo che perde più del 3% atteso (commissione compresa: a quota 1,80 vale già 2%)
+fun_min_edge: -0.025            # mai un prezzo che perde più del 2,5% atteso (commissione compresa: a quota 1,80 vale già 2%)
 fun_max_spread: 0.03           # senza riferimento esterno: back e lay di Betfair entro il 3%
 
 # ── Sentiment (Giorgia): può solo frenare ─────────────────────

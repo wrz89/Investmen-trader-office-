@@ -144,7 +144,7 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - Regola "correggi" di Leo: confronta l'EV corretto con la soglia della strategia (fun_min_edge −3% per il
   divertimento, min_edge per le altre). Prima del 05/10/2026 confrontava con 0 e bloccava TUTTO il divertimento.
 - 4fun (05/10/2026, nome nuovo del "divertimento"; gli id restano S10_divertimento_*): puntata fissa fun_stake_eur
-  4 € (lay: rischio 4 €), live solo con EV ≥ −2% (fun_min_edge) e almeno 100 € al prezzo (S10 v2 DEFAULTS); niente
+  5 € dal 05/10/2026 (lay: rischio 5 €), live solo con EV ≥ −2,5% (fun_min_edge) e almeno 100 € al prezzo (S10 v2 DEFAULTS); niente
   puntate col mercato in uscita (sentiment "caution" = veto per il 4fun). S10 misura resta larga (−3%, 10 €).
 - Crediti Pinnacle (05/10/2026): PRIMA 5 chiavi × ogni 2 h + punteggi = il budget di 15/giorno finiva in 2 giri, quindi
   Pinnacle era quasi sempre vecchio (>90') e i lay non partivano mai (0 lay su 100+ puntate). ORA: calcio solo su
