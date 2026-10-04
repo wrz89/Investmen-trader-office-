@@ -159,6 +159,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   stagioni: sotto la commissione); back cieco su Betfair: over −5,7%, under −6,3%. Nessun vantaggio.
 - perche.bat mostra anche i "Lay (ultimo ciclo)": partite, candidati a quota 3-5, quanti con Pinnacle fresco, crediti.
 - fun_max_backs_per_day 4: i back (CLV −0,6%) non finiscono il budget giornaliero, il resto è dei lay.
+- Dashboard 05/10/2026: Giorgia (sentiment) non è più nella sala 3D (il sentiment gira ancora nel bot come freno, la
+  sua scheda non c'è più); al suo posto il fold "Calendario partite" (calendario.py, /api/calendario/*): mese, sport e
+  campionato da Betfair (listCompetitions + listMarketCatalogue, fino a 31 giorni, 200 per richiesta), altrimenti le
+  partite già viste dal bot; cache 20 minuti.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

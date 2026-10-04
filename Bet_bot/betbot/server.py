@@ -197,6 +197,21 @@ def make_handler(store: Store, port: int, lan: bool = False, office: bool = Fals
                 self._json(200, {"office": office})
             elif self.path.startswith("/api/state"):
                 self._json(200, build_state(store))
+            elif self.path.startswith("/api/calendario"):
+                from urllib.parse import parse_qs, urlparse
+                from . import calendario
+                u = urlparse(self.path)
+                q = {k: v[0] for k, v in parse_qs(u.query).items()}
+                try:
+                    if u.path == "/api/calendario/sport":
+                        data = {"sports": calendario.sports_list()}
+                    elif u.path == "/api/calendario/competizioni":
+                        data = calendario.competitions(q.get("sport", "soccer"), store)
+                    else:
+                        data = calendario.matches(q.get("sport", "soccer"), q.get("comp") or None, store)
+                except Exception as exc:
+                    data = {"source": "none", "matches": [], "items": [], "note": f"Calendario non disponibile: {exc}"}
+                self._json(200, data)
             elif self.path.startswith("/api/settings"):
                 if not self._from_pc():
                     return self._json(403, {"error": "le impostazioni si vedono solo dal PC"})
