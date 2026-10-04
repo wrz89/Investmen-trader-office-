@@ -123,6 +123,11 @@ class SportOffice:
             self.sentiment.say(f"Errore nella lettura del sentiment: {exc}. Nessun effetto sulle puntate.", "alert",
                                "sentiment", level="WARN")
 
+        try:                                  # diagnosi dei lay: quante partite, quanti hanno Pinnacle fresco (per `perche`)
+            from .perche import lay_diagnosis
+            self.store.set("lay_diag", lay_diagnosis(snap, self.settings))
+        except Exception:
+            pass
         # 2) chiusure e gestione delle puntate aperte
         settled = self.banco.settle(snap)
         open_bets = self.bankroll.open_bets() + self.bankroll.open_shadow_trades()   # anche i trade ombra vanno gestiti

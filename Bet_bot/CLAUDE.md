@@ -154,6 +154,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - Elo dai risultati NON aggiunge informazione oltre la chiusura Pinnacle: 46.874 partite 2015-2026, walk-forward per
   stagione, log-loss mercato 0,98464 / calibrato 0,98468 / +Elo 0,98460 (guadagno 0,00008, rumore). Conoscere "meglio
   le squadre" dai soli risultati non batte il mercato; non costruire un modello di squadre per scommettere.
+- Over/Under 2.5 (05/10/2026, 33.467 partite, Pinnacle chiusura): mercato calibrato (0,5011 prevista vs 0,5044 reale);
+  i gol medi delle ultime 10 partite delle due squadre aggiungono 0,0002 di log-loss (0,0003-0,0007 nelle ultime
+  stagioni: sotto la commissione); back cieco su Betfair: over −5,7%, under −6,3%. Nessun vantaggio.
+- perche.bat mostra anche i "Lay (ultimo ciclo)": partite, candidati a quota 3-5, quanti con Pinnacle fresco, crediti.
 - fun_max_backs_per_day 4: i back (CLV −0,6%) non finiscono il budget giornaliero, il resto è dei lay.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 

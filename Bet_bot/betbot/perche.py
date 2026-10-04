@@ -18,6 +18,29 @@ def _since(hours: float) -> str:
     return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat(timespec="seconds")
 
 
+def lay_diagnosis(snap: dict, settings: dict) -> dict:
+    """Fotografia dei lay di questo ciclo: quante partite di calcio, quante hanno un esito a quota 2,9-5,3, quante di queste
+    hanno Pinnacle fresco (≤ 90 min), quanti lay di valore passano i filtri, e i crediti di The Odds API usati oggi."""
+    import json
+    from .config import RUNTIME_DIR
+    from .strategies import s10_divertimento_v2 as V2
+    now = snap.get("sim_time") or snap["ts"]
+    q = V2.DEFAULTS
+    soccer = [m for m in snap.get("matches", {}).values() if m.get("status") == "SCHEDULED" and m.get("exchange")
+              and str(m.get("sport", "")).startswith("soccer")]
+    in_win = [m for m in soccer if 0 <= datetime.fromisoformat(m["kickoff"]).timestamp() - now <= q["max_minutes_before"] * 60]
+    cand = [m for m in in_win if any(q["lay_min"] - 0.1 <= (b.get("back") or 0) <= q["lay_max"] + 0.3 for b in m["exchange"].values())]
+    fresh = [m for m in cand if m.get("ref_ts") and now - m["ref_ts"] <= q["lay_max_ref_age_s"]]
+    lays = V2.lay_candidates(snap, q)
+    try:
+        b = json.loads((RUNTIME_DIR / "odds_api_budget.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        b = {}
+    return {"ts": time.time(), "soccer": len(soccer), "in_window": len(in_win), "candidates": len(cand), "fresh_ref": len(fresh),
+            "lays": len(lays), "best_edge": max((p["edge"] for p in lays), default=None),
+            "credits_used_today": b.get("used"), "credits_left": b.get("remaining")}
+
+
 def check(store, hours: float = HOURS) -> dict:
     since = _since(hours)
     rs = store.get("risk_state") or {}
@@ -91,7 +114,7 @@ def check(store, hours: float = HOURS) -> dict:
                        "Riparte da sola domani."))
     return {"ts": time.time(), "hours": hours, "blocks": blocks, "open": len(opened), "stuck": len(stuck), "today": today_n, "vetoes": vetoes.most_common(6), "approved": approved,
             "last_bet": last[0]["ts"] if last else None, "rules": rules,
-            "bankroll": rs.get("bankroll"), "kill_floor": rs.get("kill_floor")}
+            "bankroll": rs.get("bankroll"), "kill_floor": rs.get("kill_floor"), "lay_diag": store.get("lay_diag")}
 
 
 def text(c: dict) -> str:
@@ -110,6 +133,15 @@ def text(c: dict) -> str:
     else:
         L.append("Nessun veto: probabilmente non ci sono partite adatte in questo momento (quote 1,40-3,00, libro "
                  "stretto, 10-240 minuti all'inizio) o è già al limite di puntate del giorno / aperte.")
+    d = c.get("lay_diag")
+    if d:
+        L += ["", "Lay (ultimo ciclo): " + f"{d['soccer']} partite di calcio, {d['in_window']} entro 4 ore, {d['candidates']} con un esito a "
+              f"quota 3-5, di cui {d['fresh_ref']} con Pinnacle fresco → {d['lays']} lay di valore"
+              + (f" (miglior EV {d['best_edge']:+.1%})" if d.get("best_edge") is not None else "")
+              + f". Crediti Odds API: {d['credits_used_today']} usati oggi, {d['credits_left']} rimasti."]
+        if d["candidates"] and not d["fresh_ref"]:
+            L.append("  → ci sono partite adatte ma Pinnacle è vecchio o assente: il riferimento viene richiesto da solo (max "
+                     "1 credito per campionato ogni 40 minuti). Se resta così per ore, controlla i crediti o il campionato.")
     if c["rules"]:
         L += ["", "Lezioni di Leo attive (possono solo frenare):"]
         for r in c["rules"]:
