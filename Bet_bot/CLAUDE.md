@@ -163,6 +163,13 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   sua scheda non c'è più); al suo posto il fold "Calendario partite" (calendario.py, /api/calendario/*): mese, sport e
   campionato da Betfair (listCompetitions + listMarketCatalogue, fino a 31 giorni, 200 per richiesta), altrimenti le
   partite già viste dal bot; cache 20 minuti.
+- stats4bets.it (05/10/2026, "SuperFoglio", Easy Over 2.5, Super Over 1.5, X-45, scala pura/favorita): nessun metodo ha
+  campione, periodo o ROI pubblicati; il "95%" non è verificabile. Test sui nostri dati (51.009 partite): Over 2.5 con
+  Pinnacle 1,48-1,72 vince il 61,1% contro il 62,0% implicito (ROI −1,6%; con la "migliore quota di mercato" +0,7%, ma è
+  cherry-picking a posteriori); "scala pura" casa 1,50-1,70: 62,3% vs 62,4% (ROI −0,1%); pareggio al primo tempo con
+  Under forte: 49,7% (quota equa 2,01) mentre il sito parla di 1,80-2,00 (EV ≤ 0). Le loro regole selezionano partite
+  che il mercato già prezza così: nessun vantaggio. Unico spunto non ancora testato: il flusso di denaro (volume
+  abbinato per esito) sull'exchange come segnale; oggi si registrano solo prezzi e quantità al miglior prezzo.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
