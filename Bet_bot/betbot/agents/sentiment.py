@@ -291,10 +291,17 @@ class Sentiment(Agent):
         self.store.set("sentiment_flags", flags)
         day = self.store.query("SELECT COUNT(*) n FROM news WHERE ts >= ?",
                                (datetime.fromtimestamp(now - 86400, timezone.utc).isoformat(timespec="seconds"),))[0]["n"]
-        stats = {"flags": len(flags), "news_24h": day}
+        since = datetime.fromtimestamp(now - 86400, timezone.utc).isoformat(timespec="seconds")
+        try:                                           # il lavoro vero di oggi: puntate frenate dal prezzo che si muove contro
+            braked = self.store.query("SELECT COUNT(*) n FROM events WHERE kind='veto' AND ts >= ? AND "
+                                      "(payload LIKE '%Sentiment e mercato%' OR payload LIKE '%Mercato non in uscita%')", (since,))[0]["n"]
+        except Exception:
+            braked = 0
+        stats = {"flags": len(flags), "news_24h": day, "frenate_24h": braked}
+        tail = f" Freni dal movimento del prezzo Betfair nelle ultime 24 ore: {braked} veti."
         if flags:
             lst = ", ".join(f"{v['team']} ({'veto' if v['level'] == 'block' else 'cautela'})" for v in flags.values())
             self.status("alert", f"Segnalazioni attive: {lst}." + (f" {extra}." if extra else ""), stats)
         else:
-            self.status("ok", "Nessuna segnalazione attiva. Controllo il movimento delle quote a ogni proposta."
-                        + (f" ({extra})" if extra else ""), stats)
+            self.status("ok", "Nessuna notizia segnalata (le notizie sono spente). Controllo il movimento delle quote a ogni proposta."
+                        + tail + (f" ({extra})" if extra else ""), stats)
