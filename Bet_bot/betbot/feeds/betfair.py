@@ -287,12 +287,37 @@ class BetfairClient:
         res = self.rpc("listMarketTypes", {"filter": {"eventTypeIds": [event_type]}})
         return {r["marketType"]: int(r.get("marketCount") or 0) for r in res}
 
+    def _books_batch(self, ids: list[str]) -> list[dict]:
+        return self.rpc("listMarketBook", {"marketIds": ids,
+                                           "priceProjection": {"priceData": ["EX_BEST_OFFERS"],
+                                                               "exBestOffersOverrides": {"bestPricesDepth": 3}}})
+
     def books(self, market_ids: list[str]) -> list[dict]:
-        out = []
-        for i in range(0, len(market_ids), 10):          # limite di peso delle richieste: 10 mercati per volta
-            out += self.rpc("listMarketBook", {"marketIds": market_ids[i:i + 10],
-                                               "priceProjection": {"priceData": ["EX_BEST_OFFERS"],
-                                                                   "exBestOffersOverrides": {"bestPricesDepth": 3}}})
+        """Prezzi dei mercati, 10 per volta (limite di peso). Se Betfair risponde UNEXPECTED_ERROR (capita con un solo
+        mercato difettoso: sospeso, rinviato, appena chiuso) il gruppo si divide a metà fino a isolare il mercato che dà
+        errore, che viene saltato: una partita strana non deve fermare tutto il ciclo. Se NON risponde nessun mercato
+        l'errore esce come prima."""
+        out, failed, last = [], 0, None
+
+        def run(ids):
+            nonlocal failed, last
+            try:
+                out.extend(self._books_batch(ids))
+            except BetfairError as exc:
+                if "SESSION" in str(exc).upper() or "INVALID_APP_KEY" in str(exc).upper() or "NO_APP_KEY" in str(exc).upper():
+                    raise                                     # sessione o chiave: non è un mercato difettoso
+                last = exc
+                if len(ids) == 1:
+                    failed += 1
+                    self.skipped_markets = getattr(self, "skipped_markets", 0) + 1
+                    return
+                mid = len(ids) // 2
+                run(ids[:mid])
+                run(ids[mid:])
+        for i in range(0, len(market_ids), 10):
+            run(market_ids[i:i + 10])
+        if market_ids and not out and failed and last is not None:
+            raise last
         return out
 
     # ── ordini ─────────────────────────────────────────────────

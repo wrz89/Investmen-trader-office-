@@ -84,3 +84,21 @@ def test_lay_reference_needs_and_on_demand_budget(monkeypatch, tmp_path):
     f.request(["soccer_epl"])
     f._refresh_on_demand(now + 60)                      # entro 40 minuti: niente nuovo credito
     assert len(calls) == 2
+
+
+def test_books_isolate_the_one_bad_market(monkeypatch):
+    from betbot.feeds.betfair import BetfairClient, BetfairError
+    c = BetfairClient.__new__(BetfairClient)
+
+    def rpc(method, params, **kw):
+        ids = params["marketIds"]
+        if "BAD" in ids:
+            raise BetfairError("listMarketBook: UNEXPECTED_ERROR")
+        return [{"marketId": i} for i in ids]
+    c.rpc = rpc
+    got = c.books(["1.1", "1.2", "BAD", "1.4", "1.5"])
+    assert [b["marketId"] for b in got] == ["1.1", "1.2", "1.4", "1.5"] and c.skipped_markets == 1
+    c.rpc = lambda method, params, **kw: (_ for _ in ()).throw(BetfairError("listMarketBook: UNEXPECTED_ERROR"))
+    import pytest
+    with pytest.raises(BetfairError):
+        c.books(["1.1", "1.2"])                              # nessun mercato risponde: l'errore esce
