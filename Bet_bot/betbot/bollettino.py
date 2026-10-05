@@ -72,10 +72,20 @@ def text(b: dict) -> str:
     else:
         L += ["Soldi veri: live spento (paper).", ""]
     L.append("Classifica sui prezzi veri di betfair.it (esame per il live):")
+    base_n = {r["strategy_id"]: r["n"] for r in b["esame"] if " · " not in r["strategy_id"]}
+    empty = []
     for r in b["esame"]:
+        sid = r["strategy_id"]
+        if r["n"] == 0:                                    # niente dati: una riga sola in fondo
+            empty.append(sid.replace("_favoriti_exchange", "").replace("_divertimento", " 4fun").replace("_lay_valore", " lay"))
+            continue
+        if " · solo back" in sid and base_n.get(sid.split(" · ")[0]) == r["n"]:
+            continue                                       # identica alla riga della strategia: inutile ripeterla
         ci = "" if r["clv_lo"] is None else f" [{_pct(r['clv_lo'])} … {_pct(r['clv_hi'])}]"
-        L.append(f"• {r['strategy_id']}: {r['verdict']} · {r['n']}/{r['need']} puntate · CLV {_pct(r['clv'])}{ci} · "
+        L.append(f"• {sid}: {r['verdict']} · {r['n']}/{r['need']} puntate · CLV {_pct(r['clv'])}{ci} · "
                  f"ROI {_pct(r['roi'])}")
+    if empty:
+        L.append("• ancora senza puntate sui prezzi veri: " + ", ".join(empty))
     tr, oz, rec = b.get("test_rapido"), b.get("orizzonti"), b.get("registrazioni") or {}
     mu = b.get("multiple")
     if mu and (mu["doppie"]["n"] or mu["triple"]["n"]):
