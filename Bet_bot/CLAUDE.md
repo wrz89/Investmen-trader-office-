@@ -175,6 +175,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   100 € al prezzo, stop del giorno 9%): le puntate in più arrivano solo se rispettano gli stessi vincoli.
 - Lettura anticipata (06/10/2026): esame.evaluate dà `early` (POSITIVA/INCERTA/NEGATIVA) dai 20 casi, prima dei 200; il
   bollettino ha la sezione "Lay, lettura anticipata". NON è un verdetto: PRONTA/BOCCIATA restano ai 200 casi.
+- Qualità dei dati (06/10/2026, qualita.py): punteggio 0-100 (liquidità 30, spread 20, riferimento 25, campionato 15,
+  anticipo 10) per ogni puntata; filtro fun_min_quality 40 (solo il 4fun live), scritto nel "Perché" e salvato in Leo come
+  segmento "qualita" (<40, 40-55, 55-70, 70-85, ≥85). Non misura la forza delle squadre ma l'errore nostro. Se Leo mostra
+  che le fasce alte NON hanno un CLV migliore, il filtro va tolto (è un'idea da dimostrare, non un fatto).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

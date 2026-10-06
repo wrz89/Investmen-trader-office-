@@ -65,7 +65,7 @@ def _fun(**kw):
     p = {"strategy_id": "S10_divertimento_v1", "strategy_status": "ATTIVA", "match_id": "M1", "market_id": "M1",
          "league": "ATP", "label": "Sinner - Alcaraz · Sinner", "market": "h2h", "selection": "home", "bookmaker": "Betfair",
          "odds": 1.8, "fair_prob": 0.545, "edge": -0.012, "commission": 0.045, "n_books": 0, "dispersion": None,
-         "prob_source": "exchange", "spread": 0.011, "fun": True, "live": False, "odds_ts": 1000.0, "reason": "test"}
+         "prob_source": "exchange", "spread": 0.011, "book_eur": 500.0, "sport": "tennis", "fun": True, "live": False, "odds_ts": 1000.0, "reason": "test"}
     p.update(kw)
     return p
 
@@ -85,6 +85,14 @@ def test_risk_allows_fun_at_minimum_stake_but_not_bad_prices(office):
     assert not office.risk.evaluate(_fun(spread=0.05), _rsnap(), state)["approved"]         # libro largo
     # una S05 con lo stesso EV negativo resta vietata: la regola vale solo per il divertimento
     assert not office.risk.evaluate(_fun(fun=False, strategy_id="S05_favoriti_exchange_v2"), _rsnap(), state)["approved"]
+
+
+def test_fun_needs_minimum_data_quality(office):
+    d = office.risk.evaluate(_fun(book_eur=500.0), _rsnap(), office.risk.portfolio_state())
+    assert d["approved"] and "qualità dei dati" in (d.get("reasons") or ["qualità dei dati"])[0] or d["approved"]
+    thin = _fun(book_eur=20.0, spread=0.03, league="Paraguayan Primera Division", sport="soccer")
+    d = office.risk.evaluate(thin, _rsnap(), office.risk.portfolio_state())
+    assert not d["approved"] and any("Qualità dei dati" in r for r in d["reasons"])
 
 
 def test_fun_skips_market_moving_against(office, monkeypatch):

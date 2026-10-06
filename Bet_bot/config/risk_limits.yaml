@@ -71,6 +71,8 @@ fun_max_bets_per_day: 20       # al massimo 20 puntate al giorno (scelta dell'ut
 fun_open_risk_pct: 0.20        # per il 4fun il rischio aperto arriva al 20% del bankroll (era 10%: con 160 € sono 32 €, cioè 6 puntate da 5 €)
 fun_max_backs_per_day: 8       # al massimo 8 back al giorno (raddoppiati insieme alle puntate) (CLV −0,6%, nessun vantaggio misurato): il resto del budget è dei lay
 fun_max_open: 6                # fino a 6 puntate aperte insieme (era 3; prima 1) (scelta dell'utente il 04/10/2026; prima 1)
+fun_min_quality: 40            # qualità dei dati minima (0-100, betbot/qualita.py): liquidità, spread, riferimento, campionato, anticipo.
+                               # Parte a 40 (esclude solo i casi peggiori; a 50 si perderebbero molte partite di tennis); Leo misura se la qualità alta ha un CLV migliore (segmento "qualita")
 fun_min_edge: -0.025            # mai un prezzo che perde più del 2,5% atteso (commissione compresa: a quota 1,80 vale già 2%)
 fun_max_spread: 0.03           # senza riferimento esterno: back e lay di Betfair entro il 3%
 

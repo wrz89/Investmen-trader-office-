@@ -163,6 +163,7 @@ class CoachBook:
                 "lato": f.get("side") or "BACK",
                 "liquidita": _band(f.get("liquidity"), [5, 20, 100, 500], "{:.0f}") + " €",
                 "eta_riferimento": _band(f.get("ref_age_min"), [30, 90, 150], "{:.0f}") + " min",   # Pinnacle vecchio = falso valore?
+                "qualita": _band(f.get("qualita"), [40, 55, 70, 85], "{:.0f}") + "/100",        # la qualità dei dati misura qualcosa?
                 **{k: str(v) for k, v in (f.get("dyn") or {}).items()}}      # dinamiche della palestra (forma, assenze…)
 
     def segments(self) -> list[dict]:
@@ -257,13 +258,22 @@ class Coach(Agent, CoachBook):
                  "odds": p.get("odds"), "fair_prob": p.get("fair_prob"), "edge": p.get("edge"), "side": side,
                  "minutes_before": mins, "ref_age_min": ref_age, "n_books": p.get("n_books") or len(books),
                  "source": "Pinnacle" if "Pinnacle" in books else (f"consenso {len(books)} book" if books else "nessuna"),
-                 "liquidity": liq, "live": bool(p.get("live")), "market": p.get("market"), "feed": self._feed_name()}
+                 "liquidity": liq, "live": bool(p.get("live")), "market": p.get("market"), "feed": self._feed_name(),
+                 "qualita": p.get("quality") if p.get("quality") is not None else self._quality_of(p, snapshot)}
             self.store.execute("INSERT INTO coach_entries(ts, src, row_id, strategy_id, match_id, selection, side, odds, "
                                "fair_prob, edge, features, track, blocked_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                (now_iso(), src, row_id, p["strategy_id"], p["match_id"], sel, side, p.get("odds"),
                                 p.get("fair_prob"), p.get("edge"), json.dumps(f, default=str), json.dumps({}), blocked_by))
         except Exception as exc:                               # l'allenatore non deve mai fermare una puntata
             self.log(f"Non riesco a registrare l'ingresso ({exc}).", "WARN", "error")
+
+    @staticmethod
+    def _quality_of(p: dict, snapshot: dict | None) -> int | None:
+        try:
+            from ..qualita import score
+            return score(p, snapshot)[0]
+        except Exception:
+            return None
 
     def _feed_name(self) -> str:
         """Da dove arrivano i prezzi: betfair (veri), replay (veri registrati) o mock (simulati). L'esame per il live

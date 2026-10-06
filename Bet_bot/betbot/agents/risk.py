@@ -335,6 +335,12 @@ class RiskManager(Agent):
             check(fun_today < L.get("fun_max_bets_per_day", 10),
                   f"Puntate 4fun oggi < {L.get('fun_max_bets_per_day', 10)} ({fun_today})")
             check(fun_open < L.get("fun_max_open", 1), f"Puntate 4fun aperte < {L.get('fun_max_open', 1)}")
+            from ..qualita import score
+            quality, parts = score(p, snapshot)
+            p["quality"], p["quality_parts"] = quality, parts
+            p["reason"] = (p.get("reason") or "") + f" · qualità dei dati {quality}/100"
+            check(quality >= L.get("fun_min_quality", 0),
+                  f"Qualità dei dati {quality}/100 ≥ {L.get('fun_min_quality', 0)} (liquidità, spread, riferimento, campionato, anticipo)")
         same_league = sum(1 for b in open_bets if b.get("league") == p.get("league"))
         check(same_league < L["max_same_league_open"], "Concentrazione per campionato nei limiti")
 
