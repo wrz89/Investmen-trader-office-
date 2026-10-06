@@ -197,6 +197,9 @@ def make_handler(store: Store, port: int, lan: bool = False, office: bool = Fals
                 self._json(200, {"office": office})
             elif self.path.startswith("/api/state"):
                 self._json(200, build_state(store))
+            elif self.path.startswith("/api/leo/pronostici"):
+                from . import leo_pronostico
+                self._json(200, leo_pronostico.summary(store))
             elif self.path.startswith("/api/calendario"):
                 from urllib.parse import parse_qs, urlparse
                 from . import calendario

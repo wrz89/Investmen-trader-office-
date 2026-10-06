@@ -525,6 +525,13 @@ class Coach(Agent, CoachBook):
         if n:
             self.learn()
         self._exam()
+        try:                                              # il pronostico di Leo accanto al mercato (non cambia le puntate)
+            from .. import leo_pronostico
+            from ..backtest import HISTORY_DIR
+            mock = str((snapshot.get("health") or {}).get("source", "")).startswith("mock")
+            leo_pronostico.update(self.store, snapshot, None if mock else HISTORY_DIR)   # lo storico (51.000 partite) solo coi prezzi veri
+        except Exception as exc:
+            self.log(f"Pronostici di Leo non aggiornati: {exc}", "WARN", "error")
         try:
             self._bulletin()
         except Exception as exc:                      # il bollettino non deve mai fermare il ciclo

@@ -635,6 +635,9 @@ summary h2 { white-space: nowrap; }
 .cal-c.has { background: color-mix(in srgb, var(--tint) 12%, var(--room)); }
 .cal-c.today { outline: 2px solid var(--accent); }
 .cal-c.sel { border-color: var(--tint); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tint) 50%, transparent); }
+.leo-cmp { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--wall); }
+.leo-cmp h3 { margin: 0 0 4px; font-size: 14px; }
+.leo-cmp p { margin: 0 0 8px; font-size: 12.5px; }
 .cal-day h3 { margin: 0 0 6px; font-size: 14px; }
 .cal-day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 340px; overflow: auto; }
 .cal-day li { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 2px 10px; padding: 6px 2px; border-bottom: 1px solid var(--wall); font-size: 13.5px; }
@@ -743,6 +746,7 @@ summary h2 { white-space: nowrap; }
           <span class="muted" id="cal-note"></span>
         </div>
         <div class="cal-wrap"><div class="cal-grid" id="cal-grid"></div><div class="cal-day" id="cal-day"></div></div>
+        <div class="leo-cmp" id="leo-cmp"></div>
       </details></div>
     <div class="cell j" id="s-backtest"><details class="panel md fold" aria-label="Backtest">
         <summary class="fold-h"><h2>Ultimo backtest</h2><p id="bt-note"></p></summary>
@@ -3048,7 +3052,7 @@ summary h2 { white-space: nowrap; }
       calEl("cal-sport").innerHTML = (d.sports || []).map(s => `<option value="${esc(s.key)}">${esc(s.label)}</option>`).join("");
       calEl("cal-sport").value = CAL.sport;
     } catch (e) { calEl("cal-note").textContent = "Calendario non disponibile (apri la dashboard dal PC con il bot acceso)."; return; }
-    await calLoadComps(); await calLoadMatches();
+    await calLoadComps(); await calLoadMatches(); calLeo();
   }
   async function calLoadComps() {
     calEl("cal-comp").innerHTML = `<option value="">Tutte</option>`;
@@ -3086,11 +3090,28 @@ summary h2 { white-space: nowrap; }
       : `<h3>${esc(CAL.day.split("-").reverse().join("/"))}</h3>` + (list.length ? `<ul>${list.map(m => `<li><span class="mono">${m.t.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
           <span>${esc(m.home)}${m.away ? " – " + esc(m.away) : ""}</span><span class="muted">${esc(m.league || "")}</span></li>`).join("")}</ul>` : `<p class="muted">Nessuna partita.</p>`);
   }
+  // pronostico di Leo accanto al mercato, per lo sport scelto nel calendario
+  async function calLeo() {
+    const box = calEl("leo-cmp"); if (!box) return;
+    try {
+      const d = await calGet("/api/leo/pronostici");
+      const pc = v => v == null ? "—" : Math.round(v * 100) + "%";
+      const sc = (d.per_sport || []).filter(r => r.sport === CAL.sport)[0];
+      const rows = (d.prossime || []).filter(r => r.sport === CAL.sport).slice(0, 12);
+      box.innerHTML = `<h3>Pronostico di Leo contro il mercato</h3>
+        <p class="muted">${sc ? `${sc.n} partite giudicate: errore Leo ${sc.leo.toFixed(3)}, mercato ${sc.mercato.toFixed(3)} (più basso è meglio)${sc.n < 100 ? " · campione ancora piccolo" : ""}.` : "Nessuna partita finita da giudicare per questo sport."}</p>`
+        + (rows.length ? `<table><thead><tr><th>Partita</th><th class="r">Leo 1·X·2</th><th class="r">Mercato 1·X·2</th></tr></thead><tbody>${rows.map(r => `<tr>
+          <td>${esc(r.home)} – ${esc(r.away)}<div class="muted" style="font-size:11px">${esc(r.league || "")}</div></td>
+          <td class="r mono">${pc(r.p_leo.home)} · ${r.p_leo.draw != null ? pc(r.p_leo.draw) + " · " : ""}${pc(r.p_leo.away)}</td>
+          <td class="r mono">${pc(r.p_mkt.home)} · ${r.p_mkt.draw != null ? pc(r.p_mkt.draw) + " · " : ""}${pc(r.p_mkt.away)}</td></tr>`).join("")}</tbody></table>`
+          : `<p class="muted">Nessun pronostico per le prossime partite di questo sport (Leo dice "ne so troppo poco" finché una squadra ha meno di 5 partite osservate).</p>`);
+    } catch (e) { box.innerHTML = ""; }
+  }
   document.addEventListener("DOMContentLoaded", () => {});
   (() => {
     const f = $("cal-fold"); if (!f) return;
     f.addEventListener("toggle", () => { if (f.open) calInit(); });
-    $("cal-sport").addEventListener("change", async e => { CAL.sport = e.target.value; CAL.comp = ""; CAL.day = null; await calLoadComps(); await calLoadMatches(); });
+    $("cal-sport").addEventListener("change", async e => { CAL.sport = e.target.value; CAL.comp = ""; CAL.day = null; await calLoadComps(); await calLoadMatches(); calLeo(); });
     $("cal-comp").addEventListener("change", async e => { CAL.comp = e.target.value; CAL.day = null; await calLoadMatches(); });
     $("cal-prev").addEventListener("click", () => { CAL.month = new Date(CAL.month.getFullYear(), CAL.month.getMonth() - 1, 1); calRender(); });
     $("cal-next").addEventListener("click", () => { CAL.month = new Date(CAL.month.getFullYear(), CAL.month.getMonth() + 1, 1); calRender(); });

@@ -179,6 +179,12 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   anticipo 10) per ogni puntata; filtro fun_min_quality 40 (solo il 4fun live), scritto nel "Perché" e salvato in Leo come
   segmento "qualita" (<40, 40-55, 55-70, 70-85, ≥85). Non misura la forza delle squadre ma l'errore nostro. Se Leo mostra
   che le fasce alte NON hanno un CLV migliore, il filtro va tolto (è un'idea da dimostrare, non un fatto).
+- Pronostico di Leo (06/10/2026, leo_pronostico.py): Elo + curva 1X2 dal calcio storico (51.005 partite, 433 squadre dei 16
+  campionati di football-data; bootstrap una volta, ~6 s) e Elo a due esiti per gli altri sport, che impara SOLO dai
+  risultati osservati (nessuna previsione finché una squadra ha <5 partite). A ogni ciclo registra le probabilità di Leo e
+  del mercato (tabella leo_pronostici) e a partita finita ne confronta la log-loss. Pannello nel calendario
+  (/api/leo/pronostici) e righe nel bollettino. NON cambia le puntate. Limiti: la palestra (palestra.py, con xG e
+  formazioni) è più ricca ma lavora solo sullo storico; qui Elo semplice. Nomi Betfair non abbinati = nessun pronostico.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

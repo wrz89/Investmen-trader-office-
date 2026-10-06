@@ -46,6 +46,15 @@ def real_money(store, days: int = 7) -> dict:
     return out
 
 
+def _leo_summary(store) -> dict:
+    try:
+        from .leo_pronostico import summary
+        s = summary(store)
+        return {"per_sport": s["per_sport"]}
+    except Exception:
+        return {"per_sport": []}
+
+
 def build(store, settings: dict) -> dict:
     from .esame import evaluate_all
     from .feeds.recorder import recording_status
@@ -57,7 +66,7 @@ def build(store, settings: dict) -> dict:
     proposals = [r["strategy_id"] for r in exam if r["verdict"] == "PRONTA" and r["strategy_id"].split(" · ")[0] not in live]
     from .multiple import summary as multiple_summary
     return {"ts": time.time(), "live": sorted(live), "soldi_veri": real_money(store), "esame": exam,
-            "multiple": multiple_summary(store),
+            "multiple": multiple_summary(store), "leo": _leo_summary(store),
             "test_rapido": _read_json("test_rapido.json"), "orizzonti": _read_json("orizzonti.json"),
             "registrazioni": recording_status(), "proposte": proposals}
 
@@ -104,6 +113,9 @@ def text(b: dict) -> str:
             if d["n"]:
                 L.append(f"• {k}: {d['n']} · vinte {d['vinte']:.0%} (attese {d['attese']:.0%}) · ROI {_pct(d['roi'])} ± {2 * d['se']:.0%}"
                          f" (singole {_pct(mu['singole']['roi'])} su {mu['singole']['n']})")
+    if (b.get("leo") or {}).get("per_sport"):
+        from .leo_pronostico import text as _leo_text
+        L += ["", _leo_text(b["leo"])]
     L += ["", "Misure:"]
     if tr:
         extra = "; ".join(f"{k}: {v['verdetto']}" for k, v in (tr.get("sport") or {}).items())
