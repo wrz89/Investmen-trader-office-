@@ -97,6 +97,8 @@ def merge_reference(matches: dict, ref_matches: dict, max_kickoff_gap_h: float =
             if r.get("result") and not m.get("result"):
                 m["result"] = r["result"]
             m["ref_ts"] = r.get("odds_ts")          # età del riferimento, controllata a parte dal Risk Manager
+            if r.get("ref_src"):
+                m["ref_src"] = r["ref_src"]         # fonte di scorta (OddsPapi): si distingue nelle misure
             n += 1
             break
     return n
@@ -107,9 +109,11 @@ class CompositeFeed(Feed):
     ciclo (nessuna puntata); quello di una fonte accessoria viene solo annotato."""
     name = "composite"
 
-    def __init__(self, settings: dict, primary: Feed, stats=None, reference: Feed | None = None):
+    def __init__(self, settings: dict, primary: Feed, stats=None, reference: Feed | None = None,
+                 reference_extra: Feed | None = None):
         super().__init__(settings)
         self.primary, self.stats, self.reference = primary, stats, reference
+        self.reference_extra = reference_extra
         self.speed = getattr(primary, "speed", 1.0)
 
     def now(self) -> float:
@@ -129,6 +133,19 @@ class CompositeFeed(Feed):
                 notes.append(f"riferimento su {n} partite")
             except FeedError as exc:
                 notes.append(f"quote di riferimento non disponibili ({exc})")
+        if self.reference_extra is not None:
+            # Pinnacle di scorta (OddsPapi) solo dove un lay possibile è rimasto senza riferimento fresco
+            try:
+                self.reference_extra.request(lay_reference_needs(snap))
+                ref2 = await self.reference_extra.fetch()
+                now = snap.get("sim_time") or snap["ts"]
+                stale = {k: m for k, m in snap["matches"].items()
+                         if not m.get("ref_ts") or now - m["ref_ts"] > 2400}
+                n2 = merge_reference(stale, ref2["matches"])
+                if n2:
+                    notes.append(f"riferimento di scorta OddsPapi su {n2} partite")
+            except FeedError as exc:
+                notes.append(f"OddsPapi non disponibile ({exc})")
         if self.stats is not None:
             try:
                 await asyncio.to_thread(self.stats.refresh)
@@ -159,6 +176,13 @@ def make_feed(settings: dict) -> Feed:
         from .. import local_settings
         from .api_football import ApiFootball
         stats = ApiFootball(local_settings.load().get("api_football_key") or "", f.get("api_football"))
+    extra = None
+    if f.get("reference_extra") == "oddspapi" and reference is not None:
+        try:
+            from .oddspapi_ref import OddsPapiRefFeed
+            extra = OddsPapiRefFeed(settings)
+        except FeedError:
+            extra = None                       # senza chiave si va avanti con The Odds API soltanto
     if stats is None and reference is None:
         return primary
-    return CompositeFeed(settings, primary, stats, reference)
+    return CompositeFeed(settings, primary, stats, reference, extra)

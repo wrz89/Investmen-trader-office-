@@ -51,6 +51,9 @@ feed:
   provider: mock
   # quote di riferimento per stimare la probabilità giusta nel calcio: none | odds_api
   reference: none
+  # Pinnacle di scorta quando The Odds API non ne ha uno fresco (chiave gratuita OddsPapi, oddspapi.bat): none | oddspapi
+  reference_extra: oddspapi
+  oddspapi: {min_gap_seconds: 2400, max_per_league_day: 4, max_requests_per_day: 8}
   # statistiche live (minuto, punteggio, tiri, cartellini): none | api_football
   live_stats: none
   # true = salva ogni ciclo i prezzi in runtime/recordings/ (circa 3-5 MB al giorno compressi) per il replay.

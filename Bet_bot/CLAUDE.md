@@ -218,6 +218,14 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   `changedAt` è l'ultimo CAMBIO di prezzo, non l'ultima verifica: mediana 6 h su partite lontane NON dice nulla sulla freschezza.
   Va ripetuta nel weekend guardando solo le partite entro 8 ore. Valore atteso: +250 letture/mese di Pinnacle (1 per campionato)
   che si sommano ai 500 crediti di The Odds API, non li sostituiscono. Le quote non contengono i nomi (servono /fixtures).
+- OddsPapi collegato ai lay (07/10/2026, su richiesta esplicita dell'utente, prima della prova sulle partite vicine; feeds/oddspapi_ref.py,
+  settings feed.reference_extra: oddspapi): Pinnacle di SCORTA, usato solo per le partite che dopo The Odds API restano senza
+  riferimento fresco (>40') e hanno un lay possibile; 1 chiamata quote per campionato + nomi (6 h) + elenco campionati (24 h),
+  max 8 richieste/giorno, ≥40' tra due letture, max 4/giorno per campionato, tetto mensile 200. Senza chiave si salta da solo.
+  Campionati mappati: Serie A/B, Premier, Championship, LaLiga, Bundesliga, Ligue 1, Eredivisie, Liga Portugal (TOURNAMENTS).
+  RISCHIO NOTO: l'età del riferimento è quella dello scarico, non della quota (changedAt = ultimo cambio); la partita porta
+  `ref_src: "oddspapi"`. Se il CLV dei lay con questa fonte è peggiore (Leo/esame: oggi NON c'è ancora un segmento dedicato,
+  da aggiungere), spegnere con `reference_extra: none` in runtime/impostazioni.yaml.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
