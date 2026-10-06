@@ -189,6 +189,24 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   log-loss base 0,98685): infrasettimanale +0,00001, serata −0,00043, dispersione delle quote −0,00056, movimento
   Pinnacle apertura→chiusura −0,00004, tasso vittorie casa dell'arbitro +0,00001, testa a testa (ultimi 3) −0,00007, tutte
   insieme −0,00116 (peggio: sovradattamento). Nessun dato extra aggiunge informazione oltre il prezzo di chiusura.
+- Fonti dati gratuite (ricerca del 06/10/2026, 5 agenti; "V" = verificata aprendo la pagina, molte pagine davano 403/429 dal
+  server: i numeri vanno riconfermati dal PC). Nessuna fonte ha dimostrato di anticipare il mercato: sono contesto, non segnali.
+  • Quote storiche calcio: football-data.co.uk (già usata; Pinnacle PS/PSC, exchange BFE/BFEC, 27 stagioni, uso privato, 429 se
+    si scaricano molti file di fila). Tennis: tennis-data.co.uk (quote, tour principale; Challenger/ITF quasi senza quote) +
+    Sackmann tennis_atp/wta (CC BY-NC-SA, senza quote). NFL/NBA/NHL/MLB/NCAA: SBRO (quote di bookmaker) e nflverse (CC-BY).
+  • Sport minori (pallavolo, rugby, pallamano, futsal, floorball, bandy, ping pong, freccette): nessun dataset gratuito con
+    quote. Si resta sulla registrazione dei prezzi di betfair.it + CLV in ombra. OddsPortal/OddsHarvester: scraping vietato dai ToS.
+  • Da PROVARE (non verificato): OddsPapi piano gratuito (dichiara 250 richieste/mese, Pinnacle + Betfair Exchange, storico
+    gratis dal 2026-01, 1 chiamata = tutti i bookmaker): potrebbe sostituire/aiutare i 500 crediti di The Odds API. Provare con
+    una chiave vera prima di costruirci sopra; i volumi dell'exchange non sono confermati.
+  • The Odds API a pagamento: 30 $/mese (20.000 crediti), 59 $ (100K). Non conviene finché i lay non hanno CLV positivo.
+  • Betfair Historic Data (anche Basic gratis): bloccata dall'Italia, la VPN è vietata. Pinnacle API ufficiale: chiusa dal 07/2025.
+  • Contesto: FPL API (Premier League, infortuni con timestamp `news_added`, senza chiave) è la fonte infortuni gratuita più
+    strutturata; Wikidata (CC0) per alias squadre e coordinate stadi; Open-Meteo (non commerciale, 10.000 chiamate/giorno);
+    Understat (xG/PPDA, robots.txt vieta lo scraping: poca frequenza e cache); Club Elo (API instabile al test); API-Football
+    free (~100 richieste/giorno, non verificato) per formazioni/infortuni. Morte: FBref xG (Opta), 538 SPI. Da evitare:
+    Transfermarkt, OddsPortal, Reddit/BBC (ritardo e ToS).
+  • Cricket: Cricsheet. Hockey: MoneyPuck (xG, non commerciale). Baseball: Retrosheet. Nessuno con quote.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
