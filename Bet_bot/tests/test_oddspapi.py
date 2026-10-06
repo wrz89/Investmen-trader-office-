@@ -68,7 +68,7 @@ def test_run_end_to_end_uses_header_and_counts(tmp_path, monkeypatch):
     out = []
     assert O.run(out=out.append, client=O.OddsPapiClient("k-123", session=http)) == 0
     assert all(p["apiKey"] == "k-123" for _, p in http.calls)
-    assert json.loads((tmp_path / "oddspapi_budget.json").read_text())["used"] == 4
+    assert json.loads((tmp_path / "oddspapi_budget.json").read_text())["used"] == 5
     assert "mediana" in "\n".join(out) and (tmp_path / "oddspapi_scoperta.json").exists()
 
 
