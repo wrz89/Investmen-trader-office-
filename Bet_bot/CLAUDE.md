@@ -207,12 +207,14 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
     free (~100 richieste/giorno, non verificato) per formazioni/infortuni. Morte: FBref xG (Opta), 538 SPI. Da evitare:
     Transfermarkt, OddsPortal, Reddit/BBC (ritardo e ToS).
   • Cricket: Cricsheet. Hockey: MoneyPuck (xG, non commerciale). Baseball: Retrosheet. Nessuno con quote.
-- oddspapi.py (`oddspapi.bat`, 06/10/2026): PROVA in sola lettura, NON collegata alle puntate. Header X-API-Key, base
-  https://v5.oddspapi.io/en, calcio sportId=10, /fixtures/odds/main?tournamentId=… → odds[slug][outcomeId]={price,active,changedAt}.
-  Scopre da sola slug Pinnacle/Betfair e id 1X2 (la doc non li elenca: dipendono dalla chiave), stampa l'ETÀ delle quote
-  Pinnacle e salva runtime/oddspapi_scoperta.json. Tetto mensile 200 richieste (runtime/oddspapi_budget.json; le 250 del piano
-  gratuito vengono dal blog del fornitore, non dalla doc). Formati di /bookmakers, /markets, /tournaments NON verificati
-  (lettura tollerante, test con dati finti). Solo se la mediana dell'età di Pinnacle è < ~30' ha senso farne il riferimento dei lay.
+- oddspapi.py (`oddspapi.bat`, 06/10/2026): PROVA in sola lettura, NON collegata alle puntate. La chiave gratuita funziona SOLO
+  sulla v4 (https://api.oddspapi.io/v4, parametro `apiKey`); la v5 della documentazione è B2B e risponde 401. Verificati con la
+  chiave: slug `pinnacle` e `betfair-ex` (esistono anche `pinnacle+5`, `+30` ritardati e `betfair.it`), calcio sportId=10, 1X2 tempo
+  regolamentare marketId 101 (esiti 101/102/103), /odds-by-tournaments vuole ESATTAMENTE un `bookmaker` per chiamata (+ tournamentIds).
+  NON verificato: il formato della risposta delle quote (il mio IP è stato bloccato dall'API, 403 RESTRICTED_ACCESS: gira dal PC
+  dell'utente); lettura tollerante bookmakerOdds[slug].markets[mid].outcomes[oid].players[*].{price,changedAt}, e se non riconosce
+  il formato stampa la prima partita grezza. Tetto mensile 200 richieste (runtime/oddspapi_budget.json; le 250 vengono dal blog).
+  Solo se la mediana dell'età di Pinnacle è < ~30' ha senso farne il riferimento dei lay.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
