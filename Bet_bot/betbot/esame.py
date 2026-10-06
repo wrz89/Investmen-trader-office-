@@ -26,6 +26,9 @@ def criteria(strategy_id: str) -> dict:
     return {**(cfg.get("default") or {}), **(cfg.get(strategy_id) or {})}
 
 
+EARLY_MIN = 20                     # casi minimi per la lettura anticipata
+
+
 def evaluate(store, strategy_id: str, side: str | None = None, fresh: bool = False) -> dict:
     c = criteria(strategy_id)
     rows = store.query("SELECT l.outcome, l.pnl, l.stake, l.clv, e.features, e.odds, e.side, e.src FROM coach_lessons l "
@@ -68,7 +71,12 @@ def evaluate(store, strategy_id: str, side: str | None = None, fresh: bool = Fal
         verdict = "IN ESAME"
     label = strategy_id + (" · solo lay" if side == "LAY" else " · solo back" if side == "BACK" else "") \
         + (" fresco" if fresh else "")
-    return {"strategy_id": label, "verdict": verdict, "n": n, "need": need, "clv": mean, "clv_lo": lo, "clv_hi": hi,
+    # lettura anticipata: dai 20 casi in poi, prima dei 200 dell'esame, si dice solo da che parte pende l'intervallo.
+    # NON è un verdetto e non cambia PRONTA/BOCCIATA: serve a decidere se vale la pena continuare (es. i lay).
+    early = None
+    if EARLY_MIN <= n < need and lo is not None and hi is not None:
+        early = "POSITIVA" if lo > 0 else "NEGATIVA" if hi < 0 else "INCERTA"
+    return {"strategy_id": label, "verdict": verdict, "n": n, "need": need, "clv": mean, "clv_lo": lo, "clv_hi": hi, "early": early,
             "roi": roi, "win_rate": sum(1 for r in real if r["outcome"] == "WON") / n if n else None,
             "reasons": reasons, "criteria": c}
 

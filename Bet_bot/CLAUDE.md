@@ -173,6 +173,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - 4fun raddoppiato (05/10/2026): fun_max_bets_per_day 20 (era 10), fun_max_backs_per_day 8, fun_max_open 6, rischio aperto
   del 4fun al 20% (fun_open_risk_pct), max_open_bets 7 e max_bets_per_day 20 generali. Resta tutto il resto (5 €, EV ≥ −2,5%,
   100 € al prezzo, stop del giorno 9%): le puntate in più arrivano solo se rispettano gli stessi vincoli.
+- Lettura anticipata (06/10/2026): esame.evaluate dà `early` (POSITIVA/INCERTA/NEGATIVA) dai 20 casi, prima dei 200; il
+  bollettino ha la sezione "Lay, lettura anticipata". NON è un verdetto: PRONTA/BOCCIATA restano ai 200 casi.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

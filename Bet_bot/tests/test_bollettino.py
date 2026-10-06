@@ -85,3 +85,23 @@ def test_bulletin_on_start_once_a_day(office, monkeypatch):
     first = office.coach.bulletin_on_start()
     assert first and "Bollettino" in first
     assert office.coach.bulletin_on_start() is None        # già uscito oggi
+
+
+def test_early_reading_for_lays(office, monkeypatch):
+    from betbot import esame
+    fake = {"S09_lay_valore_v1": ("IN ESAME", 25, 0.05, 0.01), "S10_divertimento_v2 · solo lay": ("IN ESAME", 8, 0.1, None)}
+
+    def ev(store, sid, side=None, fresh=False):
+        v, n, clv, lo = fake.get(sid, ("IN ESAME", 0, None, None))
+        return {"strategy_id": sid, "verdict": v, "n": n, "need": 200, "clv": clv, "clv_lo": lo,
+                "clv_hi": None if lo is None else clv + 0.04, "early": "POSITIVA" if lo and lo > 0 else None, "roi": clv,
+                "win_rate": None, "reasons": [], "criteria": {}}
+    monkeypatch.setattr(esame, "evaluate", ev)
+    st = {**office.settings, "mode": "paper", "active_strategies": [], "observe_strategies": ["S09_lay_valore_v1"]}
+    t = B.text(B.build(office.store, st))
+    assert "lettura anticipata" in t and "promettente" in t
+
+
+def test_esame_early_label():
+    from betbot.esame import EARLY_MIN
+    assert EARLY_MIN == 20

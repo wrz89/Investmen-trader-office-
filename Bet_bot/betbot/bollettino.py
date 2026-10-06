@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from .bankroll import TZ
 from .config import REPORTS_DIR
+from .esame import EARLY_MIN
 
 SEND_HOUR = 8                        # ora italiana del bollettino
 
@@ -86,6 +87,14 @@ def text(b: dict) -> str:
                  f"ROI {_pct(r['roi'])}")
     if empty:
         L.append("• ancora senza puntate sui prezzi veri: " + ", ".join(empty))
+    lays = [r for r in b["esame"] if ("lay" in r["strategy_id"].lower() or "S09" in r["strategy_id"]) and r["n"] > 0]
+    if lays:                                           # i lay sono l'unica ipotesi con un vantaggio: si guardano prima dei 200 casi
+        L += ["", "Lay, lettura anticipata (non è un verdetto: servono 200 casi):"]
+        for r in lays:
+            txt = {"POSITIVA": "intervallo sopra zero: promettente", "NEGATIVA": "intervallo sotto zero: il lay non funziona",
+                   "INCERTA": "intervallo attraversa lo zero: non si può dire"}.get(r.get("early"))
+            L.append(f"• {r['strategy_id']}: {r['n']} casi" + (f" · {txt}" if txt else f" · ancora meno di 20 casi (ne servono {EARLY_MIN})")
+                     + ("" if r["clv"] is None else f" · CLV {_pct(r['clv'])}"))
     tr, oz, rec = b.get("test_rapido"), b.get("orizzonti"), b.get("registrazioni") or {}
     mu = b.get("multiple")
     if mu and (mu["doppie"]["n"] or mu["triple"]["n"]):
