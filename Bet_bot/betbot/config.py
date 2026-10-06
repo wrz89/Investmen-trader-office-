@@ -75,6 +75,15 @@ def load_settings(overrides: dict | None = None) -> dict:
     return settings
 
 
+def oddspapi_key() -> str:
+    """Chiave di OddsPapi (variabile ODDSPAPI_KEY o runtime/local_settings.json, cifrata su Windows)."""
+    key = os.environ.get("ODDSPAPI_KEY", "").strip()
+    if key:
+        return key
+    from . import local_settings
+    return (local_settings.load().get("oddspapi_key") or "").strip()
+
+
 def api_key() -> str:
     """Chiave di The Odds API: variabile d'ambiente o runtime/local_settings.json.
     Il file si legge SOLO con local_settings.load(): su Windows la chiave è cifrata con DPAPI ("dpapi:…")

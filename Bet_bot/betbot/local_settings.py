@@ -24,6 +24,7 @@ DEFAULTS = {
     "keep_awake": True,        # il PC non va in sospensione mentre Bet_bot lavora
     "odds_api_key": "",        # https://the-odds-api.com
     "api_football_key": "",    # https://www.api-football.com (API-Sports)
+    "oddspapi_key": "",        # https://oddspapi.io (piano gratuito: prova con oddspapi.bat)
     # Betfair Exchange Italia (betfair.it, concessione ADM). Senza "live_enabled" si resta in paper.
     "betfair": {"app_key": "", "username": "", "password": "", "cert_file": "", "key_file": "",
                 "verified": False, "live_enabled": False, "test_done": False},
@@ -31,7 +32,7 @@ DEFAULTS = {
 
 
 SECRET_PATHS = [("telegram", "token"), ("betfair", "password"), ("betfair", "app_key"), (None, "odds_api_key"),
-                (None, "api_football_key")]
+                (None, "api_football_key"), (None, "oddspapi_key")]
 
 
 def _map_secrets(data: dict, fn) -> None:
@@ -79,6 +80,7 @@ def public(data: dict) -> dict:
     out["telegram"]["configured"] = bool(tg.get("token") and tg.get("chat_id"))
     out["odds_api_key"] = _mask(data.get("odds_api_key") or "")
     out["api_football_key"] = _mask(data.get("api_football_key") or "")
+    out["oddspapi_key"] = _mask(data.get("oddspapi_key") or "")
     bf = data["betfair"]
     out["betfair"].update(app_key=_mask(bf.get("app_key") or ""), password="",
                           has_login=bool(bf.get("app_key") and bf.get("username") and bf.get("password")))

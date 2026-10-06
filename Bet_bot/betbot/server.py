@@ -74,7 +74,7 @@ def handle_action(path: str, body: dict) -> dict:
         return {"message": "Avvio automatico attivato: Bet_bot partirà da solo, ridotto a icona, quando accedi a Windows."
                 if st["enabled"] else "Avvio automatico disattivato."}
     if path == "/api/settings/keys":
-        for key in ("odds_api_key", "api_football_key"):
+        for key in ("odds_api_key", "api_football_key", "oddspapi_key"):
             if body.get(key) is not None:
                 v = str(body[key]).strip()
                 if v and not v.replace("-", "").isalnum():

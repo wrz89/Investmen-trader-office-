@@ -207,6 +207,12 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
     free (~100 richieste/giorno, non verificato) per formazioni/infortuni. Morte: FBref xG (Opta), 538 SPI. Da evitare:
     Transfermarkt, OddsPortal, Reddit/BBC (ritardo e ToS).
   • Cricket: Cricsheet. Hockey: MoneyPuck (xG, non commerciale). Baseball: Retrosheet. Nessuno con quote.
+- oddspapi.py (`oddspapi.bat`, 06/10/2026): PROVA in sola lettura, NON collegata alle puntate. Header X-API-Key, base
+  https://v5.oddspapi.io/en, calcio sportId=10, /fixtures/odds/main?tournamentId=… → odds[slug][outcomeId]={price,active,changedAt}.
+  Scopre da sola slug Pinnacle/Betfair e id 1X2 (la doc non li elenca: dipendono dalla chiave), stampa l'ETÀ delle quote
+  Pinnacle e salva runtime/oddspapi_scoperta.json. Tetto mensile 200 richieste (runtime/oddspapi_budget.json; le 250 del piano
+  gratuito vengono dal blog del fornitore, non dalla doc). Formati di /bookmakers, /markets, /tournaments NON verificati
+  (lettura tollerante, test con dati finti). Solo se la mediana dell'età di Pinnacle è < ~30' ha senso farne il riferimento dei lay.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
