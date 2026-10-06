@@ -64,6 +64,7 @@ def test_fixture_view_age():
 
 def test_run_end_to_end_uses_header_and_counts(tmp_path, monkeypatch):
     monkeypatch.setattr(O, "RUNTIME_DIR", tmp_path)
+    monkeypatch.setattr(O.time, "sleep", lambda s: None)
     http = FakeHttp(ROUTES)
     out = []
     assert O.run(out=out.append, client=O.OddsPapiClient("k-123", session=http)) == 0

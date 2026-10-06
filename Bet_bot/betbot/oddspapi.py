@@ -79,7 +79,9 @@ class OddsPapiClient:
         if r.status_code in (401, 403):
             raise OddsPapiError(f"OddsPapi rifiuta la chiave o l'accesso ({r.status_code}): {hide_secret(r.text[:200], self.key)}")
         if r.status_code == 429:
-            raise OddsPapiError("OddsPapi: troppe richieste o quota finita (429).")
+            ra = self.last_headers.get("Retry-After") or self.last_headers.get("retry-after")
+            raise OddsPapiError("OddsPapi: troppe richieste o quota finita (429)"
+                                + (f", riprova tra {ra} s" if ra else "") + f". Risposta: {hide_secret(r.text[:300], self.key)}")
         if r.status_code >= 400:
             raise OddsPapiError(f"OddsPapi risponde {r.status_code}: {hide_secret(r.text[:200], self.key)}")
         return r.json()
@@ -233,11 +235,13 @@ def run(out=print, client: OddsPapiClient | None = None) -> int:
         if not (ids and tours and (slugs["pinnacle"] or slugs["betfair"])):
             out("\nMi manca qualcosa per proseguire: guarda sopra cosa è 'NON TROVATO'. Nessuna puntata toccata.")
             return 2
-        tid = ",".join(str(t.get("tournamentId") or t.get("id")) for t in tours)
+        tid = str(tours[0].get("tournamentId") or tours[0].get("id"))     # un campionato per volta: più id insieme possono dare 429
         books = slugs["pinnacle"][:1] + slugs["betfair"][:1]
         out(f"4/4 Quote di {tid} ({', '.join(books)}; una chiamata per bookmaker)…")
         merged: dict[str, dict] = {}
         for bk in books:                        # l'API vuole ESATTAMENTE un bookmaker per chiamata
+            if merged:
+                time.sleep(6)                   # pausa tra due chiamate quote: evita il 429 di raffica
             for fx in items(client.get("/odds-by-tournaments", bookmaker=bk, tournamentIds=tid)):
                 key = str(fx.get("fixtureId") or id(fx))
                 cur = merged.setdefault(key, fx)
