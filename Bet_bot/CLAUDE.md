@@ -185,6 +185,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   del mercato (tabella leo_pronostici) e a partita finita ne confronta la log-loss. Pannello nel calendario
   (/api/leo/pronostici) e righe nel bollettino. NON cambia le puntate. Limiti: la palestra (palestra.py, con xG e
   formazioni) è più ricca ma lavora solo sullo storico; qui Elo semplice. Nomi Betfair non abbinati = nessun pronostico.
+- Controllo incrociato su dati extra (06/10/2026, 46.874 partite, 1X2 vs chiusura Pinnacle, walk-forward per stagione,
+  log-loss base 0,98685): infrasettimanale +0,00001, serata −0,00043, dispersione delle quote −0,00056, movimento
+  Pinnacle apertura→chiusura −0,00004, tasso vittorie casa dell'arbitro +0,00001, testa a testa (ultimi 3) −0,00007, tutte
+  insieme −0,00116 (peggio: sovradattamento). Nessun dato extra aggiunge informazione oltre il prezzo di chiusura.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
