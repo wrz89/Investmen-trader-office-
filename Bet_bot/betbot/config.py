@@ -1,4 +1,4 @@
-"""Percorsi e configurazione di Bet_bot.
+r"""Percorsi e configurazione di Bet_bot.
 
 Bet_bot è una cartella autonoma (es. D:\claude\Bet_bot): codice, configurazione,
 dashboard e dati stanno tutti lì dentro. Tutto ciò che il bot produce (database,

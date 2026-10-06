@@ -38,6 +38,7 @@ ROUTES = {
     "/tournaments": [{"tournamentId": 23, "tournamentName": "Serie A", "categoryName": "Italy", "futureFixtures": 330, "upcomingFixtures": 9},
                      {"tournamentId": 203, "tournamentName": "Premier League", "categoryName": "Russia", "futureFixtures": 100, "upcomingFixtures": 5},
                      {"tournamentId": 17, "tournamentName": "Premier League", "categoryName": "England", "futureFixtures": 0, "upcomingFixtures": 0, "liveFixtures": 0}],
+    "/fixtures": [{"fixtureId": "id1", "participant1Name": "Milan", "participant2Name": "Inter"}],
     "/odds-by-tournaments": [{"fixtureId": "id1", "startTime": 1, "participant1Name": "A", "participant2Name": "B",
                               "bookmakerOdds": {
                                   "pinnacle": {"markets": {"101": {"outcomes": {
@@ -69,8 +70,8 @@ def test_run_end_to_end_uses_header_and_counts(tmp_path, monkeypatch):
     out = []
     assert O.run(out=out.append, client=O.OddsPapiClient("k-123", session=http)) == 0
     assert all(p["apiKey"] == "k-123" for _, p in http.calls)
-    assert json.loads((tmp_path / "oddspapi_budget.json").read_text())["used"] == 5
-    assert "mediana" in "\n".join(out) and (tmp_path / "oddspapi_scoperta.json").exists()
+    assert json.loads((tmp_path / "oddspapi_budget.json").read_text())["used"] == 6
+    assert "Milan - Inter" in "\n".join(out) and "mediana" in "\n".join(out) and (tmp_path / "oddspapi_scoperta.json").exists()
 
 
 def test_monthly_cap_stops(tmp_path, monkeypatch):

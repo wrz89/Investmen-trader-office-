@@ -248,28 +248,46 @@ def run(out=print, client: OddsPapiClient | None = None) -> int:
                 if cur is not fx:
                     cur.setdefault("bookmakerOdds", {}).update(fx.get("bookmakerOdds") or {})
         data = list(merged.values())
+        names = {}
+        try:                                    # nomi delle squadre (le quote non li contengono): 1 richiesta in più
+            for fx in items(client.get("/fixtures", tournamentId=tid)):
+                names[str(fx.get("fixtureId"))] = f"{fx.get('participant1Name')} - {fx.get('participant2Name')}"
+        except OddsPapiError as exc:
+            out(f"    (nomi delle squadre non letti: {exc})")
         n = 0
-        etas = []
+        etas, etas_near = [], []
         shown_raw: list = []
+        now = time.time()
         for fx in items(data)[:200]:
             v = fixture_view(fx, slugs, ids)
+            v["partita"] = names.get(str(fx.get("fixtureId")), v["partita"])
             if len(v) <= 2:
                 if n == 0 and not shown_raw:
                     shown_raw.append(1)
                     out("    (formato non riconosciuto, prima partita grezza: " + json.dumps(fx, ensure_ascii=False)[:700] + ")")
                 continue
             n += 1
-            if n <= 5:
-                out("    " + json.dumps(v, ensure_ascii=False))
+            start = _ts(fx.get("startTime"))
+            near = start is not None and 0 <= start - now <= 8 * 3600
+            if n <= 5 or near:
+                out("    " + ("[entro 8 ore] " if near else "") + json.dumps(v, ensure_ascii=False))
             for slug in slugs["pinnacle"]:
                 if isinstance(v.get(slug), dict) and v[slug].get("eta_s") is not None:
                     etas.append(v[slug]["eta_s"])
+                    if near:
+                        etas_near.append(v[slug]["eta_s"])
         used = _budget()["used"]
         out(f"\nRichieste usate in questa prova: {used - used0} · nel mese: {used}/{MONTHLY_CAP} (tetto di sicurezza)")
         if etas:
             etas.sort()
-            out(f"Età delle quote Pinnacle: mediana {etas[len(etas)//2]} s, massima {etas[-1]} s su {len(etas)} partite")
-            out("→ se la mediana è sotto ~1.800 s (30 minuti) OddsPapi è un buon riferimento per i lay.")
+            out(f"Tempo dall'ultimo CAMBIO di quota Pinnacle (non dall'ultimo aggiornamento): mediana {etas[len(etas)//2]} s su {len(etas)} partite")
+            if etas_near:
+                etas_near.sort()
+                out(f"Solo partite che iniziano entro 8 ore: mediana {etas_near[len(etas_near)//2]} s su {len(etas_near)}")
+            else:
+                out("Nessuna partita entro 8 ore: ripeti la prova il sabato o la domenica, vicino a partite del campionato.")
+            out("ATTENZIONE: 'changedAt' è l'ultima volta che il prezzo è CAMBIATO, non l'ultima verifica. Una quota ferma da ore a più giorni "
+                "dall'inizio è normale per Pinnacle. Il dato utile è quello delle partite vicine all'inizio.")
         else:
             out("Nessuna quota Pinnacle trovata nelle partite lette (campionato fermo o piano senza Pinnacle).")
         RUNTIME_DIR.mkdir(parents=True, exist_ok=True)

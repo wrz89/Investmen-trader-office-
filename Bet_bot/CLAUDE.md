@@ -214,7 +214,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   NON verificato: il formato della risposta delle quote (il mio IP è stato bloccato dall'API, 403 RESTRICTED_ACCESS: gira dal PC
   dell'utente); lettura tollerante bookmakerOdds[slug].markets[mid].outcomes[oid].players[*].{price,changedAt}, e se non riconosce
   il formato stampa la prima partita grezza. Tetto mensile 200 richieste (runtime/oddspapi_budget.json; le 250 vengono dal blog).
-  Solo se la mediana dell'età di Pinnacle è < ~30' ha senso farne il riferimento dei lay.
+  Prima prova dal PC (07/10/2026, martedì, partite a 3-4 giorni): funziona, Pinnacle e Betfair presenti per LaLiga (8), ma
+  `changedAt` è l'ultimo CAMBIO di prezzo, non l'ultima verifica: mediana 6 h su partite lontane NON dice nulla sulla freschezza.
+  Va ripetuta nel weekend guardando solo le partite entro 8 ore. Valore atteso: +250 letture/mese di Pinnacle (1 per campionato)
+  che si sommano ai 500 crediti di The Odds API, non li sostituiscono. Le quote non contengono i nomi (servono /fixtures).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
