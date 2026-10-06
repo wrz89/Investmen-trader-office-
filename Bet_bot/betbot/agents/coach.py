@@ -163,6 +163,7 @@ class CoachBook:
                 "lato": f.get("side") or "BACK",
                 "liquidita": _band(f.get("liquidity"), [5, 20, 100, 500], "{:.0f}") + " €",
                 "eta_riferimento": _band(f.get("ref_age_min"), [30, 90, 150], "{:.0f}") + " min",   # Pinnacle vecchio = falso valore?
+                "fonte_rif": "OddsPapi" if f.get("ref_src") == "oddspapi" else "standard",     # il Pinnacle di scorta peggiora il CLV?
                 "qualita": _band(f.get("qualita"), [40, 55, 70, 85], "{:.0f}") + "/100",        # la qualità dei dati misura qualcosa?
                 **{k: str(v) for k, v in (f.get("dyn") or {}).items()}}      # dinamiche della palestra (forma, assenze…)
 
@@ -256,7 +257,7 @@ class Coach(Agent, CoachBook):
             liq = ex.get("lay_size_best" if side == "LAY" else "back_size_best") or ex.get("lay_size" if side == "LAY" else "back_size")
             f = {"sport": (p.get("sport") or m.get("sport") or "").split("_")[0] or "n.d.", "league": p.get("league"),
                  "odds": p.get("odds"), "fair_prob": p.get("fair_prob"), "edge": p.get("edge"), "side": side,
-                 "minutes_before": mins, "ref_age_min": ref_age, "n_books": p.get("n_books") or len(books),
+                 "minutes_before": mins, "ref_age_min": ref_age, "ref_src": m.get("ref_src"), "n_books": p.get("n_books") or len(books),
                  "source": "Pinnacle" if "Pinnacle" in books else (f"consenso {len(books)} book" if books else "nessuna"),
                  "liquidity": liq, "live": bool(p.get("live")), "market": p.get("market"), "feed": self._feed_name(),
                  "qualita": p.get("quality") if p.get("quality") is not None else self._quality_of(p, snapshot)}
@@ -459,7 +460,8 @@ class Coach(Agent, CoachBook):
              "source": "Pinnacle" if "Pinnacle" in books else (f"consenso {len(books)} book" if books else "nessuna"),
              "sport": (p.get("sport") or "").split("_")[0] or "n.d.", "side": side,
              "liquidity": ex.get("lay_size_best" if side == "LAY" else "back_size_best"),
-             "ref_age_min": (now - p["ref_ts"]) / 60 if p.get("ref_ts") and now else None}
+             "ref_age_min": (now - p["ref_ts"]) / 60 if p.get("ref_ts") and now else None,
+             "ref_src": m.get("ref_src")}
         vals = self.segment_values(f)
         for r in rules:
             if r["kind"] == "blocca" and vals.get(r["feature"]) == r["value"]:

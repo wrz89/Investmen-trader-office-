@@ -152,3 +152,9 @@ def test_perche_counts_veto_reasons(tmp_path):
         st.event("risk", "VETO", "INFO", "veto", {"reasons": [r]})
     c = perche.check(st)
     assert dict(c["vetoes"])["Rischio aperto entro … €"] == 2 and "Perché il bot non punta" in perche.text(c)
+
+
+def test_segmento_fonte_riferimento():
+    from betbot.agents.coach import Coach
+    assert Coach.segment_values({"ref_src": "oddspapi"})["fonte_rif"] == "OddsPapi"
+    assert Coach.segment_values({})["fonte_rif"] == "standard"

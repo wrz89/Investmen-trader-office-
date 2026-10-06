@@ -25,7 +25,7 @@ def test_bulletin_ranks_and_proposes_only_what_passed(office, monkeypatch):
     from betbot import esame
     fake = {"S05_favoriti_exchange_v3": ("PRONTA", 230, 0.012, 0.003), "S09_lay_valore_v1": ("BOCCIATA", 210, -0.02, -0.03)}
 
-    def ev(store, sid, side=None, fresh=False):
+    def ev(store, sid, side=None, fresh=False, ref_src=None):
         v, n, clv, lo = fake.get(sid, ("IN ESAME", 12, None, None))
         return {"strategy_id": sid, "verdict": v, "n": n, "need": 200, "clv": clv, "clv_lo": lo,
                 "clv_hi": None if lo is None else clv + 0.01, "roi": clv, "win_rate": None, "reasons": [], "criteria": {}}
@@ -91,7 +91,7 @@ def test_early_reading_for_lays(office, monkeypatch):
     from betbot import esame
     fake = {"S09_lay_valore_v1": ("IN ESAME", 25, 0.05, 0.01), "S10_divertimento_v2 · solo lay": ("IN ESAME", 8, 0.1, None)}
 
-    def ev(store, sid, side=None, fresh=False):
+    def ev(store, sid, side=None, fresh=False, ref_src=None):
         v, n, clv, lo = fake.get(sid, ("IN ESAME", 0, None, None))
         return {"strategy_id": sid, "verdict": v, "n": n, "need": 200, "clv": clv, "clv_lo": lo,
                 "clv_hi": None if lo is None else clv + 0.04, "early": "POSITIVA" if lo and lo > 0 else None, "roi": clv,

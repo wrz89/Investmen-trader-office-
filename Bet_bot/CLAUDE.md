@@ -224,8 +224,8 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   max 8 richieste/giorno, ≥40' tra due letture, max 4/giorno per campionato, tetto mensile 200. Senza chiave si salta da solo.
   Campionati mappati: Serie A/B, Premier, Championship, LaLiga, Bundesliga, Ligue 1, Eredivisie, Liga Portugal (TOURNAMENTS).
   RISCHIO NOTO: l'età del riferimento è quella dello scarico, non della quota (changedAt = ultimo cambio); la partita porta
-  `ref_src: "oddspapi"`. Se il CLV dei lay con questa fonte è peggiore (Leo/esame: oggi NON c'è ancora un segmento dedicato,
-  da aggiungere), spegnere con `reference_extra: none` in runtime/impostazioni.yaml.
+  `ref_src: "oddspapi"`. Se il CLV dei lay con questa fonte è peggiore (Leo/esame: dal 07/10/2026 c'è il segmento di Leo "fonte_rif" (OddsPapi / standard) e la riga d'esame
+  "S10 · solo lay · Pinnacle OddsPapi", anche nel bollettino "Lay, lettura anticipata"; una regola di Leo può frenare i lay OddsPapi), spegnere con `reference_extra: none` in runtime/impostazioni.yaml.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
