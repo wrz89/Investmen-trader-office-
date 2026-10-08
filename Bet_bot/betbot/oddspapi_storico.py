@@ -318,16 +318,31 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
     except OP.OddsPapiError as exc:
         out(f"\n{exc}")
         return 1
+    return rapporto(out, results)
+
+
+def rapporto(out=print, results=None) -> int:
+    """Rapporto dai dati già scaricati (nessuna chiamata all'API). Si salva anche in runtime/reports/oddspapi_storico.txt."""
     cases, n_fx, stats = [], 0, {}
-    matches = results if results is not None else _results()      # una volta sola, dopo i download
+    matches = results if results is not None else _results()
     for p in _dir().glob("*.json"):
         d = json.loads(p.read_text(encoding="utf-8"))
+        if not d.get("raw"):
+            continue
         res = _match_result(d["fx"], matches)
         start = _iso_ts(d["fx"].get("startTime"))
         if res is None or start is None:
             continue
-        rows = evaluate_fixture(d["raw"], start, res, stats=stats)
+        cases += evaluate_fixture(d["raw"], start, res, stats=stats)
         n_fx += 1
-        cases += rows
-    out("\n" + report(cases, n_fx, stats))
+    text = report(cases, n_fx, stats)
+    out("\n" + text)
+    try:
+        path = RUNTIME_DIR / "reports" / "oddspapi_storico.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text + "\n", encoding="utf-8")
+        out(f"\n(rapporto salvato in {path})")
+    except OSError:
+        pass
     return 0
+
