@@ -89,6 +89,10 @@ feed:
     sports: [soccer, tennis, basketball, americanfootball, baseball, icehockey, volleyball, darts, snooker, tabletennis, rugbyunion, rugbyleague, handball]   # mercati MATCH_ODDS letti (e registrati) da Betfair
     auto_sports: true                      # scopre da solo ogni 6 ore gli sport del conto (futsal, floorball…): solo lettura e misura in ombra, mai soldi veri
     soccer_hours: 36                       # finestra per gli eventi (tutti gli sport qui sopra)
+    # quante partite per sport si leggono a ogni giro (le più vicine all'inizio). Prima erano 40 per tutti: nei giorni pieni
+    # (sabato, o 164 partite in un giorno) il bot vedeva solo le prime. Ogni 10 mercati in più costano una richiesta di prezzi.
+    catalogue_default: 40
+    catalogue_max: {soccer: 120, tennis: 100}
   odds_api:
     max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito
     min_remaining: 50              # sotto 50 crediti rimasti il riferimento si ferma (e S05 con lui)

@@ -10,6 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 TTL = 1200
 DAYS = 31
+PAGE = 200                          # massimo di mercati per richiesta (Betfair)
+MAX_PAGES = 15                      # fino a 3.000 partite per sport e campionato
 _cache: dict = {}
 _client = None
 
@@ -79,13 +81,28 @@ def matches(sport: str, comp: str | None = None, store=None, client=None) -> dic
             c = client or _betfair()
             if c is not None:
                 et, mt, _ = tab[sport]
-                cat = c.catalogue(et, mt, DAYS * 24, None, 200, lookback_hours=0, competition_ids=[comp] if comp else None)
+                cat, seen, offset, truncated = [], set(), 0.0, False
+                for _page in range(MAX_PAGES):                 # pagine per orario d'inizio: il limite è 200 mercati a richiesta
+                    page = c.catalogue(et, mt, DAYS * 24, None, PAGE, lookback_hours=-offset,
+                                       competition_ids=[comp] if comp else None)
+                    fresh = [m for m in page if (m.get("marketId") or (m["marketStartTime"], (m.get("event") or {}).get("name"))) not in seen]
+                    for m in fresh:
+                        seen.add(m.get("marketId") or (m["marketStartTime"], (m.get("event") or {}).get("name")))
+                    cat += fresh
+                    if len(page) < PAGE:
+                        break
+                    last = max(datetime.fromisoformat(m["marketStartTime"].replace("Z", "+00:00")) for m in page)
+                    new_offset = (last - now).total_seconds() / 3600
+                    offset = max(new_offset, offset + 1 / 60)    # sempre avanti, anche se 200 mercati partono insieme
+                else:
+                    truncated = True
                 out = []
                 for m in cat:
                     teams = split_event_name((m.get("event") or {}).get("name", "")) or ((m.get("event") or {}).get("name", "?"), "")
                     out.append({"start": m["marketStartTime"], "home": teams[0].strip(), "away": teams[1].strip(),
                                 "league": (m.get("competition") or {}).get("name")})
-                note = "Primi 200 incontri dei prossimi 31 giorni: scegli un campionato per vederli tutti." if len(cat) >= 200 and not comp else ""
+                note = (f"Mostro le prime {len(out)} partite dei prossimi 31 giorni: scegli un campionato per vederle tutte."
+                        if truncated else "")
                 return {"source": "betfair", "matches": out, "note": note}
         except Exception as exc:
             note = f"Betfair non raggiungibile ({exc}): mostro le partite già viste dal bot"

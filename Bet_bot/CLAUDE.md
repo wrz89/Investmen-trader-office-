@@ -240,6 +240,10 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   certificato, collega_betfair, copertura, diagnosi, esame, multiple, oddspapi, orizzonti, simula, sport_disponibili, storico_betfair, test_rapido)
   stanno in `strumenti\` e iniziano con `cd /d "%~dp0.."` per lavorare dalla cartella principale. aggiorna.bat toglie dalla principale i doppioni
   di quelli spostati (dal secondo aggiornamento). Nuovo .bat: di uso quotidiano → principale (`cd /d "%~dp0"`), altrimenti strumenti\ (tests/test_bat.py).
+- Limite dei 200 mercati (08/10/2026): il calendario mostrava solo i primi 200 mercati per orario (5+164+31 = 200: due giorni e nient'altro, schermata
+  dell'utente) → ora pagina per orario d'inizio (calendario.PAGE/MAX_PAGES). Il feed leggeva solo i primi 40 mercati per sport in 36 h: ora
+  feed.betfair.catalogue_max {soccer: 120, tennis: 100}, catalogue_default 40 (ogni 10 mercati = 1 richiesta di prezzi in più a ciclo; alzare con cautela).
+  I campionati con Pinnacle restano comunque letti a parte (_priority_soccer).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

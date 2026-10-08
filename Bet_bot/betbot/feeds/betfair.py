@@ -591,7 +591,8 @@ class BetfairFeed(Feed):
                 continue
             event_type, market_type, _ = self.sports_tab[sport]
             try:
-                found = self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, 40)
+                cap = int((self.cfg.get("catalogue_max") or {}).get(sport, self.cfg.get("catalogue_default", 40)))
+                found = self.client.catalogue(event_type, market_type, self.cfg.get("soccer_hours", 36), None, cap)
             except BetfairError as exc:                      # uno sport che il conto non ha non deve spegnere gli altri
                 bad[sport] = bad.get(sport, 0) + 1
                 errors.append(f"{sport}: {exc}")
