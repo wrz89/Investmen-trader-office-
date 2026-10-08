@@ -225,11 +225,23 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
                 ids[str(t.get("tournamentId"))] = f"{cat} {name}"
         fixtures = []
         until = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        t_start, t_now = _iso_ts(START), time.time()
+        variants = [("con stato e date", {"statusId": 2, "from": START, "to": until}),
+                    ("solo stato", {"statusId": 2}), ("senza filtri", {})]
+        chosen = None                                   # la variante che funziona si trova sul primo campionato e poi si riusa
         for tid in ids:
-            sleep(GAP_FIXTURES)
-            for fx in OP.items(client.get("/fixtures", tournamentId=tid, statusId=2, **{"from": START, "to": until})):
-                if fx.get("hasOdds") is not False:
-                    fixtures.append(fx)
+            for name, params in (variants if chosen is None else [chosen]):
+                sleep(GAP_FIXTURES)
+                got = OP.items(client.get("/fixtures", tournamentId=tid, **params))
+                keep = [f for f in got if (t_start <= (_iso_ts(f.get("startTime")) or 0) < t_now)
+                        and f.get("statusId") in (2, None)]
+                out(f"  {ids[tid]}: {len(got)} partite restituite ({name}), {len(keep)} finite da gennaio")
+                if keep or chosen is not None:
+                    chosen = chosen or (name, params)
+                    fixtures += keep
+                    break
+                if got and name == variants[-1][0]:
+                    out("    esempio grezzo: " + json.dumps(got[0], ensure_ascii=False)[:400])
         out(f"Campionati: {len(ids)} · partite finite da gennaio: {len(fixtures)}")
         todo = [f for f in sorted(fixtures, key=lambda f: str(f.get("startTime"))) if not (_dir() / f"{f['fixtureId']}.json").exists()]
         new = 0

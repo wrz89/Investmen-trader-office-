@@ -68,8 +68,10 @@ class FakeClient:
         if path == "/tournaments":
             return [{"tournamentId": 23, "tournamentName": "Serie A", "categoryName": "Italy"}]
         if path == "/fixtures":
+            if "from" in params:                      # prima variante: l'API non risponde con le date
+                return []
             return [{"fixtureId": "id1", "startTime": START.isoformat(), "participant1Name": "AC Milan",
-                     "participant2Name": "Inter", "hasOdds": True}]
+                     "participant2Name": "Inter", "statusId": 2, "hasOdds": False}]
         assert path == "/historical-odds" and quota is False and params["bookmakers"] == "pinnacle,betfair-ex"
         return raw_fixture()
 
