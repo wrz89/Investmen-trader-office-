@@ -6,7 +6,9 @@ runtime/oddspapi_storico/ e, abbinando il risultato di football-data, rigioca la
 e 1 ora dall'inizio: lay a quota 3-5 (e 3-8) con valore atteso ≥ 2% contro il Pinnacle di quel momento.
 Misure: percentuale di vinte (contro l'attesa), ROI sul rischio e CLV contro il Pinnacle alla chiusura.
 
-Ogni lancio scarica al massimo PER_RUN partite nuove (il resto resta in cache): rilancia finché non basta.
+Ogni lancio lavora RUN_SECONDS secondi (4 chiamate da 5 s per partita: Pinnacle con tutti gli esiti, poi l'exchange un esito
+alla volta, perché l'API lo impone) su partite scelte in ordine casuale: anche un lancio parziale è un campione. Il resto resta
+in cache: rilancia per aggiungere partite.
 Limiti: è l'exchange internazionale, non betfair.it; se la serie dell'exchange non porta un prezzo lay esplicito il lay è
 stimato 2 tick sopra il prezzo (come nel backtest di football-data) e il rapporto lo dice. Formato di
 `exchangeMeta` NON verificato: al primo lancio si stampa un esempio grezzo.
@@ -23,7 +25,7 @@ from .config import RUNTIME_DIR, oddspapi_key
 from .odds import exchange_prices_sane, remove_margin
 from .strategies.s09_lay_valore_v1 import lay_ev
 
-PER_RUN = 40
+RUN_SECONDS = 1500                          # ogni lancio lavora al massimo ~25 minuti (4 chiamate da 5 s per partita)
 START = "2026-01-01T00:00:00Z"
 HORIZONS = (24, 6, 1)                       # ore prima dell'inizio
 COMMISSION = 0.045
@@ -117,6 +119,24 @@ def snapshot(raw: dict, slug: str, t: float):
             return None
         got[sel] = (row[1], row[3])
     return got
+
+
+def fetch_fixture(client, fid: str, sleep=time.sleep) -> dict | None:
+    """Serie storica di una partita: 1 chiamata per Pinnacle (tutti gli esiti) + 1 per ogni esito dell'exchange
+    ('betfair-ex' vuole esattamente un bookmaker e un outcomeId). None se Pinnacle non ha prezzi."""
+    sleep(GAP_HISTORY)
+    pin = client.get("/historical-odds", quota=False, fixtureId=fid, bookmakers="pinnacle")
+    if not series(pin, "pinnacle", OUT["home"]):
+        return None
+    merged = {"fixtureId": fid, "bookmakers": {"pinnacle": pin["bookmakers"]["pinnacle"]}}
+    for oid in OUT.values():
+        sleep(GAP_HISTORY)
+        r = client.get("/historical-odds", quota=False, fixtureId=fid, bookmakers="betfair-ex", outcomeId=oid)
+        bf = ((r.get("bookmakers") or {}).get("betfair-ex") or {}).get("markets", {}).get(MARKET, {}).get("outcomes", {})
+        if oid in bf:
+            merged["bookmakers"].setdefault("betfair-ex", {"markets": {MARKET: {"outcomes": {}}}})
+            merged["bookmakers"]["betfair-ex"]["markets"][MARKET]["outcomes"][oid] = bf[oid]
+    return merged
 
 
 def evaluate_fixture(raw: dict, start: float, res: int, horizons=HORIZONS) -> list[dict]:
@@ -243,22 +263,28 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
                 if got and name == variants[-1][0]:
                     out("    esempio grezzo: " + json.dumps(got[0], ensure_ascii=False)[:400])
         out(f"Campionati: {len(ids)} · partite finite da gennaio: {len(fixtures)}")
-        todo = [f for f in sorted(fixtures, key=lambda f: str(f.get("startTime"))) if not (_dir() / f"{f['fixtureId']}.json").exists()]
-        new = 0
-        for fx in todo[:PER_RUN]:
-            sleep(GAP_HISTORY)
+        import hashlib
+        order = lambda f: hashlib.md5(str(f["fixtureId"]).encode()).hexdigest()      # ordine casuale ma ripetibile
+        todo = [f for f in sorted(fixtures, key=order) if not (_dir() / f"{f['fixtureId']}.json").exists()]
+        new, t0 = 0, time.time()
+        for fx in todo:
+            if time.time() - t0 > RUN_SECONDS:
+                break
             try:
-                raw = client.get("/historical-odds", quota=False, fixtureId=fx["fixtureId"], bookmakers="pinnacle,betfair-ex")
+                raw = fetch_fixture(client, fx["fixtureId"], sleep)
             except OP.OddsPapiError as exc:
                 if "429" in str(exc):
                     out("Limite di velocità: mi fermo, rilancia tra qualche minuto.")
                     break
                 out(f"  {fx['fixtureId']}: {exc}")
-                continue
-            if new == 0:
+                out("  Errore dell'API: mi fermo (controlla il messaggio qui sopra).")
+                break
+            if raw is not None and new == 0:
                 out("Esempio grezzo (per controllare il formato): " + json.dumps(raw, ensure_ascii=False)[:600])
-            (_dir() / f"{fx['fixtureId']}.json").write_text(json.dumps({"fx": fx, "raw": raw}), encoding="utf-8")
+            (_dir() / f"{fx['fixtureId']}.json").write_text(json.dumps({"fx": fx, "raw": raw or {}}), encoding="utf-8")
             new += 1
+            if new % 10 == 0:
+                out(f"  … {new} partite scaricate in questo lancio")
         out(f"Scaricate {new} partite nuove, ne restano {max(0, len(todo) - new)} (rilancia per continuare).")
     except OP.OddsPapiError as exc:
         out(f"\n{exc}")

@@ -72,8 +72,14 @@ class FakeClient:
                 return []
             return [{"fixtureId": "id1", "startTime": START.isoformat(), "participant1Name": "AC Milan",
                      "participant2Name": "Inter", "statusId": 2, "hasOdds": False}]
-        assert path == "/historical-odds" and quota is False and params["bookmakers"] == "pinnacle,betfair-ex"
-        return raw_fixture()
+        assert path == "/historical-odds" and quota is False
+        full = raw_fixture()["bookmakers"]
+        if params["bookmakers"] == "pinnacle":
+            return {"fixtureId": "id1", "bookmakers": {"pinnacle": full["pinnacle"]}}
+        assert params["bookmakers"] == "betfair-ex" and "outcomeId" in params          # l'API vuole un solo esito
+        oid = str(params["outcomeId"])
+        outs = full["betfair-ex"]["markets"]["101"]["outcomes"]
+        return {"fixtureId": "id1", "bookmakers": {"betfair-ex": {"markets": {"101": {"outcomes": {oid: outs[oid]}}}}}}
 
 
 def test_run_scarica_una_volta_e_riporta(tmp_path, monkeypatch):
@@ -87,4 +93,4 @@ def test_run_scarica_una_volta_e_riporta(tmp_path, monkeypatch):
     assert "3 lay" in "\n".join(out) or "lay ·" in "\n".join(out)
     out2 = []
     S.run(out=out2.append, client=c, results=results, sleep=lambda s: None)
-    assert sum(1 for p, _ in c.calls if p == "/historical-odds") == 1          # in cache: non si riscarica
+    assert sum(1 for p, _ in c.calls if p == "/historical-odds") == 4          # in cache: non si riscarica
