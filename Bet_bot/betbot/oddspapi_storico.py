@@ -127,6 +127,8 @@ def _get(client, sleep, **kw):
         try:
             return client.get("/historical-odds", quota=False, **kw)
         except OP.OddsPapiError as exc:
+            if "404" in str(exc):
+                return {}                                  # nessuna quota storica per questa partita: si salta
             if "429" not in str(exc) or attempt == 3:
                 raise
             sleep(10 * (attempt + 1))
@@ -150,7 +152,7 @@ def fetch_fixture(client, fid: str, sleep=time.sleep) -> dict | None:
     return merged
 
 
-def evaluate_fixture(raw: dict, start: float, res: int, horizons=HORIZONS) -> list[dict]:
+def evaluate_fixture(raw: dict, start: float, res: int, horizons=HORIZONS, stats: dict | None = None) -> list[dict]:
     """Casi di lay (uno per orizzonte: l'esito col valore migliore) di una partita finita. res: 0 casa, 1 pari, 2 ospite."""
     sels = ["home", "draw", "away"]
     close = snapshot(raw, "pinnacle", start)
@@ -158,11 +160,16 @@ def evaluate_fixture(raw: dict, start: float, res: int, horizons=HORIZONS) -> li
     rows = []
     for h in horizons:
         t = start - h * 3600
+        st = (stats or {}).setdefault(h, {"completi": 0, "rotti": 0, "in_fascia": 0, "miglior": None}) if stats is not None else None
         pin, bf = snapshot(raw, "pinnacle", t), snapshot(raw, "betfair-ex", t)
         if not pin or not bf:
             continue
+        if st:
+            st["completi"] += 1
         pin_p = [pin[k][0] for k in sels]
         if not exchange_prices_sane([bf[k][0] for k in sels], pin_p):
+            if st:
+                st["rotti"] += 1
             continue                                    # record rotto: come nel backtest di football-data
         fair = remove_margin({k: pin[k][0] for k in sels})
         best = None
@@ -173,6 +180,9 @@ def evaluate_fixture(raw: dict, start: float, res: int, horizons=HORIZONS) -> li
             risk_ev = ev / (lay - 1)
             if best is None or risk_ev > best["edge"]:
                 best = {"sel": k, "lay": lay, "explicit": bool(explicit), "p": fair[k], "edge": risk_ev}
+        if best and 3.0 <= best["lay"] <= 8.0 and st:
+            st["in_fascia"] += 1
+            st["miglior"] = best["edge"] if st["miglior"] is None else max(st["miglior"], best["edge"])
         if not best or best["lay"] < 3.0 or best["lay"] > 8.0 or best["edge"] < 0.02:
             continue
         happened = sels.index(best["sel"]) == res
@@ -210,12 +220,20 @@ def _fmt(s: dict) -> str:
             f"CLV {pc(s['clv'], s['clv_se'])}" + (f" · lay stimato (non esplicito) nel {s['estimated']:.0%}" if s["estimated"] else ""))
 
 
-def report(cases: list[dict], n_fixtures: int) -> str:
+def report(cases: list[dict], n_fixtures: int, stats: dict | None = None) -> str:
     L = [f"Lay di valore sullo storico OddsPapi (gennaio-oggi): {n_fixtures} partite con prezzi di Pinnacle ed exchange.", ""]
     for h in HORIZONS:
         a = [c for c in cases if c["h"] == h]
         L.append(f"A {h} ore dall'inizio, quota 3-8: {_fmt(summarize(a))}")
         L.append(f"   solo quota 3-5 (4fun):   {_fmt(summarize([c for c in a if c['lay'] <= 5.0]))}")
+    if stats:
+        L += ["", "Perché così pochi casi (per orizzonte): partite con prezzi di Pinnacle ed exchange completi / scartate perché incoerenti / "
+                  "con il miglior lay in fascia 3-8 (e il suo valore massimo):"]
+        for h in HORIZONS:
+            st = stats.get(h)
+            if st:
+                mv = "—" if st["miglior"] is None else f"{st['miglior']:+.1%}"
+                L.append(f"   {h} ore: {st['completi']} / {st['rotti']} / {st['in_fascia']} (valore massimo {mv})")
     L += ["", "Attenzione: i casi dello stesso weekend e delle stesse squadre non sono indipendenti, e l'exchange è quello internazionale.",
           "L'intervallo è ± 2 errori standard: se attraversa lo zero non si può dire nulla."]
     return "\n".join(L)
@@ -300,7 +318,7 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
     except OP.OddsPapiError as exc:
         out(f"\n{exc}")
         return 1
-    cases, n_fx = [], 0
+    cases, n_fx, stats = [], 0, {}
     matches = results if results is not None else _results()      # una volta sola, dopo i download
     for p in _dir().glob("*.json"):
         d = json.loads(p.read_text(encoding="utf-8"))
@@ -308,8 +326,8 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
         start = _iso_ts(d["fx"].get("startTime"))
         if res is None or start is None:
             continue
-        rows = evaluate_fixture(d["raw"], start, res)
+        rows = evaluate_fixture(d["raw"], start, res, stats=stats)
         n_fx += 1
         cases += rows
-    out("\n" + report(cases, n_fx))
+    out("\n" + report(cases, n_fx, stats))
     return 0

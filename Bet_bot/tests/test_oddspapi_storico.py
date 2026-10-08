@@ -109,3 +109,16 @@ def test_429_si_riprova(tmp_path):
     waits = []
     raw = S.fetch_fixture(Flaky(), "id1", sleep=waits.append)
     assert raw and "betfair-ex" in raw["bookmakers"] and 10 in waits
+
+
+def test_404_si_salta_e_statistiche():
+    class NoData(FakeClient):
+        def get(self, path, quota=True, **params):
+            if path == "/historical-odds":
+                raise OP.OddsPapiError("OddsPapi risponde 404: No historical odds found.")
+            return super().get(path, quota, **params)
+    assert S.fetch_fixture(NoData(), "id1", sleep=lambda s: None) is None
+    stats = {}
+    S.evaluate_fixture(raw_fixture(), START.timestamp(), 0, stats=stats)
+    assert stats[24]["completi"] == 1 and stats[24]["in_fascia"] == 1 and stats[24]["miglior"] > 0.02
+    assert "Perché così pochi casi" in S.report([], 1, stats)
