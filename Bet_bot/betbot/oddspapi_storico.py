@@ -160,7 +160,7 @@ def evaluate_fixture(raw: dict, start: float, res: int, horizons=HORIZONS, stats
     rows = []
     for h in horizons:
         t = start - h * 3600
-        st = (stats or {}).setdefault(h, {"completi": 0, "rotti": 0, "in_fascia": 0, "miglior": None}) if stats is not None else None
+        st = stats.setdefault(h, {"completi": 0, "rotti": 0, "in_fascia": 0, "miglior": None}) if stats is not None else None
         pin, bf = snapshot(raw, "pinnacle", t), snapshot(raw, "betfair-ex", t)
         if not pin or not bf:
             continue
