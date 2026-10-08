@@ -33,6 +33,8 @@ REM sovrascrivere anche questo file senza che cmd riprenda a leggere da un punto
     )
     robocopy "%%D\Bet_bot" "%~dp0." /E /XD runtime .venv /NFL /NDL /NJH /NJS /NP
   )
+  REM i file spostati in strumenti\ non devono restare doppi nella cartella principale
+  if exist "%~dp0strumenti" for %%F in ("%~dp0strumenti\*.bat") do if exist "%~dp0%%~nxF" del "%~dp0%%~nxF" >nul 2>&1
   ".venv\Scripts\python.exe" -m pip install -q -r requirements.txt
   echo.
   echo Aggiornamento completato. Ora avvia avvia.bat

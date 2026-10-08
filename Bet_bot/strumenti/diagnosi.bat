@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0"
+cd /d "%~dp0.."
 if not exist ".venv\Scripts\python.exe" call installa.bat
 if not exist ".venv\Scripts\python.exe" (
   echo Installazione non riuscita: leggi i messaggi sopra.

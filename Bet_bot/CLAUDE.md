@@ -235,6 +235,11 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   runtime/oddspapi_storico/; regola: lay 3-8 (e 3-5) con EV ≥ 2% sul rischio contro il Pinnacle di 24/6/1 ore prima, record rotti scartati
   (exchange_prices_sane), CLV contro il Pinnacle all'inizio. Formato di exchangeMeta NON verificato: lay stimato 2 tick sopra il prezzo se manca
   (il rapporto lo dice); al primo lancio stampa un esempio grezzo. È l'exchange internazionale, non betfair.it.
+- Cartella principale ordinata (08/10/2026): in Bet_bot restano solo avvia, aggiorna, installa, perche, riconcilia, deposito, vai_live,
+  torna_paper, reset_kill_switch, oddspapi_storico, oddspapi_rapporto; gli altri .bat (allenamento, anteprima, autopsia, backtest, bollettino,
+  certificato, collega_betfair, copertura, diagnosi, esame, multiple, oddspapi, orizzonti, simula, sport_disponibili, storico_betfair, test_rapido)
+  stanno in `strumenti\` e iniziano con `cd /d "%~dp0.."` per lavorare dalla cartella principale. aggiorna.bat toglie dalla principale i doppioni
+  di quelli spostati (dal secondo aggiornamento). Nuovo .bat: di uso quotidiano → principale (`cd /d "%~dp0"`), altrimenti strumenti\ (tests/test_bat.py).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
