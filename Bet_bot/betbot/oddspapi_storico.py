@@ -121,17 +121,28 @@ def snapshot(raw: dict, slug: str, t: float):
     return got
 
 
+def _get(client, sleep, **kw):
+    """Chiamata allo storico con 3 tentativi sul 429 (limite di velocità: l'API chiede solo di aspettare)."""
+    for attempt in range(4):
+        try:
+            return client.get("/historical-odds", quota=False, **kw)
+        except OP.OddsPapiError as exc:
+            if "429" not in str(exc) or attempt == 3:
+                raise
+            sleep(10 * (attempt + 1))
+
+
 def fetch_fixture(client, fid: str, sleep=time.sleep) -> dict | None:
     """Serie storica di una partita: 1 chiamata per Pinnacle (tutti gli esiti) + 1 per ogni esito dell'exchange
     ('betfair-ex' vuole esattamente un bookmaker e un outcomeId). None se Pinnacle non ha prezzi."""
     sleep(GAP_HISTORY)
-    pin = client.get("/historical-odds", quota=False, fixtureId=fid, bookmakers="pinnacle")
+    pin = _get(client, sleep, fixtureId=fid, bookmakers="pinnacle")
     if not series(pin, "pinnacle", OUT["home"]):
         return None
     merged = {"fixtureId": fid, "bookmakers": {"pinnacle": pin["bookmakers"]["pinnacle"]}}
     for oid in OUT.values():
         sleep(GAP_HISTORY)
-        r = client.get("/historical-odds", quota=False, fixtureId=fid, bookmakers="betfair-ex", outcomeId=oid)
+        r = _get(client, sleep, fixtureId=fid, bookmakers="betfair-ex", outcomeId=oid)
         bf = ((r.get("bookmakers") or {}).get("betfair-ex") or {}).get("markets", {}).get(MARKET, {}).get("outcomes", {})
         if oid in bf:
             merged["bookmakers"].setdefault("betfair-ex", {"markets": {MARKET: {"outcomes": {}}}})

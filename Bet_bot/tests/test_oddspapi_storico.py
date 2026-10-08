@@ -94,3 +94,18 @@ def test_run_scarica_una_volta_e_riporta(tmp_path, monkeypatch):
     out2 = []
     S.run(out=out2.append, client=c, results=results, sleep=lambda s: None)
     assert sum(1 for p, _ in c.calls if p == "/historical-odds") == 4          # in cache: non si riscarica
+
+
+def test_429_si_riprova(tmp_path):
+    class Flaky(FakeClient):
+        n = 0
+
+        def get(self, path, quota=True, **params):
+            if path == "/historical-odds":
+                Flaky.n += 1
+                if Flaky.n == 1:
+                    raise OP.OddsPapiError("OddsPapi: troppe richieste o quota finita (429).")
+            return super().get(path, quota, **params)
+    waits = []
+    raw = S.fetch_fixture(Flaky(), "id1", sleep=waits.append)
+    assert raw and "betfair-ex" in raw["bookmakers"] and 10 in waits
