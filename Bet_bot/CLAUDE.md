@@ -226,6 +226,13 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   RISCHIO NOTO: l'età del riferimento è quella dello scarico, non della quota (changedAt = ultimo cambio); la partita porta
   `ref_src: "oddspapi"`. Se il CLV dei lay con questa fonte è peggiore (Leo/esame: dal 07/10/2026 c'è il segmento di Leo "fonte_rif" (OddsPapi / standard) e la riga d'esame
   "S10 · solo lay · Pinnacle OddsPapi", anche nel bollettino "Lay, lettura anticipata"; una regola di Leo può frenare i lay OddsPapi), spegnere con `reference_extra: none` in runtime/impostazioni.yaml.
+- oddspapi_storico.py (`oddspapi_storico.bat`, 08/10/2026): i lay di valore rigiocati sullo storico OddsPapi (v4 /historical-odds,
+  bookmakers=pinnacle,betfair-ex, max 3, cooldown 5 s, dal gennaio 2026, risposta bookmakers→markets→outcomes→players["0"]→[{createdAt,
+  price,limit,active,exchangeMeta}], nessuna quota secondo la doc: contate a parte in `storico`). /fixtures?tournamentId&statusId=2&from&to
+  (cooldown 2 s, senza punteggi: i risultati vengono da football-data via palestra.load_matches + same_team). 40 partite nuove per lancio, cache in
+  runtime/oddspapi_storico/; regola: lay 3-8 (e 3-5) con EV ≥ 2% sul rischio contro il Pinnacle di 24/6/1 ore prima, record rotti scartati
+  (exchange_prices_sane), CLV contro il Pinnacle all'inizio. Formato di exchangeMeta NON verificato: lay stimato 2 tick sopra il prezzo se manca
+  (il rapporto lo dice); al primo lancio stampa un esempio grezzo. È l'exchange internazionale, non betfair.it.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

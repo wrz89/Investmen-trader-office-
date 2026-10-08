@@ -50,9 +50,9 @@ def _budget() -> dict:
     return data
 
 
-def _count_request() -> None:
+def _count_request(quota: bool = True) -> None:
     data = _budget()
-    data["used"] += 1
+    data["used" if quota else "storico"] = data.get("used" if quota else "storico", 0) + 1
     _budget_path().parent.mkdir(parents=True, exist_ok=True)
     _budget_path().write_text(json.dumps(data), encoding="utf-8")
 
@@ -66,10 +66,12 @@ class OddsPapiClient:
         self.http = session or requests
         self.last_headers: dict = {}
 
-    def get(self, path: str, **params):
-        if _budget()["used"] >= MONTHLY_CAP:
+    def get(self, path: str, quota: bool = True, **params):
+        """quota=False: chiamate allo storico, che secondo la documentazione non consumano le richieste del piano
+        (si contano a parte in "storico" e non fermano il tetto mensile)."""
+        if quota and _budget()["used"] >= MONTHLY_CAP:
             raise OddsPapiError(f"Tetto mensile di {MONTHLY_CAP} richieste raggiunto: mi fermo per non esaurire il piano.")
-        _count_request()
+        _count_request(quota)
         try:
             r = self.http.get(f"{self.base}{path}", params={"apiKey": self.key, **{k: v for k, v in params.items() if v is not None}},
                               timeout=20)

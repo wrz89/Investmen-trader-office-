@@ -31,6 +31,7 @@
     python betbot.py autopsia [nome|numero]   perché è stata fatta una puntata e perché è persa (Leo)
     python betbot.py riconcilia           cosa dice Betfair delle puntate vere ancora aperte nel bot (sola lettura)
     python betbot.py perche               perché il bot non punta: freni attivi, motivi dei veti, lezioni di Leo
+    python betbot.py oddspapi-storico     lay di valore rigiocati sullo storico OddsPapi (40 partite nuove a ogni lancio)
     python betbot.py oddspapi             prova la chiave gratuita di OddsPapi (Pinnacle + Betfair, sola lettura)
     python betbot.py sport-disponibili    quali sport ha betfair.it sul tuo conto e quali Bet_bot legge già
     python betbot.py bollettino           il bollettino di Leo adesso (ogni mattina arriva da solo su Telegram)
@@ -83,7 +84,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Sports Betting Office")
     p.add_argument("comando", choices=["avvia", "ciclo", "simula", "backtest", "rischio", "dashboard", "report", "stato",
                                        "prova-telegram", "betfair-verifica", "reset-kill-switch", "replay", "diagnosi",
-                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento", "autopsia", "deposito", "storico-betfair", "multiple", "sport-disponibili", "perche", "riconcilia", "oddspapi"])
+                                       "ferma", "avvio-automatico", "mercurius", "lay", "palestra", "esame", "copertura", "certificato", "collega-betfair", "test-rapido", "nfl", "orizzonti", "live", "bollettino", "anteprima", "allenamento", "autopsia", "deposito", "storico-betfair", "multiple", "sport-disponibili", "perche", "riconcilia", "oddspapi", "oddspapi-storico"])
     p.add_argument("valore", nargs="?", help="avvio-automatico: on | off")
     p.add_argument("--da", help="replay: primo giorno registrato (AAAA-MM-GG)")
     p.add_argument("--a", dest="fino", help="replay: ultimo giorno registrato (AAAA-MM-GG)")
@@ -152,6 +153,9 @@ def main() -> int:
         from betbot import perche
         return perche.run()
 
+    if a.comando == "oddspapi-storico":
+        from betbot import oddspapi_storico
+        return oddspapi_storico.run()
     if a.comando == "oddspapi":
         from betbot import oddspapi
         return oddspapi.run()
