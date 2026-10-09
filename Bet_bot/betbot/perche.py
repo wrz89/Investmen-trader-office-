@@ -69,6 +69,11 @@ def check(store, hours: float = HOURS) -> dict:
         rules = store.query("SELECT strategy_id, kind, feature, value, n, clv, adjust FROM coach_rules WHERE active=1")
     except Exception:                                   # database senza Leo (mai acceso)
         rules = []
+    try:                                                # lay bloccati dalle lezioni di Leo negli ultimi 14 giorni
+        lay_leo = store.query("SELECT blocked_by, COUNT(*) n, MAX(ts) last FROM coach_entries WHERE side='LAY' AND ts >= ? "
+                              "AND blocked_by LIKE 'Lezione di Leo%' GROUP BY blocked_by ORDER BY n DESC", (_since(14 * 24),))
+    except Exception:
+        lay_leo = []
     blocks = []
     if store.get("kill_switch"):
         blocks.append(("Kill switch attivo: " + str(store.get("kill_switch")),
@@ -120,7 +125,7 @@ def check(store, hours: float = HOURS) -> dict:
                        "Riparte da sola domani."))
     return {"ts": time.time(), "hours": hours, "blocks": blocks, "open": len(opened), "stuck": len(stuck), "today": today_n, "vetoes": vetoes.most_common(6), "approved": approved,
             "last_bet": last[0]["ts"] if last else None, "rules": rules,
-            "bankroll": rs.get("bankroll"), "kill_floor": rs.get("kill_floor"), "lay_diag": store.get("lay_diag")}
+            "lay_leo": [dict(r) for r in lay_leo], "bankroll": rs.get("bankroll"), "kill_floor": rs.get("kill_floor"), "lay_diag": store.get("lay_diag")}
 
 
 def text(c: dict) -> str:
@@ -152,6 +157,10 @@ def text(c: dict) -> str:
         if d["candidates"] and not d["fresh_ref"]:
             L.append("  → ci sono partite adatte ma Pinnacle è vecchio o assente: il riferimento viene richiesto da solo (max "
                      "1 credito per campionato ogni 40 minuti). Se resta così per ore, controlla i crediti o il campionato.")
+    ll = c.get("lay_leo") or []
+    L += ["", "Lay bloccati dalle lezioni di Leo (ultimi 14 giorni): " + (
+        f"{sum(r['n'] for r in ll)} proposte, ultima {str(ll[0]['last'])[:16]} — " + "; ".join(f"{r['n']}× {r['blocked_by'].replace('Lezione di Leo: ', '')[:70]}" for r in ll[:3])
+        if ll else "nessuno")]
     if c["rules"]:
         L += ["", "Lezioni di Leo attive (possono solo frenare):"]
         for r in c["rules"]:

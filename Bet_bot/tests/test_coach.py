@@ -190,3 +190,18 @@ def test_legacy_rules_without_side_are_retired(office):
     c.learn()
     row = office.store.query("SELECT active FROM coach_rules WHERE feature='sport' AND value='soccer'")[0]
     assert row["active"] == 0
+
+
+def test_perche_counts_lays_blocked_by_leo(tmp_path):
+    from betbot import perche
+    from betbot.agents.coach import CoachBook
+    from betbot.store import Store
+    from betbot.store import now_iso
+    st = Store(tmp_path / "p.db")
+    CoachBook(st)
+    assert "nessuno" in perche.text(perche.check(st))
+    st.execute("INSERT INTO coach_entries(ts, src, row_id, strategy_id, match_id, selection, side, odds, features, track, blocked_by) "
+               "VALUES(?, 'shadow_bets', 1, 'S10_divertimento_v1', 'M', 'LAY:home', 'LAY', 4.0, '{}', '{}', ?)",
+               (now_iso(), "Lezione di Leo: sport = soccer (CLV -0.9% su 147 puntate)"))
+    txt = perche.text(perche.check(st))
+    assert "Lay bloccati dalle lezioni di Leo (ultimi 14 giorni): 1 proposte" in txt and "sport = soccer" in txt
