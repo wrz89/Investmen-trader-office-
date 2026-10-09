@@ -465,6 +465,9 @@ class SportOffice:
         day = now.strftime("%Y-%m-%d")
         if now.hour < int(cfg.get("telegram_hour", 9)) or self.store.get("mb_sent_day") == day:
             return
+        if time.time() - (self.store.get("mb_try_ts") or 0) < 3600:      # un tentativo all'ora: Telegram giù non rallenta i cicli
+            return
+        self.store.set("mb_try_ts", time.time())
         from . import notifier
         from .matched import telegram_text
         try:

@@ -203,7 +203,14 @@ def make_handler(store: Store, port: int, lan: bool = False, office: bool = Fals
                     return self._json(403, {"error": "solo dal PC"})
                 self._json(200, {"office": office})
             elif self.path.startswith("/api/state"):
-                self._json(200, build_state(store))
+                import time as _t
+                for attempt in range(3):            # il ciclo del bot può tenere occupato il database per un attimo
+                    try:
+                        return self._json(200, build_state(store))
+                    except Exception as exc:
+                        last = exc
+                        _t.sleep(0.4)
+                self._json(503, {"error": f"stato non leggibile adesso: {last}"})
             elif self.path.startswith("/api/leo/pronostici"):
                 from . import leo_pronostico
                 self._json(200, leo_pronostico.summary(store))

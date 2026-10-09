@@ -3008,10 +3008,15 @@ summary h2 { white-space: nowrap; }
         const r = await fetch("/api/state", { cache: "no-store" });
         if (!r.ok) throw new Error(r.status);
         S = await r.json(); live = true; failSince = 0;
+        const ob = $("offline-banner"); if (ob) ob.remove();
       } catch (e) {
         if (!S && SNAP) { S = SNAP; live = false; }
         else if (!S) { $("source").innerHTML = `<span class="dot"></span><span>Ufficio spento: avvia avvia.bat</span>`; $("source").className = "chip bad"; return; }
-        else if (live) { failSince = failSince || Date.now(); showOffline(); return; }
+        else if (live) {                    // un'occhiata andata a vuoto (ciclo pesante) non è un ufficio spento: si avvisa dopo 20 s
+          failSince = failSince || Date.now();
+          if (Date.now() - failSince >= 20000) showOffline();
+          return;
+        }
       }
       renderAll();
     } finally { inFlight = false; }
