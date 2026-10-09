@@ -24,6 +24,15 @@ from .base import Feed, FeedError
 BASE = "https://api.the-odds-api.com/v4"
 
 
+def credits_per_day(cfg: dict, today: datetime | None = None) -> int:
+    """Crediti giornalieri: più larghi venerdì-domenica (quando giocano i campionati con Pinnacle e un lay si può verificare),
+    stretti da lunedì a giovedì. Senza i due valori resta max_credits_per_day."""
+    today = today or datetime.now()
+    base = int(cfg.get("max_credits_per_day", 15))
+    key = "max_credits_weekend" if today.weekday() >= 4 else "max_credits_weekday"
+    return int(cfg.get(key, base))
+
+
 class OddsApiFeed(Feed):
     name = "odds_api"
 
@@ -79,7 +88,7 @@ class OddsApiFeed(Feed):
     def budget_ok(self, cost: int) -> tuple[bool, str]:
         cfg = self.settings["feed"].get("odds_api") or {}
         b = self._budget()
-        per_day = int(cfg.get("max_credits_per_day", 15))
+        per_day = credits_per_day(cfg)
         floor = int(cfg.get("min_remaining", 50))
         if b.get("remaining") is not None and int(b["remaining"]) - cost < floor:
             return False, f"crediti The Odds API quasi finiti ({b['remaining']} rimasti)"

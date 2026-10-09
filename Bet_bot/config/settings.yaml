@@ -94,7 +94,9 @@ feed:
     catalogue_default: 40
     catalogue_max: {soccer: 120, tennis: 100}
   odds_api:
-    max_credits_per_day: 15        # 15 × 30 giorni ≈ 450: dentro i 500 del piano gratuito
+    max_credits_per_day: 15        # valore di scorta se mancano i due qui sotto
+    max_credits_weekday: 8         # lunedì-giovedì: pochi campionati con Pinnacle, i crediti si risparmiano
+    max_credits_weekend: 25        # venerdì-domenica: dove un lay si può verificare (circa 4×8 + 3×25 per settimana ≈ 460 al mese)
     min_remaining: 50              # sotto 50 crediti rimasti il riferimento si ferma (e S05 con lui)
     odds_refresh_seconds: 43200    # solo NBA/NFL (se in stagione), ogni 12 ore. Il calcio NON si scarica a tappeto: solo
                                    # su richiesta, un campionato alla volta, quando c'è un lay possibile (feeds/__init__.py)

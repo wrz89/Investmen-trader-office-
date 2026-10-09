@@ -77,3 +77,13 @@ def test_chiave_mancante_non_rompe_il_feed(monkeypatch):
         assert False
     except F.FeedError:
         pass
+
+
+def test_crediti_piu_larghi_nel_weekend():
+    from datetime import datetime
+    from betbot.feeds.odds_api import credits_per_day
+    cfg = {"max_credits_per_day": 15, "max_credits_weekday": 8, "max_credits_weekend": 25}
+    assert credits_per_day(cfg, datetime(2026, 10, 7)) == 8            # mercoledì
+    assert credits_per_day(cfg, datetime(2026, 10, 9)) == 25           # venerdì
+    assert credits_per_day(cfg, datetime(2026, 10, 11)) == 25          # domenica
+    assert credits_per_day({"max_credits_per_day": 15}, datetime(2026, 10, 7)) == 15

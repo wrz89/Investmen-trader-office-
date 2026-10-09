@@ -38,13 +38,24 @@ def lay_diagnosis(snap: dict, settings: dict) -> dict:
     except (OSError, ValueError):
         b = {}
     from .feeds import league_key
+    from .feeds.odds_api import credits_per_day
+    fcfg = (settings.get("feed") or {})
+    extra = {"enabled": fcfg.get("reference_extra") == "oddspapi",
+             "note": next((p.strip() for p in str((snap.get("health") or {}).get("source", "")).split("·") if "OddsPapi" in p), None),
+             "fresh": sum(1 for m in fresh if m.get("ref_src") == "oddspapi")}
+    try:
+        ob = json.loads((RUNTIME_DIR / "oddspapi_budget.json").read_text(encoding="utf-8"))
+        extra["used_month"] = ob.get("used")
+    except (OSError, ValueError):
+        extra["used_month"] = None
     cov, unc = collections.Counter(), collections.Counter()
     for m in cand:
         (cov if league_key(m.get("league")) else unc)[m.get("league") or "?"] += 1
     return {"ts": time.time(), "covered": cov.most_common(5), "uncovered": unc.most_common(6),
             "soccer": len(soccer), "in_window": len(in_win), "candidates": len(cand), "fresh_ref": len(fresh),
             "lays": len(lays), "best_edge": max((p["edge"] for p in lays), default=None),
-            "credits_used_today": b.get("used"), "credits_left": b.get("remaining")}
+            "credits_used_today": b.get("used"), "credits_left": b.get("remaining"),
+            "credits_day_cap": credits_per_day((fcfg.get("odds_api") or {})), "oddspapi": extra}
 
 
 def check(store, hours: float = HOURS) -> dict:
@@ -149,7 +160,11 @@ def text(c: dict) -> str:
         L += ["", "Lay (ultimo ciclo): " + f"{d['soccer']} partite di calcio, {d['in_window']} entro 4 ore, {d['candidates']} con un esito a "
               f"quota 3-5, di cui {d['fresh_ref']} con Pinnacle fresco → {d['lays']} lay di valore"
               + (f" (miglior EV {d['best_edge']:+.1%})" if d.get("best_edge") is not None else "")
-              + f". Crediti Odds API: {d['credits_used_today']} usati oggi, {d['credits_left']} rimasti."]
+              + f". Crediti Odds API: {d['credits_used_today']} usati oggi su {d.get('credits_day_cap', '?')}, {d['credits_left']} rimasti."]
+        x = d.get("oddspapi") or {}
+        L.append("  Pinnacle di scorta (OddsPapi): " + ("spento" if not x.get("enabled") else
+                 f"acceso · richieste del mese {x.get('used_month') if x.get('used_month') is not None else '?'}/200 · "
+                 f"{x.get('fresh', 0)} partite fresche da lì" + (f" · ultimo stato: {x['note']}" if x.get("note") else "")))
         if d.get("covered") or d.get("uncovered"):
             L.append("  Con Pinnacle disponibile: " + (", ".join(f"{n} ({k})" for n, k in d.get("covered", [])) or "nessun campionato")
                      + " · senza Pinnacle (non coperti, nessun lay possibile): "

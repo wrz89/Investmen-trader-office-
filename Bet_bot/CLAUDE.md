@@ -249,6 +249,9 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   possibile vantaggio). Ora learn() usa segments(by_side=True): caratteristica con suffisso "_back"/"_lay" ("sport_back"), la caratteristica "lato" non
   si impara più; check() applica una regola per lato solo a quel lato; le regole vecchie senza suffisso (tranne "lato") si ritirano da sole alla prima
   learn() e si reimparano per lato. Un lay si frena solo con 60+ casi LAY negativi.
+- Crediti The Odds API per giorno (09/10/2026): erano 15 fissi e finivano a metà giornata (venerdì 9/10: 15 usati, 135 rimasti nel piano) con 0 lay
+  possibili. Ora max_credits_weekday 8 (lun-gio) e max_credits_weekend 25 (ven-dom): campionati con Pinnacle e lay verificabili si concentrano nel
+  weekend. perche.bat mostra "usati oggi su N" e lo stato del Pinnacle di scorta OddsPapi (acceso/spento, richieste del mese, partite fresche).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
