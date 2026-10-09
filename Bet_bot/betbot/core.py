@@ -512,6 +512,7 @@ class SportOffice:
                            level="WARN" if n_open else "INFO")
         fast = float(self.settings.get("fast_seconds", 5))
         STOP_FILE.unlink(missing_ok=True)
+        RESTART_FILE.unlink(missing_ok=True)        # una richiesta di riavvio rimasta da prima non deve spegnere il bot appena acceso
         while True:
             system.keep_awake(local_settings.load().get("keep_awake", True))
             started = time.monotonic()

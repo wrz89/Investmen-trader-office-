@@ -570,3 +570,27 @@ def test_lost_response_not_yet_visible_blocks_new_bets_until_resolved(tmp_path, 
     o.resolve_orders()
     assert o.store.query("SELECT status FROM orders")[0]["status"] == "MATCHED"
     assert o.store.get("kill_switch")                          # posizione vera fuori registro → blocco
+
+
+def test_richiesta_di_riavvio_vecchia_non_spegne_il_bot(tmp_path, monkeypatch):
+    """Una riavvio.richiesta rimasta da prima faceva uscire il bot dopo il primo ciclo (avvia.bat: 'Bet_bot fermato')."""
+    import asyncio
+    from betbot import core
+    from betbot.core import SportOffice
+    stop, restart = tmp_path / "ferma.richiesta", tmp_path / "riavvio.richiesta"
+    monkeypatch.setattr(core, "STOP_FILE", stop)
+    monkeypatch.setattr(core, "RESTART_FILE", restart)
+    restart.write_text("live")
+    o = SportOffice(db_path=tmp_path / "x.db", connect_feed=False)
+    o.settings["cycle_seconds"], o.settings["fast_seconds"] = 0.05, 0.01
+    calls = []
+
+    async def cycle():
+        calls.append(1)
+        if len(calls) == 3:
+            stop.write_text("x")                     # al terzo ciclo si chiede lo spegnimento
+    o.run_cycle = cycle
+    o.manage_trades_fast = lambda: asyncio.sleep(0)
+    o.shutdown = lambda *a, **k: asyncio.sleep(0)
+    asyncio.run(o.run_forever())
+    assert len(calls) == 3 and not restart.exists()

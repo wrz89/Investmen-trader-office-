@@ -457,6 +457,12 @@ def main() -> int:
             print("\n" + todays + "\n")
         try:
             asyncio.run(office.run_forever())
+            from betbot.config import RESTART_FILE
+            if RESTART_FILE.exists():                        # live acceso/spento o deposito dalla dashboard: si riparte subito
+                RESTART_FILE.unlink(missing_ok=True)
+                print("\nRiavvio con le nuove impostazioni…")
+                return 3
+            print("\nBet_bot fermato (spegnimento richiesto).")
         except KeyboardInterrupt:
             # CTRL+C = spegnimento ordinato come `betbot.py ferma`: niente nuove puntate, trade aperti chiusi
             print("\nChiudo i trade aperti prima di spegnere… (CTRL+C di nuovo per uscire subito)")

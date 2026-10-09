@@ -80,7 +80,12 @@ def test_office_stops_on_restart_request(tmp_path, monkeypatch):
     flag = tmp_path / "riavvio.richiesta"
     monkeypatch.setattr(core, "RESTART_FILE", flag)
     monkeypatch.setattr(core, "STOP_FILE", tmp_path / "ferma.richiesta")
-    flag.write_text("live")
+    orig = office.run_cycle
+
+    async def cycle():                                                # la dashboard chiede il riavvio a bot acceso
+        await orig()
+        flag.write_text("live")
+    office.run_cycle = cycle
     asyncio.run(asyncio.wait_for(office.run_forever(), 30))          # esce da solo: niente attesa di un'ora
     assert flag.exists()                                               # lo cancella `avvia` dopo, per uscire con 3
 
