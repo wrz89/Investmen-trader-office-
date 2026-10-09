@@ -11,6 +11,7 @@ al bot viene ignorato. I comandi possono solo informare o FRENARE:
   /chiudi    chiude subito tutti i trade aperti (uscita urgente)
   /pausa N   niente nuove puntate per N minuti (predefinito 60)
   /riprendi  toglie la pausa (NON il kill switch)
+  /coperture partite di betfair.it dove coprire un bonus costa meno (matched betting, NON pronostici)
   /aiuto     questo elenco
 
 Gira in un thread separato con long polling (getUpdates): un errore di rete non ferma mai il bot.
@@ -25,7 +26,7 @@ from .store import now_iso
 
 HELP = ("Comandi Bet_bot:\n/stato · bankroll e blocchi\n/aperte · puntate in gioco\n/oggi · riepilogo del giorno\n"
         "/stop · kill switch immediato (reset solo dal PC)\n/chiudi · chiude subito i trade aperti\n/pausa 60 · niente nuove puntate per 60 minuti\n"
-        "/riprendi · toglie la pausa\n/aiuto · questo elenco")
+        "/riprendi · toglie la pausa\n/coperture · dove coprire un bonus su betfair.it (matched betting)\n/aiuto · questo elenco")
 
 
 def _eur(v) -> str:
@@ -135,6 +136,9 @@ class TelegramCommands:
             self.office.risk.say(f"Pausa chiesta da Telegram: nessuna nuova puntata per {minutes} minuti.", "blocked",
                                  "circuit", level="WARN")
             return f"In pausa per {minutes} minuti."
+        if cmd == "/coperture":
+            from .matched import telegram_text
+            return telegram_text((self.store.get("mb_lay_board") or {}).get("rows") or [], html=False)
         if cmd == "/riprendi":
             self.store.set("telegram_pause_until", 0)             # solo la pausa del telefono: i freni automatici restano
             self.office.risk.log("Pausa tolta da Telegram.", "INFO", "circuit")

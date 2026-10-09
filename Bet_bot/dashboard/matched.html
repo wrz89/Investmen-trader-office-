@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matched betting · Bet_bot</title>
+<style>
+:root { --bg:#f4f6f3; --panel:#ffffff; --fg:#1d2a22; --muted:#5d6b62; --line:#d9e0da; --acc:#1f7a55; --warn:#b45309; --bad:#b42318; --good:#1f7a55; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1512; --panel:#16201b; --fg:#e4ece6; --muted:#9fb0a5; --line:#2a3830; --acc:#4fbf8b; --warn:#f0a541; --bad:#f26b5b; --good:#4fbf8b; color-scheme: dark; } }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, "Segoe UI", sans-serif; }
+.wrap { max-width:1200px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+header { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+h1 { margin:0; font-size:24px; } h2 { margin:0 0 10px; font-size:18px; }
+a { color:var(--acc); }
+.grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+@media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
+label { display:grid; gap:3px; font-size:13px; color:var(--muted); }
+input, select { font:inherit; padding:7px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); min-width:0; }
+.row { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:10px; }
+.big { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }
+.out { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:10px; margin-top:12px; }
+.out div { border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.out b { display:block; font-size:20px; font-variant-numeric:tabular-nums; }
+.note { color:var(--muted); font-size:13px; }
+.warn { color:var(--warn); font-weight:600; } .bad { color:var(--bad); font-weight:600; } .good { color:var(--good); }
+table { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
+th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+.scroll { overflow-x:auto; max-height:420px; overflow-y:auto; }
+button { font:inherit; padding:7px 12px; border-radius:6px; border:1px solid var(--acc); background:var(--acc); color:#fff; cursor:pointer; }
+button.ghost { background:transparent; color:var(--acc); }
+ol { margin:6px 0 0 18px; padding:0; } li { margin:2px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Matched betting</h1><a href="/">← torna all'ufficio</a></header>
+  <p class="warn" id="live-note" hidden>Il bot è con i soldi veri sullo stesso conto Betfair: i lay del matched betting cambiano il saldo e il rischio aperto. Meglio torna_paper.bat mentre fai matched betting.</p>
+  <p class="note" id="mode-note">Il bot non punta nulla sui siti dei bookmaker e non piazza i lay da solo: qui ci sono solo i calcoli, il tuo registro e le partite di betfair.it dove coprirsi costa meno. Commissione betfair.it 4,5%.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Calcolatore</h2>
+      <div class="row">
+        <label>Tipo <select id="c-type">
+          <option value="q">Qualificante (soldi tuoi)</option>
+          <option value="snr" selected>Freebet SNR (puntata non restituita)</option>
+          <option value="sr">Freebet SR (puntata restituita)</option></select></label>
+        <label>Importo (€) <input id="c-amt" type="number" step="0.5" min="0" value="10"></label>
+        <label>Quota bookmaker <input id="c-qb" type="number" step="0.01" min="1.01" value="5"></label>
+        <label>Quota lay betfair.it <input id="c-ql" type="number" step="0.01" min="1.01" value="5.2"></label>
+        <label>Commissione <input id="c-c" type="number" step="0.1" min="0" value="4.5"></label>
+      </div>
+      <div class="out">
+        <div>Banca (lay) su Betfair<b id="o-lay">—</b></div>
+        <div>Responsabilità bloccata<b id="o-liab">—</b></div>
+        <div>Se vince l'esito<b id="o-back">—</b></div>
+        <div>Se non vince<b id="o-lay2">—</b></div>
+        <div>Risultato garantito<b id="o-res">—</b></div>
+      </div>
+      <p id="o-msg" class="note"></p>
+      <ol class="note">
+        <li>Leggi le condizioni del bonus (quota minima, singola o multipla, scadenza).</li>
+        <li>Ricontrolla la quota vera sul bookmaker e quella lay su betfair.it, poi ricalcola.</li>
+        <li>Piazza prima il <b>lay</b> su Betfair e verifica che sia <b>abbinato per intero</b>.</li>
+        <li>Poi punta sul bookmaker. Se la quota è cambiata, ricalcola e correggi subito.</li>
+        <li>Segna tutto nel registro qui sotto.</li>
+      </ol>
+    </section>
+
+    <section class="panel">
+      <h2>Dove coprirsi su betfair.it</h2>
+      <p class="note" id="b-note">Calcio, prossime 48 ore, spread ≤ 3% e almeno 30 € al miglior prezzo lay. Prezzi letti dal bot (con la chiave "delayed" possono avere fino a 3 minuti di ritardo: ricontrolla sempre sul sito). "Usa" copia back e lay nel calcolatore: poi scrivi la quota VERA del bookmaker.</p>
+      <div class="scroll"><table><thead><tr><th>Partita</th><th>Esito</th><th>Back</th><th>Lay</th><th>Spread</th><th>€ al lay</th><th>Inizio</th><th></th></tr></thead><tbody id="b-rows"></tbody></table></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Registro bonus <span class="note" id="s-sum"></span></h2>
+    <form id="f" class="row">
+      <input type="hidden" id="f-id">
+      <label>Bookmaker <input id="f-bookmaker" required></label>
+      <label>Offerta <input id="f-offerta" placeholder="es. freebet 10 €"></label>
+      <label>Deposito (€) <input id="f-deposito" type="number" step="0.01"></label>
+      <label>Bonus (€) <input id="f-bonus" type="number" step="0.01"></label>
+      <label>Rollover residuo (€) <input id="f-rollover" type="number" step="0.01"></label>
+      <label>Scadenza <input id="f-scadenza" type="date"></label>
+      <label>Profitto netto (€) <input id="f-profitto" type="number" step="0.01"></label>
+      <label>Stato <select id="f-stato"><option>da fare</option><option>in corso</option><option>chiuso</option><option>saltato</option></select></label>
+      <label>Note <input id="f-note"></label>
+      <label>&nbsp;<button type="submit">Salva</button></label>
+    </form>
+    <p class="note" id="f-msg"></p>
+    <div class="scroll"><table><thead><tr><th>Bookmaker</th><th>Offerta</th><th>Deposito</th><th>Bonus</th><th>Rollover</th><th>Scadenza</th><th>Profitto</th><th>Stato</th><th></th></tr></thead><tbody id="r-rows"></tbody></table></div>
+  </section>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const eur = v => (v == null || isNaN(v)) ? "—" : v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+let AVAILABLE = null;
+
+function calc() {
+  const t = $("c-type").value, a = +$("c-amt").value, qb = +$("c-qb").value, ql = +$("c-ql").value, c = (+$("c-c").value) / 100;
+  const msg = $("o-msg");
+  if (!(a > 0 && qb > 1 && ql > 1)) { msg.textContent = "Inserisci importo e quote maggiori di 1."; return; }
+  let lay, ifBack, ifLay;
+  if (t === "q") { lay = a * qb / (ql - c); ifBack = a * (qb - 1) - lay * (ql - 1); ifLay = -a + lay * (1 - c); }
+  else { const k = t === "sr" ? qb : qb - 1; lay = a * k / (ql - c); ifBack = a * k - lay * (ql - 1); ifLay = lay * (1 - c); }
+  const liab = lay * (ql - 1), res = Math.min(ifBack, ifLay);
+  $("o-lay").textContent = eur(lay); $("o-liab").textContent = eur(liab);
+  $("o-back").textContent = eur(ifBack); $("o-lay2").textContent = eur(ifLay);
+  $("o-res").textContent = `${eur(res)} (${(res / a * 100).toFixed(1)}%)`;
+  $("o-res").className = res >= 0 ? "good" : "";
+  const parts = [];
+  if (AVAILABLE != null && liab > AVAILABLE) parts.push(`<span class="bad">Responsabilità ${eur(liab)} oltre il saldo disponibile su Betfair (${eur(AVAILABLE)}): non piazzare.</span>`);
+  if (lay < 0.5) parts.push(`<span class="warn">Betfair.it accetta lay con puntata del backer di almeno 0,50 €.</span>`);
+  if (ql < qb * 0.9) parts.push(`<span class="warn">Quota lay molto sotto quella del bookmaker: ricontrolla di aver scritto le quote della stessa partita e dello stesso esito.</span>`);
+  if (ql / qb - 1 > 0.05) parts.push(`<span class="warn">Quota lay molto più alta della back: la copertura costa cara, cerca un'altra partita.</span>`);
+  if (t !== "q" && res / a < 0.6) parts.push(`<span class="warn">Conversione sotto il 60%: con quote 4-6 di solito si arriva al 70%.</span>`);
+  msg.innerHTML = parts.join("<br>") || "Ok. Ricorda: prima il lay, poi la puntata sul bookmaker.";
+}
+["c-type", "c-amt", "c-qb", "c-ql", "c-c"].forEach(id => $(id).addEventListener("input", calc));
+
+function useRow(r) { $("c-qb").value = r.back; $("c-ql").value = r.lay; calc(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+async function load() {
+  let d;
+  try { d = await (await fetch("/api/matched")).json(); } catch (e) { $("b-note").textContent = "Dati non disponibili: apri la pagina dal PC con il bot acceso."; return; }
+  AVAILABLE = d.available ?? null;
+  $("live-note").hidden = d.mode !== "live";
+  const tb = $("b-rows"); tb.innerHTML = "";
+  (d.board || []).forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${esc(r.match)}<br><span class="note">${esc(r.league)}</span></td><td>${esc(r.sel)}</td><td>${r.back}</td><td>${r.lay}</td><td>${(r.spread * 100).toFixed(1)}%</td><td>${r.lay_eur}</td><td>${new Date(r.kickoff).toLocaleString("it-IT", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</td><td><button class="ghost" type="button">Usa</button></td>`;
+    tr.querySelector("button").onclick = () => useRow(r);
+    tb.appendChild(tr);
+  });
+  if (!(d.board || []).length) tb.innerHTML = `<tr><td colspan="7" class="note">Nessuna partita adatta in questo momento (o bot spento).</td></tr>`;
+  const s = d.summary || {};
+  $("s-sum").textContent = `· ${s.chiusi || 0} chiusi, profitto ${eur(s.profitto || 0)}, ${s.aperti || 0} aperti, ${eur(s.bloccato || 0)} depositati in offerte in corso`;
+  const rb = $("r-rows"); rb.innerHTML = "";
+  (d.bonus || []).forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${esc(r.bookmaker)}</td><td>${esc(r.offerta)}</td><td>${eur(r.deposito)}</td><td>${eur(r.bonus)}</td><td>${eur(r.rollover)}</td><td>${esc(r.scadenza)}</td><td>${eur(r.profitto)}</td><td>${esc(r.stato)}</td><td><button class="ghost" type="button">Modifica</button> <button class="ghost" type="button">✕</button></td>`;
+    const [ed, del] = tr.querySelectorAll("button");
+    ed.onclick = () => { $("f-id").value = r.id; ["bookmaker","offerta","deposito","bonus","rollover","scadenza","profitto","stato","note"].forEach(k => $("f-" + k).value = r[k] ?? ""); };
+    del.onclick = () => post({ delete: r.id });
+    rb.appendChild(tr);
+  });
+  calc();
+}
+
+async function post(body) {
+  try {
+    const r = await fetch("/api/matched/bonus", { method: "POST", headers: { "Content-Type": "application/json", "X-Office": "1" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    $("f-msg").textContent = j.message || j.error || "";
+  } catch (e) { $("f-msg").textContent = "Salvataggio non riuscito."; }
+  load();
+}
+$("f").addEventListener("submit", e => {
+  e.preventDefault();
+  const body = { id: $("f-id").value };
+  ["bookmaker","offerta","deposito","bonus","rollover","scadenza","profitto","stato","note"].forEach(k => body[k] = $("f-" + k).value);
+  post(body); $("f").reset(); $("f-id").value = "";
+});
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

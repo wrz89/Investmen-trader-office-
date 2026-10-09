@@ -38,6 +38,13 @@ def settings_view() -> dict:
 
 
 def handle_action(path: str, body: dict) -> dict:
+    if path == "/api/matched/bonus":                     # registro dei bonus (matched betting): solo runtime/bonus.json
+        from . import matched
+        if body.get("delete"):
+            matched.delete_row(body["delete"])
+            return {"message": "Riga del registro bonus cancellata."}
+        row = matched.save_row(body)
+        return {"message": f"Registro bonus: {row['bookmaker']} salvato."}
     s = local_settings.load()
     if path == "/api/settings/telegram":
         if body.get("clear"):
@@ -200,6 +207,15 @@ def make_handler(store: Store, port: int, lan: bool = False, office: bool = Fals
             elif self.path.startswith("/api/leo/pronostici"):
                 from . import leo_pronostico
                 self._json(200, leo_pronostico.summary(store))
+            elif self.path.startswith("/api/matched"):
+                from . import matched
+                board = store.get("mb_lay_board") or {}
+                bal = store.get("live_balance") or {}
+                self._json(200, {"board": board.get("rows", []), "board_ts": board.get("ts"), "bonus": matched.load(),
+                                 "summary": matched.summary(), "available": bal.get("available"),
+                                 "mode": (store.get("office_meta") or {}).get("mode")})
+            elif self.path.split("?")[0] in ("/matched", "/matched.html"):
+                self._send(200, (DASHBOARD_FILE.parent / "matched.html").read_bytes(), "text/html; charset=utf-8")
             elif self.path.startswith("/api/calendario"):
                 from urllib.parse import parse_qs, urlparse
                 from . import calendario

@@ -130,3 +130,7 @@ coach:                     # Leo, l'allenatore: autopsia di ogni puntata e regol
                            # controllati insieme, su 30 puntate qualche falso allarme è atteso; 05/10/2026)
   apply_rules: true        # le regole possono SOLO bloccare (mai allargare i limiti); false = solo osservazione
   max_rules: 60            # tetto alto: con le regole per lato (back/lay) 12 non bastavano e le regole di S10 misura (le uniche che frenano il 4fun live) restavano fuori (09/10/2026)
+
+matched:                     # matched betting (pagina /matched della dashboard, comando /coperture su Telegram)
+  telegram_daily: true       # ogni giorno dalle telegram_hour: le partite di betfair.it dove coprire un bonus costa meno
+  telegram_hour: 9

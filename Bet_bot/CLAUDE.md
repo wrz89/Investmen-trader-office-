@@ -255,6 +255,13 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
 - Tetto delle regole di Leo (09/10/2026): coach.max_rules era 12; dopo l'apprendimento per lato le regole di S10_divertimento_v1 (che NON valgono per la v2 live)
   riempirono il tetto e quelle di S10_misura_v1 (le uniche che frenano il 4fun live, vedi coach.check) restarono fuori: partirono due back da 5 € (Heidenheim 1,94,
   Gil Vicente 2,40) a CLV negativo. Ora max_rules 60. Se riappare un tetto, controllare con perche.bat che compaiano regole "S10_misura_v1".
+- Matched betting (09/10/2026, analisi "7 €/giorno": con 160 € nessuna strada di scommessa li dà stabili; bot ≈ 0 €/giorno, value betting sui
+  book italiani < 1 €/giorno (margini 5,7-7%, 4 prezzi su 410 con EV > 2%), surebet 0; matched betting sui bonus di benvenuto ADM ≈ 150-450 € una tantum
+  in 2-4 mesi poi 0,7-2,7 €/giorno; vedi determina ADM 167944/RU 2024: max 100 € di bonus per scommessa). matched.py: formule qualificante/freebet
+  SNR/SR (commissione 4,5%), lay_board (calcio 48 h, spread ≤ 3%, ≥ 30 € al lay; salvato a ogni ciclo in store "mb_lay_board"), registro
+  runtime/bonus.json. Pagina dashboard /matched (calcolatore, partite dove coprirsi, registro), comando Telegram /coperture e messaggio
+  giornaliero dalle 9 (settings matched.telegram_daily/telegram_hour). NON sono pronostici e il bot NON punta sui bookmaker né piazza lay
+  da solo. Attenzione: stesso conto Betfair del bot live (la pagina lo avvisa).
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

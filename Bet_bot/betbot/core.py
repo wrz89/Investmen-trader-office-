@@ -128,6 +128,13 @@ class SportOffice:
             self.store.set("lay_diag", lay_diagnosis(snap, self.settings))
         except Exception:
             pass
+        try:                                  # partite di betfair.it adatte alla copertura (pagina "Matched betting")
+            from .matched import lay_board
+            rows = lay_board(snap)
+            self.store.set("mb_lay_board", {"ts": time.time(), "rows": rows})
+            self._matched_telegram(rows)
+        except Exception:
+            pass
         # 2) chiusure e gestione delle puntate aperte
         settled = self.banco.settle(snap)
         open_bets = self.bankroll.open_bets() + self.bankroll.open_shadow_trades()   # anche i trade ombra vanno gestiti
@@ -446,6 +453,25 @@ class SportOffice:
         if self.store.get("live_gate_text") != text:
             self.store.set("live_gate_text", text)
             self.direttore.say(f"Modalità LIVE richiesta. {text}.", "alert", "live_gate", level="WARN")
+
+    def _matched_telegram(self, rows: list[dict]) -> None:
+        """Una volta al giorno (dalle ore matched.telegram_hour, 9 di default) manda su Telegram le partite dove coprire un
+        bonus costa meno. Spento con matched.telegram_daily: false. Solo con il feed vero (non col mondo simulato)."""
+        from datetime import datetime as _dt
+        cfg = self.settings.get("matched") or {}
+        if not cfg.get("telegram_daily", True) or not rows or self.settings["feed"]["provider"] != "betfair":
+            return
+        now = _dt.now()
+        day = now.strftime("%Y-%m-%d")
+        if now.hour < int(cfg.get("telegram_hour", 9)) or self.store.get("mb_sent_day") == day:
+            return
+        from . import notifier
+        from .matched import telegram_text
+        try:
+            notifier.send_now(telegram_text(rows))
+            self.store.set("mb_sent_day", day)
+        except Exception:
+            pass                                       # Telegram non collegato o giù: si riprova al ciclo dopo
 
     def _daily_report_if_needed(self) -> None:
         last, day = self.store.get("last_report_day"), today()
