@@ -167,11 +167,20 @@ class CoachBook:
                 "qualita": _band(f.get("qualita"), [40, 55, 70, 85], "{:.0f}") + "/100",        # la qualità dei dati misura qualcosa?
                 **{k: str(v) for k, v in (f.get("dyn") or {}).items()}}      # dinamiche della palestra (forma, assenze…)
 
-    def segments(self) -> list[dict]:
+    def segments(self, by_side: bool = False) -> list[dict]:
+        """Segmenti per strategia/caratteristica/valore. by_side=True (per imparare le regole): i casi di BACK e di LAY si
+        separano, con il lato nel nome della caratteristica ("sport_back"). Senza questa separazione un segmento come
+        "sport = soccer" è l'intera popolazione dei back (CLV negativo) e blocca anche i lay, che sono l'eccezione."""
         out: dict[tuple, list] = {}
         for L in self.store.query("SELECT strategy_id, clv, outcome, pnl, p_entry, features FROM coach_lessons "
                                   "WHERE clv IS NOT NULL"):
-            for feat, val in self.segment_values(json.loads(L["features"] or "{}")).items():
+            f = json.loads(L["features"] or "{}")
+            side = (f.get("side") or "BACK").lower()
+            for feat, val in self.segment_values(f).items():
+                if by_side:
+                    if feat == "lato":
+                        continue                       # il lato è già nel nome
+                    feat = f"{feat}_{side}"
                 out.setdefault((L["strategy_id"], feat, val), []).append(L)
         res = []
         for (sid, feat, val), ls in out.items():
@@ -371,7 +380,15 @@ class Coach(Agent, CoachBook):
         """Crea o ritira le regole. Crea: CLV significativamente negativo su almeno min_n puntate. Ritira: il
         limite superiore torna sopra zero (i dati nuovi, anche delle proposte bloccate e seguite in ombra, la smentiscono)."""
         changes = []
-        segs = {(s["strategy_id"], s["feature"], s["value"]): s for s in self.segments()}
+        # regole nate prima della separazione per lato (valevano anche per i lay): si ritirano e si reimparano per lato
+        for r in self.store.query("SELECT id, strategy_id, feature, value FROM coach_rules WHERE active=1 AND kind='blocca'"):
+            if r["feature"] != "lato" and not r["feature"].endswith(("_back", "_lay")):
+                self.store.execute("UPDATE coach_rules SET active=0, updated=? WHERE id=?", (now_iso(), r["id"]))
+                changes.append(("ritirata", {"strategy_id": r["strategy_id"], "feature": r["feature"], "value": r["value"], "n": 0}))
+                self.say(f"Regola ritirata per {r['strategy_id']} ({r['feature'].replace('_', ' ')} = {r['value']}): valeva anche "
+                         f"per i lay. Ora le regole si imparano separatamente per back e per lay.", "ok", "rule", level="WARN",
+                         payload={"agent": "coach"})
+        segs = {(s["strategy_id"], s["feature"], s["value"]): s for s in self.segments(by_side=True)}
         for key, s in segs.items():
             bad = s["n"] >= self.min_n and s["clv_hi"] is not None and s["clv_hi"] < 0
             row = self.store.query("SELECT * FROM coach_rules WHERE strategy_id=? AND kind='blocca' AND feature=? AND value=?",
@@ -464,6 +481,11 @@ class Coach(Agent, CoachBook):
              "ref_src": m.get("ref_src")}
         vals = self.segment_values(f)
         for r in rules:
+            feat, _, scope = r["feature"].rpartition("_")
+            if r["kind"] == "blocca" and scope in ("back", "lay"):        # regola per lato: vale solo per quel lato
+                if scope.upper() != side:
+                    continue
+                r = {**r, "feature": feat}
             if r["kind"] == "blocca" and vals.get(r["feature"]) == r["value"]:
                 return False, (f"Lezione di Leo: {r['feature'].replace('_', ' ')} = {r['value']} (CLV {r['clv']:+.1%} "
                                f"su {r['n']} puntate)")

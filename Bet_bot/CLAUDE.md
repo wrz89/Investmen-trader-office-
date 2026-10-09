@@ -244,6 +244,11 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   dell'utente) → ora pagina per orario d'inizio (calendario.PAGE/MAX_PAGES). Il feed leggeva solo i primi 40 mercati per sport in 36 h: ora
   feed.betfair.catalogue_max {soccer: 120, tennis: 100}, catalogue_default 40 (ogni 10 mercati = 1 richiesta di prezzi in più a ciclo; alzare con cautela).
   I campionati con Pinnacle restano comunque letti a parte (_priority_soccer).
+- Regole di Leo per lato (09/10/2026): prima le regole valevano per back e lay insieme; quando il campione dei back (negativi) copriva tutta la
+  popolazione nascevano regole larghe come "sport = soccer" o "fonte_rif = standard" che avrebbero bloccato anche i lay (l'unica ipotesi con un
+  possibile vantaggio). Ora learn() usa segments(by_side=True): caratteristica con suffisso "_back"/"_lay" ("sport_back"), la caratteristica "lato" non
+  si impara più; check() applica una regola per lato solo a quel lato; le regole vecchie senza suffisso (tranne "lato") si ritirano da sole alla prima
+  learn() e si reimparano per lato. Un lay si frena solo con 60+ casi LAY negativi.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

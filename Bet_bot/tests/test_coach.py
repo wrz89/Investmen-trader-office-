@@ -158,3 +158,35 @@ def test_segmento_fonte_riferimento():
     from betbot.agents.coach import Coach
     assert Coach.segment_values({"ref_src": "oddspapi"})["fonte_rif"] == "OddsPapi"
     assert Coach.segment_values({})["fonte_rif"] == "standard"
+
+
+def _lesson_side(o, clv, side, sport="soccer"):
+    f = {"league": "Serie B", "odds": 1.3 if side == "BACK" else 4.0, "minutes_before": 90, "edge": 0.03, "source": "Pinnacle",
+         "sport": sport, "side": side, "liquidity": 50}
+    o.store.execute("INSERT INTO coach_lessons(ts, strategy_id, label, outcome, pnl, p_entry, clv, cause, features) "
+                    "VALUES('t','S10_divertimento_v1','x','LOST',-1,0.8,?,'smentita',?)", (clv, json.dumps(f)))
+
+
+def test_rules_are_learned_per_side_and_do_not_block_lays(office):
+    """190 back negativi non devono bloccare i lay: 'sport = soccer' vale solo per il lato BACK."""
+    c = Coach(office)
+    for _ in range(c.min_n + 5):
+        _lesson_side(office, -0.03, "BACK")
+    c.learn()
+    rules = {(r["feature"], r["value"]) for r in office.store.query("SELECT feature, value FROM coach_rules WHERE active=1")}
+    assert ("sport_back", "soccer") in rules and not any(f.endswith("_lay") for f, _ in rules)
+    snap = {"matches": {"M1": {"kickoff": "2099-01-01T12:00:00+00:00", "books": {"Pinnacle": {}}, "exchange": {}}}, "ts": 0}
+    back = {"strategy_id": "S10_divertimento_v1", "match_id": "M1", "selection": "home", "sport": "soccer", "side": "BACK",
+            "league": "Serie B", "odds": 1.3, "edge": 0.03}
+    lay = {**back, "selection": "LAY:home", "side": "LAY", "odds": 4.0}
+    assert c.check(back, snap)[0] is False
+    assert c.check(lay, snap)[0] is True
+
+
+def test_legacy_rules_without_side_are_retired(office):
+    c = Coach(office)
+    office.store.execute("INSERT INTO coach_rules(created, updated, strategy_id, kind, feature, value, n, clv, clv_hi, active, evidence) "
+                         "VALUES('t','t','S10_divertimento_v1','blocca','sport','soccer',150,-0.009,-0.002,1,'{}')")
+    c.learn()
+    row = office.store.query("SELECT active FROM coach_rules WHERE feature='sport' AND value='soccer'")[0]
+    assert row["active"] == 0
