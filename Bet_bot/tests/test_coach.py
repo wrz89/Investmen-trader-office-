@@ -205,3 +205,19 @@ def test_perche_counts_lays_blocked_by_leo(tmp_path):
                (now_iso(), "Lezione di Leo: sport = soccer (CLV -0.9% su 147 puntate)"))
     txt = perche.text(perche.check(st))
     assert "Lay bloccati dalle lezioni di Leo (ultimi 14 giorni): 1 proposte" in txt and "sport = soccer" in txt
+
+
+def test_regole_di_misura_trovano_posto_accanto_a_quelle_di_v1(office):
+    """Con 12 regole massime quelle di S10 misura (che frenano il 4fun live) restavano fuori: ora devono esserci tutte."""
+    c = Coach(office)
+    assert c.max_rules >= 40
+    for sid in ("S10_divertimento_v1", "S10_misura_v1"):
+        for odds, n in ((1.5, 1), (1.9, 2), (2.6, 3)):
+            for _ in range(c.min_n + 5):
+                f = {"league": f"L{odds}", "odds": odds, "minutes_before": 90 + n * 100, "edge": 0.01 * n, "source": "Pinnacle",
+                     "sport": "soccer", "side": "BACK", "liquidity": 10 ** n}
+                office.store.execute("INSERT INTO coach_lessons(ts, strategy_id, label, outcome, pnl, p_entry, clv, cause, features) "
+                                     "VALUES('t',?,'x','LOST',-1,0.5,-0.03,'smentita',?)", (sid, json.dumps(f)))
+    c.learn()
+    ids = {r["strategy_id"] for r in office.store.query("SELECT strategy_id FROM coach_rules WHERE active=1")}
+    assert ids == {"S10_divertimento_v1", "S10_misura_v1"}
