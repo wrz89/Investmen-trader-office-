@@ -12,6 +12,9 @@ al bot viene ignorato. I comandi possono solo informare o FRENARE:
   /pausa N   niente nuove puntate per N minuti (predefinito 60)
   /riprendi  toglie la pausa (NON il kill switch)
   /coperture partite di betfair.it dove coprire un bonus costa meno (matched betting, NON pronostici)
+  /offerte   le tue offerte attive del registro bonus, con la partita consigliata
+  /coperto N QUOTA [IMPORTO]  dopo aver puntato sul bookmaker: calcola il lay di copertura dell'offerta N
+  /conferma  piazza davvero quel lay su Betfair (soldi veri, entro 2 minuti dal /coperto)
   /aiuto     questo elenco
 
 Gira in un thread separato con long polling (getUpdates): un errore di rete non ferma mai il bot.
@@ -26,7 +29,9 @@ from .store import now_iso
 
 HELP = ("Comandi Bet_bot:\n/stato · bankroll e blocchi\n/aperte · puntate in gioco\n/oggi · riepilogo del giorno\n"
         "/stop · kill switch immediato (reset solo dal PC)\n/chiudi · chiude subito i trade aperti\n/pausa 60 · niente nuove puntate per 60 minuti\n"
-        "/riprendi · toglie la pausa\n/coperture · dove coprire un bonus su betfair.it (matched betting)\n/aiuto · questo elenco")
+        "/riprendi · toglie la pausa\n/coperture · dove coprire un bonus su betfair.it (matched betting)\n"
+        "/offerte · le tue offerte con la partita consigliata\n/coperto N QUOTA · calcola la copertura dopo la puntata\n"
+        "/conferma · piazza il lay di copertura su Betfair\n/aiuto · questo elenco")
 
 
 def _eur(v) -> str:
@@ -136,6 +141,33 @@ class TelegramCommands:
             self.office.risk.say(f"Pausa chiesta da Telegram: nessuna nuova puntata per {minutes} minuti.", "blocked",
                                  "circuit", level="WARN")
             return f"In pausa per {minutes} minuti."
+        if cmd == "/offerte":
+            from . import matched
+            offers = matched.active_offers()
+            if not offers:
+                return "Nessuna offerta attiva: aggiungila nel registro bonus della pagina Matched betting (tipo, importo, quota minima)."
+            board = (self.store.get("mb_lay_board") or {}).get("rows") or []
+            avail = (self.store.get("live_balance") or {}).get("available")
+            advs = self.store.get("mb_advice") or {}
+            out = []
+            for i, o in enumerate(offers, 1):
+                adv = matched.advice(o, board, avail)
+                if adv:
+                    advs[o["id"]] = adv
+                out.append(matched.advice_text(i, o, adv))
+            self.store.set("mb_advice", advs)
+            return "\n\n".join(out)
+        if cmd == "/coperto":
+            from . import matched
+            try:
+                n, qb = int(parts[1]), matched._num(parts[2])
+                amount = matched._num(parts[3]) if len(parts) > 3 else None
+            except (IndexError, ValueError):
+                return "Scrivi così: /coperto NUMERO_OFFERTA QUOTA_PRESA [IMPORTO], es. /coperto 1 5,0"
+            return matched.plan_cover(self.store, n, qb, amount)
+        if cmd == "/conferma":
+            from . import matched
+            return matched.confirm_cover(self.store, getattr(self.office, "client", None))
         if cmd == "/coperture":
             from .matched import telegram_text
             return telegram_text((self.store.get("mb_lay_board") or {}).get("rows") or [], html=False)

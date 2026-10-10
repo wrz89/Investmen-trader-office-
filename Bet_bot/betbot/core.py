@@ -313,6 +313,7 @@ class SportOffice:
                           level="WARN")
         if current is not None:
             known = {o["bet_id"] for o in self.store.query("SELECT bet_id FROM orders WHERE bet_id IS NOT NULL")}
+            known |= {o.get("bet_id") for o in (self.store.get("mb_orders") or [])}     # lay di copertura del matched betting
             for o in current:
                 if o.get("betId") not in known and float(o.get("sizeMatched") or 0) > 0:
                     problems[f"bf:{o.get('betId')}"] = f"ordine abbinato su Betfair che il bot non conosce (bet {o.get('betId')})"
@@ -384,6 +385,7 @@ class SportOffice:
             self.tesoriere.log(f"Saldo Betfair non leggibile ({exc}). Riprovo tra 10 cicli.", "WARN", "live_sync")
             return
         real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
+        real -= self._matched_pnl()          # vincite e perdite dei lay di copertura (matched betting) non sono del bot
         total = self.bankroll.total
         pending = self._unsettled_green()
         self.store.set("live_balance", {"available": funds.get("availableToBetBalance"), "exposure": funds.get("exposure"),
@@ -402,6 +404,19 @@ class SportOffice:
                 self.tesoriere.log(f"Sul conto Betfair ci sono {extra:.2f} € in più del bankroll del bot ({real:.2f} € "
                                    f"contro {total:.2f} €): altri soldi tuoi o vincite non ancora regolate. Solo "
                                    "un'informazione: il bot punta sul suo bankroll.", "INFO", "live_sync")
+
+    def _matched_pnl(self) -> float:
+        """Totale regolato dei lay di copertura del matched betting (conto Betfair condiviso col bot)."""
+        try:
+            from . import matched, notifier
+            for m in matched.settle_covers(self.store, self.client):
+                try:
+                    notifier.send_now(m)
+                except Exception:
+                    pass
+        except Exception as exc:
+            self.tesoriere.log(f"Coperture del matched betting non controllate ({exc}).", "WARN", "live_sync")
+        return float(self.store.get("mb_betfair_pnl") or 0.0)
 
     def _unsettled_green(self) -> float:
         """Profitti già "chiusi" con un lay (green-up) ma non ancora accreditati da Betfair: finché il mercato non è
@@ -435,7 +450,7 @@ class SportOffice:
             return None
         # più i green-up in attesa di regolamento: sono soldi già vinti che Betfair accredita a mercato chiuso
         real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0)) \
-            + self._unsettled_green()
+            + self._unsettled_green() - float(self.store.get("mb_betfair_pnl") or 0.0)
         if self.bankroll.total <= real:
             return None
         before = self.bankroll.total
@@ -454,6 +469,34 @@ class SportOffice:
             self.store.set("live_gate_text", text)
             self.direttore.say(f"Modalità LIVE richiesta. {text}.", "alert", "live_gate", level="WARN")
 
+    def _matched_offer_advice(self, rows: list[dict], day: str) -> None:
+        """Per ogni offerta attiva del registro bonus: una volta al giorno (e subito se è nuova) la partita consigliata,
+        con i link al bookmaker e a Betfair e cosa scrivere dopo (/coperto). Se oggi non c'è una partita adatta si riprova
+        al ciclo dopo, senza messaggi."""
+        from . import matched, notifier
+        offers = matched.active_offers()
+        if not offers:
+            return
+        sent = self.store.get("mb_advised") or {}
+        advs = self.store.get("mb_advice") or {}
+        avail = (self.store.get("live_balance") or {}).get("available")
+        for i, o in enumerate(offers, 1):
+            if sent.get(o["id"]) == day:
+                continue
+            adv = matched.advice(o, rows, avail)
+            if not adv:
+                continue
+            try:
+                notifier.call(notifier.channel()["token"], "sendMessage",
+                              {"chat_id": notifier.channel()["chat_id"], "text": matched.advice_text(i, o, adv),
+                               "disable_web_page_preview": True})
+            except Exception:
+                return                                  # Telegram non collegato o giù: si riprova al ciclo dopo
+            advs[o["id"]] = adv
+            sent[o["id"]] = day
+        self.store.set("mb_advice", advs)
+        self.store.set("mb_advised", sent)
+
     def _matched_telegram(self, rows: list[dict]) -> None:
         """Una volta al giorno (dalle ore matched.telegram_hour, 9 di default) manda su Telegram le partite dove coprire un
         bonus costa meno. Spento con matched.telegram_daily: false. Solo con il feed vero (non col mondo simulato)."""
@@ -462,6 +505,8 @@ class SportOffice:
         if not cfg.get("telegram_daily", True) or not rows or self.settings["feed"]["provider"] != "betfair":
             return
         now = _dt.now()
+        if 8 <= now.hour < 23:
+            self._matched_offer_advice(rows, now.strftime("%Y-%m-%d"))
         day = now.strftime("%Y-%m-%d")
         if now.hour < int(cfg.get("telegram_hour", 9)) or self.store.get("mb_sent_day") == day:
             return

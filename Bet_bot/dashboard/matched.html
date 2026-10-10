@@ -78,10 +78,14 @@ ol { margin:6px 0 0 18px; padding:0; } li { margin:2px 0; }
 
   <section class="panel">
     <h2>Registro bonus <span class="note" id="s-sum"></span></h2>
+    <p class="note">Con <b>tipo, importo e quota minima</b> compilati e stato "da fare" o "in corso", il bot ti manda su Telegram la partita consigliata con i link. Dopo la puntata sul bookmaker scrivi <b>/coperto N QUOTA</b>, poi <b>/conferma</b>: il lay su Betfair lo piazza il bot.</p>
     <form id="f" class="row">
       <input type="hidden" id="f-id">
       <label>Bookmaker <input id="f-bookmaker" required></label>
       <label>Offerta <input id="f-offerta" placeholder="es. freebet 10 €"></label>
+      <label>Tipo <select id="f-tipo"><option value="snr">Freebet SNR</option><option value="qualificante">Qualificante</option><option value="sr">Freebet SR</option></select></label>
+      <label>Importo da puntare (€) <input id="f-importo" type="number" step="0.5" title="la freebet o la puntata qualificante: il bot ti manda su Telegram la partita adatta"></label>
+      <label>Quota minima <input id="f-quota_min" type="number" step="0.01" placeholder="es. 1.50"></label>
       <label>Deposito (€) <input id="f-deposito" type="number" step="0.01"></label>
       <label>Bonus (€) <input id="f-bonus" type="number" step="0.01"></label>
       <label>Rollover residuo (€) <input id="f-rollover" type="number" step="0.01"></label>
@@ -145,7 +149,7 @@ async function load() {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${esc(r.bookmaker)}</td><td>${esc(r.offerta)}</td><td>${eur(r.deposito)}</td><td>${eur(r.bonus)}</td><td>${eur(r.rollover)}</td><td>${esc(r.scadenza)}</td><td>${eur(r.profitto)}</td><td>${esc(r.stato)}</td><td><button class="ghost" type="button">Modifica</button> <button class="ghost" type="button">✕</button></td>`;
     const [ed, del] = tr.querySelectorAll("button");
-    ed.onclick = () => { $("f-id").value = r.id; ["bookmaker","offerta","deposito","bonus","rollover","scadenza","profitto","stato","note"].forEach(k => $("f-" + k).value = r[k] ?? ""); };
+    ed.onclick = () => { $("f-id").value = r.id; ["bookmaker","offerta","tipo","importo","quota_min","deposito","bonus","rollover","scadenza","profitto","stato","note"].forEach(k => $("f-" + k).value = r[k] ?? ""); };
     del.onclick = () => post({ delete: r.id });
     rb.appendChild(tr);
   });
@@ -163,7 +167,7 @@ async function post(body) {
 $("f").addEventListener("submit", e => {
   e.preventDefault();
   const body = { id: $("f-id").value };
-  ["bookmaker","offerta","deposito","bonus","rollover","scadenza","profitto","stato","note"].forEach(k => body[k] = $("f-" + k).value);
+  ["bookmaker","offerta","tipo","importo","quota_min","deposito","bonus","rollover","scadenza","profitto","stato","note"].forEach(k => body[k] = $("f-" + k).value);
   post(body); $("f").reset(); $("f-id").value = "";
 });
 load(); setInterval(load, 60000);

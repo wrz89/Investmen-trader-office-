@@ -76,3 +76,107 @@ def test_comando_coperture(tmp_path):
                                       "back": 3.3, "lay": 3.35, "spread": 0.015, "lay_eur": 80}]})
     t = TelegramCommands(SimpleNamespace(store=st, settings={}))
     assert "A - B" in t.handle("/coperture")
+
+
+def _board_row(**k):
+    r = {"match": "Inter - Milan", "league": "Serie A", "kickoff": "2099-10-18T18:45:00+00:00", "sel": "2", "sel_key": "away",
+         "back": 5.0, "lay": 5.2, "spread": 0.04, "lay_eur": 200, "market_id": "1.99", "selection_id": 47, "team": "Milan"}
+    r.update(k)
+    return r
+
+
+class FakeClient:
+    def __init__(self, matched=True):
+        self.placed, self.matched = [], matched
+
+    def place(self, market_id, selection_id, side, price, size, fill_or_kill=True, order_ref=None, strategy_ref=None):
+        self.placed.append((market_id, selection_id, side, price, size, fill_or_kill, strategy_ref))
+        return {"bet_id": "B1", "matched": size if self.matched else 0.0, "avg_price": price, "status": "EXECUTION_COMPLETE"}
+
+    def cleared(self, ids):
+        return {"B1": {"profit": -33.0, "outcome": "LOST", "status": "SETTLED"}}
+
+
+def test_consiglio_per_offerta_freebet(tmp_path, monkeypatch):
+    monkeypatch.setattr(M, "RUNTIME_DIR", tmp_path)
+    o = M.save_row({"bookmaker": "Sisal", "tipo": "snr", "importo": 10, "quota_min": 2, "stato": "da fare"})
+    board = [_board_row(), _board_row(back=1.8, lay=1.82, selection_id=1, sel="1", team="Inter"),
+             _board_row(back=4.0, lay=4.1, lay_eur=3, selection_id=2)]        # poca liquidità: escluso
+    adv = M.advice(o, board, available=100)
+    assert adv["selection_id"] == 47 and adv["est"]["pct"] > 0.7 and "sisal.it" in adv["bookmaker_link"]
+    assert adv["betfair_link"].endswith("/1.99")
+    assert M.advice(o, board, available=5) is None                     # responsabilità oltre il disponibile
+    t = M.advice_text(1, o, adv)
+    assert "Milan" in t and "/coperto 1" in t and "https://www.sisal.it" in t
+
+
+def test_coperto_conferma_e_regolamento(tmp_path, monkeypatch):
+    from betbot.store import Store
+    monkeypatch.setattr(M, "RUNTIME_DIR", tmp_path)
+    st = Store(tmp_path / "m.db")
+    o = M.save_row({"bookmaker": "Sisal", "tipo": "snr", "importo": 10, "stato": "da fare"})
+    st.set("mb_lay_board", {"ts": time.time(), "rows": [_board_row()]})
+    st.set("live_balance", {"available": 100})
+    st.set("mb_advice", {o["id"]: M.advice(o, [_board_row()], 100)})
+    assert "/conferma" in M.plan_cover(st, 1, 5.0)
+    assert "non è collegato" in M.confirm_cover(st, None)
+    st.set("mb_advice", {o["id"]: M.advice(o, [_board_row()], 100)})
+    M.plan_cover(st, 1, 5.0)
+    c = FakeClient()
+    msg = M.confirm_cover(st, c)
+    assert msg.startswith("✅") and c.placed[0][2] == "LAY" and c.placed[0][5] is True and c.placed[0][6] == "MB"
+    assert c.placed[0][4] == pytest.approx(7.76, abs=0.01)
+    assert M.load()[0]["stato"] == "in corso" and st.get("mb_pending") is None
+    assert "Nessuna copertura" in M.confirm_cover(st, c)                 # la conferma vale una volta sola
+    msgs = M.settle_covers(st, c)
+    assert msgs and st.get("mb_betfair_pnl") == -33.0
+
+
+def test_conferma_scaduta_o_prezzo_mosso(tmp_path, monkeypatch):
+    from betbot.store import Store
+    monkeypatch.setattr(M, "RUNTIME_DIR", tmp_path)
+    st = Store(tmp_path / "m.db")
+    o = M.save_row({"bookmaker": "Snai", "tipo": "qualificante", "importo": 10, "stato": "da fare"})
+    st.set("mb_lay_board", {"ts": time.time(), "rows": [_board_row(back=2.0, lay=2.02)]})
+    st.set("mb_advice", {o["id"]: M.advice(o, [_board_row(back=2.0, lay=2.02)], None)})
+    M.plan_cover(st, 1, 2.0)
+    assert "2 minuti" in M.confirm_cover(st, FakeClient(), now=time.time() + 300)
+    M.plan_cover(st, 1, 2.0)
+    assert "NON abbinato" in M.confirm_cover(st, FakeClient(matched=False))
+    assert "non trovata" in M.plan_cover(st, 5, 2.0)
+
+
+def test_telegram_offerte_e_coperto(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from betbot.store import Store
+    from betbot.telegram_bot import TelegramCommands
+    monkeypatch.setattr(M, "RUNTIME_DIR", tmp_path)
+    st = Store(tmp_path / "t.db")
+    M.save_row({"bookmaker": "Eurobet", "tipo": "snr", "importo": 10, "stato": "da fare"})
+    st.set("mb_lay_board", {"ts": time.time(), "rows": [_board_row()]})
+    t = TelegramCommands(SimpleNamespace(store=st, settings={}, client=FakeClient()))
+    assert "Offerta 1: Eurobet" in t.handle("/offerte") and "eurobet.it" in t.handle("/offerte")
+    assert "Scrivi così" in t.handle("/coperto")
+    assert "/conferma" in t.handle("/coperto 1 4,9")
+    assert t.handle("/conferma").startswith("✅")
+
+
+def test_lay_di_copertura_perso_non_fa_scattare_il_kill_switch(tmp_path, monkeypatch):
+    """Il conto Betfair è condiviso: un lay di copertura perso (soldi vinti sul bookmaker) abbassa il saldo vero.
+    Senza toglierlo dal confronto il bot penserebbe a un ammanco e accenderebbe il kill switch."""
+    from betbot.core import SportOffice
+    monkeypatch.setattr(M, "RUNTIME_DIR", tmp_path)
+    o = SportOffice(db_path=tmp_path / "k.db", connect_feed=False)
+    o.settings["mode"] = "live"
+    o.settings.setdefault("execution", {})["provider"] = "betfair"
+    total = o.bankroll.total
+    o.store.set("mb_orders", [{"bet_id": "B1", "status": "aperto", "match": "A - B", "team": "B"}])
+    o.client = FakeClient()                                     # il lay B1 viene regolato con −33 €
+    o.executor._client = type("C", (), {"account_funds": lambda self: {"availableToBetBalance": total - 33.0, "exposure": 0.0}})()
+    o._sync_live_balance(force=True)
+    assert o.store.get("mb_betfair_pnl") == -33.0 and not o.store.get("kill_switch")
+
+    o.store.set("mb_betfair_pnl", 0)                           # controprova: senza il conteggio del matched betting...
+    o.store.set("mb_orders", [])
+    o._sync_live_balance(force=True)
+    assert o.store.get("kill_switch")                          # ...il kill switch scatterebbe

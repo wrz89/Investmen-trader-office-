@@ -262,6 +262,14 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   runtime/bonus.json. Pagina dashboard /matched (calcolatore, partite dove coprirsi, registro), comando Telegram /coperture e messaggio
   giornaliero dalle 9 (settings matched.telegram_daily/telegram_hour). NON sono pronostici e il bot NON punta sui bookmaker né piazza lay
   da solo. Attenzione: stesso conto Betfair del bot live (la pagina lo avvisa).
+- Matched betting semi-automatico (10/10/2026, richiesta dell'utente; il 4fun resta acceso sullo stesso conto). Il bot NON punta sui siti
+  dei bookmaker (contratti ADM: vietati i bot; servirebbero le password): lì punta l'utente a mano. Registro bonus con tipo (snr/qualificante/sr),
+  importo, quota minima → core._matched_offer_advice manda su Telegram (8-23, una volta al giorno per offerta, subito se nuova) partita, esito,
+  quota da cercare, stima, link al bookmaker (BOOKMAKER_SITES) e a Betfair. Telegram: /offerte, /coperto N QUOTA [IMPORTO] (piano, vale 2 min),
+  /conferma → client.place LAY fill-or-kill (strategy_ref "MB", order_ref "mb-…") al lay del tabellone (prezzi ≤ 5 min, liquidità e
+  disponibile controllati); ordini in store "mb_orders". Regolamento in _sync_live_balance → settle_covers: "mb_betfair_pnl" si TOGLIE dal
+  saldo vero nel controllo del kill switch e nel riallineamento (un lay di copertura perso non è un ammanco del bot); la riconciliazione
+  all'avvio conosce i bet_id di mb_orders. Link Betfair /exchange/plus/football/market/<id> non verificato su betfair.it.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
