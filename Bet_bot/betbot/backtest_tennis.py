@@ -40,6 +40,43 @@ def tennis_years(today: date | None = None) -> list[int]:
     return [today.year - 1, today.year]             # le colonne Betfair Exchange ci sono dagli ultimi anni
 
 
+def _links() -> tuple[dict, list[str]]:
+    """Link ai file dalla pagina dei dati: {(tour, anno): url}. Il sito cambia spesso percorsi ed estensioni (xls, xlsx,
+    zip): si accetta qualunque href che contenga l'anno e finisca con .xls/.xlsx/.zip; 'w' nel percorso = donne."""
+    import re
+
+    import requests
+    html = requests.get(INDEX, headers=UA, timeout=20).text
+    hrefs = re.findall(r'href="([^"]+\.(?:xlsx|xls|zip))"', html, flags=re.I)
+    out = {}
+    for h in hrefs:
+        m = re.search(r"(20\d\d)(w?)/(?:.*?)(20\d\d)\.(xlsx|xls|zip)$", h, flags=re.I)
+        if not m:
+            continue
+        url = h if h.startswith("http") else "http://www.tennis-data.co.uk/" + h.lstrip("/")
+        tour = "wta" if m.group(2).lower() == "w" else "atp"
+        out.setdefault((tour, int(m.group(3))), url)
+    return out, hrefs[:6]
+
+
+def _excel_bytes(content: bytes) -> bytes | None:
+    """Il file vero (xls/xlsx); se è uno zip con dentro l'Excel, lo estrae."""
+    import io
+    import zipfile
+    if content[:2] == b"PK":
+        try:
+            z = zipfile.ZipFile(io.BytesIO(content))
+            names = [n for n in z.namelist() if n.lower().endswith((".xlsx", ".xls"))]
+            if names:
+                return z.read(names[0])
+            return content                                    # è già un xlsx (anche lui è uno zip)
+        except zipfile.BadZipFile:
+            return None
+    if content[:4] == b"\xd0\xcf\x11\xe0":                    # vecchio .xls
+        return content
+    return None
+
+
 def tennis_paths(years: list[int] | None = None) -> list[Path]:
     import time
 
@@ -48,23 +85,35 @@ def tennis_paths(years: list[int] | None = None) -> list[Path]:
     from .backtest import HISTORY_DIR
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
     out, errors = [], []
-    base = None
+    links, seen = None, []
     for year in years or tennis_years():
         for tour, url in URLS.items():
             path = HISTORY_DIR / f"tennis_{tour}_{year}.xlsx"
             stale = year == date.today().year and path.exists() and time.time() - path.stat().st_mtime > 86400
             if not path.exists() or stale:
                 try:
-                    base = base or _base_url()
-                    r = requests.get(url.format(base=base.rstrip("/"), year=year), headers=UA, timeout=30)
-                    if r.status_code == 200 and r.content[:2] == b"PK":      # un vero file Excel (zip)
-                        path.write_bytes(r.content)
-                    else:
+                    if links is None:
+                        try:
+                            links, seen = _links()
+                        except Exception:
+                            links = {}
+                    cands = [links[(tour, year)]] if (tour, year) in links else []
+                    cands.append(url.format(base="http://www.tennis-data.co.uk", year=year))
+                    ok = False
+                    for u in cands:
+                        r = requests.get(u, headers=UA, timeout=30)
+                        data = _excel_bytes(r.content) if r.status_code == 200 else None
+                        if data:
+                            path.write_bytes(data)
+                            ok = True
+                            break
+                    if not ok:
                         errors.append(f"{tour.upper()} {year}: risposta {r.status_code}")
                 except Exception as exc:
                     errors.append(f"{tour.upper()} {year}: {exc}")
             if path.exists():
                 out.append(path)
     if errors and not out:
-        raise RuntimeError("tennis-data.co.uk non raggiungibile (" + "; ".join(errors) + ")")
+        hint = f" · link visti sulla pagina: {', '.join(seen)}" if seen else " · nessun link a file Excel trovato sulla pagina"
+        raise RuntimeError("tennis-data.co.uk non raggiungibile (" + "; ".join(errors[:4]) + ")" + hint)
     return out
