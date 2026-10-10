@@ -275,8 +275,11 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   per ogni giocatore PRIMA della partita: Elo generale+superficie, % punti vinti al servizio/risposta (media mobile), stanchezza (minuti 7 gg,
   partite 14 gg, riposo), classifica; regressione logistica numpy walk-forward. Fuori campione 2019-oggi (32.358): log-loss 0,6121 (solo Elo
   0,6244), favorito azzeccato 65,7%. Confronto con le quote (tennis-data, solo dal PC: 403 da qui) con log-loss mercato vs modello, peso del
-  modello in una combinazione provata su partite nuove, e ROI delle "occasioni". Atteso (da letteratura, non verificato): il mercato tennis
-  ~0,57-0,59 di log-loss, quindi probabilmente il modello NON lo batte.
+  modello in una combinazione provata su partite nuove, e ROI delle "occasioni". RISULTATO dal PC (10/10/2026, tennis-data 2019-2026,
+  26.783 partite abbinate): log-loss mercato senza margine 0,5882, modello 0,6102 (PEGGIO); peso ottimo del modello nella combinazione 0%
+  (nessuna informazione oltre il prezzo); "occasioni" ROI −12,9% ± 2,0% (≥2%, 18.863 puntate), −13,6% (≥5%), −14,6% (≥8%). Bocciato:
+  le statistiche dei giocatori (Elo per superficie, servizio/risposta, stanchezza, classifica) sono già nel prezzo. tennis-data ha cambiato
+  i percorsi dei file (404): backtest_tennis._links legge i link dalla pagina alldata.php.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
