@@ -244,6 +244,40 @@ def attach_odds(rows: list[dict], odds: list[dict]) -> int:
     return n
 
 
+def read_odds(files) -> list[dict]:
+    """Quote di tennis-data: Pinnacle (PSW/PSL) se c'è, altrimenti la media del mercato (AvgW/AvgL, dal 2025 Pinnacle
+    manca nei file), più Betfair Exchange (BFEW/BFEL) quando c'è. Solo partite completate."""
+    import pandas as pd
+    out = []
+
+    def pair(r, a, b):
+        try:
+            x = (float(r.get(a)), float(r.get(b)))
+        except (TypeError, ValueError):
+            return None
+        return None if any(v != v or v <= 1 for v in x) else x
+    for f in files:
+        try:
+            df = pd.read_excel(f)
+        except Exception:
+            continue
+        for r in df.to_dict("records"):
+            if str(r.get("Comment", "Completed")).strip().lower() != "completed":
+                continue
+            ps = pair(r, "PSW", "PSL")
+            src = "Pinnacle"
+            if not ps:
+                ps, src = pair(r, "AvgW", "AvgL"), "media"
+            if not ps:
+                continue
+            d = pd.to_datetime(r.get("Date"), errors="coerce")
+            if pd.isna(d):
+                continue
+            out.append({"date": d.to_pydatetime(), "w": str(r.get("Winner")), "l": str(r.get("Loser")), "ps": ps, "src": src,
+                        "bfe": pair(r, "BFEW", "BFEL")})
+    return out
+
+
 def evaluate_vs_market(rows: list[dict], edges=(0.02, 0.05, 0.08), commission=0.045) -> dict:
     """Confronto onesto con il mercato e 'occasioni' (modello sopra il prezzo) puntate al prezzo Betfair se c'è,
     altrimenti al prezzo di riferimento meno 2% (il prezzo del file è di un bookmaker, non ottenibile tale e quale)."""
@@ -283,12 +317,15 @@ def evaluate_vs_market(rows: list[dict], edges=(0.02, 0.05, 0.08), commission=0.
             "ll_market_test": ll_mkt2, "bets": bets}
 
 
-def report(wf: dict, ev: dict | None, n_matches: int) -> str:
+def report(wf: dict, ev: dict | None, n_matches: int, note: str = "") -> str:
     L = [f"Tennis: statistiche dei giocatori contro il mercato ({n_matches} partite Sackmann, ATP e WTA).", "",
          f"Modello fuori campione (walk-forward 2019-oggi, {wf['n']} partite): log-loss {wf['logloss_model']:.4f} "
          f"(solo Elo {wf['logloss_elo']:.4f}), favorito azzeccato {wf['accuracy']:.1%}."]
     if not ev or not ev.get("n"):
-        L += ["", "Quote non disponibili (tennis-data non raggiungibile da qui): il confronto col mercato va fatto dal PC."]
+        L += ["", "Quote non disponibili: il confronto col mercato non è stato fatto.",
+              f"Motivo: {note or 'sconosciuto'}",
+              "Rimedio: scarica a mano da https://www.tennis-data.co.uk/alldata.php i file Excel degli anni che vuoi (es. 2024 e 2025,"
+              " uomini e donne) e mettili in runtime\\history\\ con i nomi tennis_atp_2024.xlsx, tennis_wta_2024.xlsx…, poi rilancia."]
         return "\n".join(L)
     L += ["", f"Partite con le quote: {ev['n']}.",
           f"Log-loss mercato (senza margine) {ev['ll_market']:.4f} · modello {ev['ll_model']:.4f} "
@@ -311,20 +348,27 @@ def run(out=print, odds=None) -> int:
     out(f"{len(matches)} partite caricate. Calcolo le statistiche di ogni giocatore prima di ogni partita…")
     rows = build(matches)
     wf = walk_forward(rows)
-    ev = None
+    ev, note = None, ""
     if odds is None:
         try:
-            from .allenamento import tennis_matches
             from .backtest_tennis import tennis_paths
-            odds = tennis_matches(tennis_paths(list(range(2019, datetime.now().year + 1))))
+            files = tennis_paths(list(range(2019, datetime.now().year + 1)))
+            odds = read_odds(files)
+            if not odds:
+                note = (f"{len(files)} file di tennis-data trovati ma nessuna partita leggibile con quote (PSW/PSL o AvgW/AvgL): "
+                        "formato cambiato o file non validi (serve openpyxl: rilancia installa.bat)")
         except Exception as exc:
-            out(f"Quote tennis-data non disponibili: {exc}")
+            note = str(exc)[:400]
             odds = []
+        if note:
+            out(f"Quote tennis-data non disponibili: {note}")
     if odds:
         n = attach_odds(rows, odds)
         out(f"Quote abbinate a {n} partite.")
         ev = evaluate_vs_market(rows)
-    text = report(wf, ev, len(matches))
+        if not ev.get("n"):
+            note = f"{len(odds)} partite con quote lette ma nessuna abbinata ai dati Sackmann (nomi o date diversi)"
+    text = report(wf, ev, len(matches), note)
     out("\n" + text)
     try:
         p = RUNTIME_DIR / "reports" / "tennis_lab.txt"
