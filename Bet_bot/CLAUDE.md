@@ -270,6 +270,13 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   disponibile controllati); ordini in store "mb_orders". Regolamento in _sync_live_balance → settle_covers: "mb_betfair_pnl" si TOGLIE dal
   saldo vero nel controllo del kill switch e nel riallineamento (un lay di copertura perso non è un ammanco del bot); la riconciliazione
   all'avvio conosce i bet_id di mb_orders. Link Betfair /exchange/plus/football/market/<id> non verificato su betfair.it.
+- tennis_lab.py (`tennis_lab.bat`, 10/10/2026, l'utente vuole "statistiche di partite e giocatori"): dati Jeff Sackmann dal mirror
+  github.com/Aneeshers/tennis-sackmann-archive (CC BY-NC-SA, il repo originale dà 404/403 da qui), ATP+WTA 2014-oggi, 60.168 partite senza ritiri;
+  per ogni giocatore PRIMA della partita: Elo generale+superficie, % punti vinti al servizio/risposta (media mobile), stanchezza (minuti 7 gg,
+  partite 14 gg, riposo), classifica; regressione logistica numpy walk-forward. Fuori campione 2019-oggi (32.358): log-loss 0,6121 (solo Elo
+  0,6244), favorito azzeccato 65,7%. Confronto con le quote (tennis-data, solo dal PC: 403 da qui) con log-loss mercato vs modello, peso del
+  modello in una combinazione provata su partite nuove, e ROI delle "occasioni". Atteso (da letteratura, non verificato): il mercato tennis
+  ~0,57-0,59 di log-loss, quindi probabilmente il modello NON lo batte.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"
