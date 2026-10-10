@@ -280,6 +280,21 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
   (nessuna informazione oltre il prezzo); "occasioni" ROI −12,9% ± 2,0% (≥2%, 18.863 puntate), −13,6% (≥5%), −14,6% (≥8%). Bocciato:
   le statistiche dei giocatori (Elo per superficie, servizio/risposta, stanchezza, classifica) sono già nel prezzo. tennis-data ha cambiato
   i percorsi dei file (404): backtest_tennis._links legge i link dalla pagina alldata.php.
+- Mercati secondari, angoli e cartellini (10/10/2026, l'utente: "procedi coi mercati secondari, fai tutto tu").
+  • OddsPapi ha lo storico Pinnacle di angoli (`totals-corners`, marketId = id dell'Over, es. 9.5 → 10803/10804) e cartellini
+    (`totals-bookings`, 3.5 → 10926/10927) dal 01/2026 (ottobre 2025: 404). Limiti Pinnacle in chiusura 750-5.000: non è un
+    mercato "molle". Betfair Exchange ha i cartellini con liquidità (Over 3.5: 516 € a 1,55); angoli 9.5 assente.
+  • ATTENZIONE: /fixtures, /tournaments e /historical-odds CONTANO nella quota mensile (250). Il 10/10 la raccolta storica l'ha
+    finita (429 REQUEST_LIMIT_EXCEEDED): il riferimento OddsPapi di riserva per i lay è fermo fino al rinnovo del mese (il feed
+    lo gestisce: nota "fermo" nella salute, nessun blocco). oddspapi_storico ora conta queste chiamate (prima quota=False).
+  • Modello (football-data 2015-oggi, 49.164 partite): Poisson log-lineare su medie mobili delle squadre + quote 1X2/over 2,5.
+    Walk-forward: angoli corr. 0,16-0,21 (log-lik. migliore della media di lega), cartellini 0,28-0,29 (con l'arbitro, che
+    prima della partita però non c'è). Controllo su Ipswich-Liverpool 04/09/2026: modello 10,05 angoli, Pinnacle linea ~10,2.
+  • secondari.py: Registratore dentro il ciclo del bot (thread a parte, ogni 30 min): prezzi Betfair dei mercati angoli/cartellini
+    Over/Under (.5) dei 18 campionati football-data, 1-24 ore prima; puntata FINTA (una per mercato) se valore atteso netto ≥ 5%
+    dopo commissione, quota 1,30-5,00, ≥ 2 €. runtime/secondari.db (quote, evento, giocata). `secondari.bat` regola con i CSV
+    di football-data e scrive runtime/reports/secondari.txt. Verdetto a 200 puntate: PROMETTENTE solo se ROI − 2 e.s. > 0.
+    Spegnibile con settings `secondari.attivo: false`. Nessuna puntata vera.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

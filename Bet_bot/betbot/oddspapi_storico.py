@@ -125,7 +125,7 @@ def _get(client, sleep, **kw):
     """Chiamata allo storico con 3 tentativi sul 429 (limite di velocità: l'API chiede solo di aspettare)."""
     for attempt in range(4):
         try:
-            return client.get("/historical-odds", quota=False, **kw)
+            return client.get("/historical-odds", **kw)   # contano anche loro nella quota mensile (verificato il 10/10/2026)
         except OP.OddsPapiError as exc:
             if "404" in str(exc):
                 return {}                                  # nessuna quota storica per questa partita: si salta
@@ -266,7 +266,7 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
         client = OP.OddsPapiClient(key)
     try:
         from .feeds.oddspapi_ref import TOURNAMENTS
-        tours = OP.items(client.get("/tournaments", quota=False, sportId=OP.SOCCER))
+        tours = OP.items(client.get("/tournaments", sportId=OP.SOCCER))
         ids = {}
         for t in tours:
             name, cat = str(t.get("tournamentName") or "").lower(), str(t.get("categoryName") or "").lower()
@@ -281,7 +281,7 @@ def run(out=print, client=None, results=None, sleep=time.sleep) -> int:
         for tid in ids:
             for name, params in (variants if chosen is None else [chosen]):
                 sleep(GAP_FIXTURES)
-                got = OP.items(client.get("/fixtures", quota=False, tournamentId=tid, **params))
+                got = OP.items(client.get("/fixtures", tournamentId=tid, **params))
                 keep = [f for f in got if (t_start <= (_iso_ts(f.get("startTime")) or 0) < t_now)
                         and f.get("statusId") in (2, None)]
                 out(f"  {ids[tid]}: {len(got)} partite restituite ({name}), {len(keep)} finite da gennaio")

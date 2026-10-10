@@ -72,7 +72,7 @@ class FakeClient:
                 return []
             return [{"fixtureId": "id1", "startTime": START.isoformat(), "participant1Name": "AC Milan",
                      "participant2Name": "Inter", "statusId": 2, "hasOdds": False}]
-        assert path == "/historical-odds" and quota is False
+        assert path == "/historical-odds" and quota is True      # le chiamate storiche contano nella quota
         full = raw_fixture()["bookmakers"]
         if params["bookmakers"] == "pinnacle":
             return {"fixtureId": "id1", "bookmakers": {"pinnacle": full["pinnacle"]}}

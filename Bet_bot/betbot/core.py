@@ -135,6 +135,11 @@ class SportOffice:
             self._matched_telegram(rows)
         except Exception:
             pass
+        try:                                  # angoli/cartellini: prezzi Betfair e puntate SOLO su carta (thread a parte)
+            from . import secondari
+            secondari.maybe_tick(self.client, self.settings)
+        except Exception:
+            pass
         # 2) chiusure e gestione delle puntate aperte
         settled = self.banco.settle(snap)
         open_bets = self.bankroll.open_bets() + self.bankroll.open_shadow_trades()   # anche i trade ombra vanno gestiti
