@@ -58,14 +58,11 @@ class OddsPapiRefFeed(Feed):
         self.pending |= {k for k in keys if k in TOURNAMENTS}
 
     def _spend(self, n: int = 1) -> bool:
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        day, used = self.req_day
-        if day != today:
-            day, used = today, 0
-        if used + n > self.max_requests_day:
+        """Tetto di richieste al giorno letto dal file del budget (prima era in memoria e ogni riavvio lo azzerava:
+        il 9-10/10 i riavvii a raffica hanno consumato ~50 richieste in un giorno invece di 8)."""
+        if OP.used_today() + n > self.max_requests_day:
             self.note = f"tetto di {self.max_requests_day} richieste al giorno raggiunto"
             return False
-        self.req_day = (day, used + n)
         return True
 
     def _tournament_ids(self, now: float) -> None:

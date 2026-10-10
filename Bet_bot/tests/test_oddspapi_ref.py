@@ -87,3 +87,14 @@ def test_crediti_piu_larghi_nel_weekend():
     assert credits_per_day(cfg, datetime(2026, 10, 9)) == 25           # venerdì
     assert credits_per_day(cfg, datetime(2026, 10, 11)) == 25          # domenica
     assert credits_per_day({"max_credits_per_day": 15}, datetime(2026, 10, 7)) == 15
+
+
+def test_tetto_giornaliero_sopravvive_al_riavvio(tmp_path, monkeypatch):
+    import json
+    from datetime import datetime, timezone
+    monkeypatch.setattr(R.OP, "RUNTIME_DIR", tmp_path)
+    day = datetime.now(timezone.utc)
+    (tmp_path / "oddspapi_budget.json").write_text(json.dumps(
+        {"month": day.strftime("%Y-%m"), "used": 50, "day": day.strftime("%Y-%m-%d"), "day_used": 8}))
+    f = feed(monkeypatch)                               # un bot appena riavviato
+    assert f._spend() is False and "tetto" in f.note

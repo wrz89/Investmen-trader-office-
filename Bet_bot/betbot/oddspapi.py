@@ -50,9 +50,19 @@ def _budget() -> dict:
     return data
 
 
+def used_today() -> int:
+    data = _budget()
+    return data.get("day_used", 0) if data.get("day") == datetime.now(timezone.utc).strftime("%Y-%m-%d") else 0
+
+
 def _count_request(quota: bool = True) -> None:
     data = _budget()
     data["used" if quota else "storico"] = data.get("used" if quota else "storico", 0) + 1
+    if quota:                                  # conteggio del giorno SU FILE: un riavvio del bot non lo azzera
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if data.get("day") != today:
+            data["day"], data["day_used"] = today, 0
+        data["day_used"] = data.get("day_used", 0) + 1
     _budget_path().parent.mkdir(parents=True, exist_ok=True)
     _budget_path().write_text(json.dumps(data), encoding="utf-8")
 
