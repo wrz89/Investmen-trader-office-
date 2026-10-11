@@ -382,6 +382,21 @@ class BetfairClient:
                 "selectionId": str(o.get("selectionId"))} for o in res.get("clearedOrders", [])]
         return [o for o in out if selection_id is None or o["selectionId"] == str(selection_id)]
 
+    def cleared_since(self, since_iso: str) -> list[dict]:
+        """Tutte le puntate REGOLATE del conto da `since_iso` (anche quelle fatte a mano dal sito o dall'app):
+        [{"betId", "profit" (lordo), "customerOrderRef", "customerStrategyRef"}]. A pagine da 1000."""
+        out, start = [], 0
+        while True:
+            res = self.rpc("listClearedOrders", {"betStatus": "SETTLED", "settledDateRange": {"from": since_iso},
+                                                 "includeItemDescription": False, "fromRecord": start, "recordCount": 1000})
+            rows = res.get("clearedOrders", [])
+            out += [{"betId": o.get("betId"), "profit": float(o.get("profit", 0.0)),
+                     "customerOrderRef": o.get("customerOrderRef") or "", "customerStrategyRef": o.get("customerStrategyRef") or ""}
+                    for o in rows]
+            if not res.get("moreAvailable") or not rows:
+                return out
+            start += len(rows)
+
     def cleared(self, bet_ids: list[str]) -> dict[str, dict]:
         """Esito delle puntate chiuse: {bet_id: {"profit" (lordo), "outcome", "status"}}.
         status: SETTLED (regolata), VOIDED (annullata: rimborso), LAPSED/CANCELLED (mai abbinata: rimborso)."""

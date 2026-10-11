@@ -24,7 +24,7 @@ class FakeBF:
               strategy_ref=None):
         self.n += 1
         avg = min(price, self.lay_at) if side == "LAY" and self.lay_at else price
-        self.orders[order_ref] = {"betId": f"B{self.n}", "sizeMatched": size, "averagePriceMatched": avg,
+        self.orders[order_ref] = {"betId": f"B{self.n}", "customerOrderRef": order_ref, "sizeMatched": size, "averagePriceMatched": avg,
                                   "status": "EXECUTION_COMPLETE", "side": side, "price": price}
         if self.lose_response:
             raise TimeoutError("risposta persa")
@@ -594,3 +594,34 @@ def test_richiesta_di_riavvio_vecchia_non_spegne_il_bot(tmp_path, monkeypatch):
     o.shutdown = lambda *a, **k: asyncio.sleep(0)
     asyncio.run(o.run_forever())
     assert len(calls) == 3 and not restart.exists()
+
+
+# ── puntate fatte a mano dall'utente sullo stesso conto ─────────
+def test_manual_bets_do_not_trigger_kill_switch(tmp_path, gates_open):
+    fake = FakeBF(available=30.0)
+    o = _office(tmp_path / "live.db", fake)
+    fake.cleared_since = lambda since: []
+    o._sync_live_balance(force=True)                           # prima lettura: da qui si contano le puntate a mano
+    assert o.store.get("kill_switch") is None and o.store.get("manual_since")
+    fake.available = 20.0                                      # hai perso 10 € con una puntata tua
+    fake.cleared_since = lambda since: [
+        {"betId": "M1", "profit": -10.0, "customerOrderRef": "", "customerStrategyRef": ""},
+        {"betId": "B9", "profit": -3.0, "customerOrderRef": "bb123", "customerStrategyRef": "S10v2"}]  # del bot: non conta
+    o._sync_live_balance(force=True)
+    assert o.store.get("manual_pnl") == -10.0
+    assert o.store.get("kill_switch") is None
+    fake.cleared_since = lambda since: [{"betId": "M1", "profit": -10.0, "customerOrderRef": "", "customerStrategyRef": ""}]
+    fake.available = 15.0                                      # mancano altri 5 € non spiegati: il kill switch resta vero
+    o._sync_live_balance(force=True)
+    assert "superiore al saldo vero" in o.store.get("kill_switch")
+
+
+def test_manual_open_order_is_not_a_reconcile_problem(tmp_path, gates_open):
+    fake = FakeBF()
+    fake.orders["x"] = {"betId": "M7", "customerOrderRef": "", "sizeMatched": 5.0, "side": "BACK", "price": 2.0}
+    o = _office(tmp_path / "live.db", fake)
+    o.reconcile_live()
+    assert o.store.get("kill_switch") is None
+    fake.orders["y"] = {"betId": "B77", "customerOrderRef": "bbdeadbeef", "sizeMatched": 2.0, "side": "BACK", "price": 2.0}
+    o.reconcile_live()                                         # ordine del bot sconosciuto: blocca ancora
+    assert "B77" in o.store.get("kill_switch")

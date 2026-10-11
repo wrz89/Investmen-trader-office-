@@ -295,6 +295,11 @@ lanciare con doppio clic. Il PC si aggiorna con `aggiorna.bat` dal ramo scritto 
     dopo commissione, quota 1,30-5,00, ≥ 2 €. runtime/secondari.db (quote, evento, giocata). `secondari.bat` regola con i CSV
     di football-data e scrive runtime/reports/secondari.txt. Verdetto a 200 puntate: PROMETTENTE solo se ROI − 2 e.s. > 0.
     Spegnibile con settings `secondari.attivo: false`. Nessuna puntata vera.
+- Puntate fatte a mano (11/10/2026, l'utente punta anche lui sullo stesso conto e non vuole resettare ogni volta): ordini del bot =
+  customerOrderRef "bb…" o "mb-…"/strategia "MB" (core.is_bot_order). All'avvio un ordine abbinato senza quei riferimenti è "a mano":
+  nessun kill switch. Nel controllo del saldo core._manual_pnl legge listClearedOrders (client.cleared_since, dal "manual_since" salvato
+  la prima volta) e TOGLIE dal saldo vero il netto delle puntate a mano (store "manual_pnl"), come mb_betfair_pnl. Una differenza NON
+  spiegata (> 1 €) fa ancora scattare il kill switch. Le puntate a mano aperte non cambiano disponibile + esposizione.
 - Test: `python -m pytest -q tests` (devono restare tutti verdi).
 
 ## Da fare prima di rispondere "si può guadagnare X"

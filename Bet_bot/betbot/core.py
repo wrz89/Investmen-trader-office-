@@ -319,9 +319,16 @@ class SportOffice:
         if current is not None:
             known = {o["bet_id"] for o in self.store.query("SELECT bet_id FROM orders WHERE bet_id IS NOT NULL")}
             known |= {o.get("bet_id") for o in (self.store.get("mb_orders") or [])}     # lay di copertura del matched betting
+            manual = 0
             for o in current:
                 if o.get("betId") not in known and float(o.get("sizeMatched") or 0) > 0:
+                    if not self.is_bot_order(o.get("customerOrderRef"), o.get("customerStrategyRef")):
+                        manual += 1                  # puntata messa a mano dall'utente: non è un problema del bot
+                        continue
                     problems[f"bf:{o.get('betId')}"] = f"ordine abbinato su Betfair che il bot non conosce (bet {o.get('betId')})"
+            if manual:
+                self.risk.say(f"Riconciliazione: {manual} puntate fatte a mano su Betfair. Non sono del bot: nessun blocco.",
+                              "ok", "reconcile", level="INFO")
         booked = set()
         for b in self.store.query("SELECT extra FROM bets WHERE mode='live' AND extra IS NOT NULL"):
             booked.add(((json.loads(b["extra"]) or {}).get("betfair") or {}).get("bet_id"))
@@ -391,6 +398,7 @@ class SportOffice:
             return
         real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0))
         real -= self._matched_pnl()          # vincite e perdite dei lay di copertura (matched betting) non sono del bot
+        real -= self._manual_pnl()           # e nemmeno le puntate fatte a mano dall'utente sul sito o dall'app
         total = self.bankroll.total
         pending = self._unsettled_green()
         self.store.set("live_balance", {"available": funds.get("availableToBetBalance"), "exposure": funds.get("exposure"),
@@ -422,6 +430,44 @@ class SportOffice:
         except Exception as exc:
             self.tesoriere.log(f"Coperture del matched betting non controllate ({exc}).", "WARN", "live_sync")
         return float(self.store.get("mb_betfair_pnl") or 0.0)
+
+    @staticmethod
+    def is_bot_order(ref: str | None, strategy_ref: str | None = None) -> bool:
+        """Ordini del bot: customerOrderRef "bb…" (puntate del bot) o "mb-…"/strategia "MB" (coperture del matched betting).
+        Tutto il resto (senza riferimento) è stato messo a mano dall'utente dal sito o dall'app."""
+        return (ref or "").startswith(("bb", "mb")) or (strategy_ref or "") == "MB"
+
+    def _manual_pnl(self) -> float:
+        """Risultato netto delle puntate fatte A MANO sullo stesso conto Betfair (regolate dal giorno in cui questa
+        regola è entrata, "manual_since"). Si toglie dal saldo vero nel controllo del kill switch: una tua puntata persa
+        non è un ammanco del bot. Se Betfair non risponde resta l'ultimo totale noto."""
+        from datetime import datetime, timezone
+        since = self.store.get("manual_since")
+        if not since:
+            since = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+            self.store.set("manual_since", since)
+        if self.client is None or not hasattr(self.client, "cleared_since"):
+            return float(self.store.get("manual_pnl") or 0.0)
+        try:
+            rows = self.client.cleared_since(since)
+        except Exception as exc:
+            self.tesoriere.log(f"Puntate fatte a mano non controllate ({exc}): uso l'ultimo totale.", "WARN", "live_sync")
+            return float(self.store.get("manual_pnl") or 0.0)
+        known = {o["bet_id"] for o in self.store.query("SELECT bet_id FROM orders WHERE bet_id IS NOT NULL")}
+        known |= {o.get("bet_id") for o in (self.store.get("mb_orders") or [])}
+        c = 0.045                                    # commissione di betfair.it sulla vincita netta
+        total, n = 0.0, 0
+        for o in rows:
+            if o["betId"] in known or self.is_bot_order(o.get("customerOrderRef"), o.get("customerStrategyRef")):
+                continue
+            total += o["profit"] * (1 - c) if o["profit"] > 0 else o["profit"]
+            n += 1
+        total = round(total, 2)
+        if abs(total - float(self.store.get("manual_pnl") or 0.0)) >= 0.01:
+            self.tesoriere.log(f"Puntate fatte a mano su Betfair (dal {since[:10]}): {n} regolate, {total:+.2f} €. "
+                               "Non contano nel bankroll del bot e non fanno scattare il kill switch.", "INFO", "live_sync")
+        self.store.set("manual_pnl", total)
+        return total
 
     def _unsettled_green(self) -> float:
         """Profitti già "chiusi" con un lay (green-up) ma non ancora accreditati da Betfair: finché il mercato non è
@@ -455,7 +501,8 @@ class SportOffice:
             return None
         # più i green-up in attesa di regolamento: sono soldi già vinti che Betfair accredita a mercato chiuso
         real = float(funds.get("availableToBetBalance") or 0) + abs(float(funds.get("exposure") or 0)) \
-            + self._unsettled_green() - float(self.store.get("mb_betfair_pnl") or 0.0)
+            + self._unsettled_green() - float(self.store.get("mb_betfair_pnl") or 0.0) \
+            - float(self.store.get("manual_pnl") or 0.0)
         if self.bankroll.total <= real:
             return None
         before = self.bankroll.total
