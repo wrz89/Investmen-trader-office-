@@ -28,4 +28,7 @@ assert.deepStrictEqual(f, [[2, 2, 1], [2, 1, 1]]);
 
 // ridimensiona conserva i dati
 assert.deepStrictEqual(C.ridimensiona([[1]], 2, 2, 0), [[1, 0], [0, 0]]);
+// telaio: 10 perline -> 11 fili di ordito
+const mt = C.stimaMisure(10, 100, { larghezzaMm: 1.6, altezzaMm: 1.3, fattoreFilo: 4, margineCm: 30, spreccoOrditoCm: 40, extraTramaMm: 10 }, 'telaio');
+assert.strictEqual(mt.fiiOrdito, 11); assert.strictEqual(mt.ordCm, 53); assert.ok(mt.tramaCm > 0);
 console.log('core ok');

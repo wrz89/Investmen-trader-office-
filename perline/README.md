@@ -1,6 +1,6 @@
 # Perline
 
-Progetta schemi per perline (Miyuki Delica) in **peyote** o **telaio**: griglia colorata,
+Progetta schemi per perline (Miyuki Delica) su **telaio** (default) o in **peyote**: griglia colorata,
 generatore di rombi / chevron / righe, conteggio perline per colore (con "rp."),
 misure e filo stimati, foglio di lavoro da stampare o salvare in PDF.
 
@@ -26,7 +26,7 @@ La GitHub Action `Perline exe` compila `Perline.exe` e lo pubblica nella release
 - **Stampa / PDF**: pagina 1 schema con lettere e legenda, pagina 2 lettura riga per riga
   (`A3 B A2` = 3 perline A, 1 B, 2 A).
 - "1 rp." = 200 perline (dedotto dagli schemi di riferimento: 220 perline = 1,1 rp.).
-  Misure perlina (1,6 x 1,3 mm) e filo (lunghezza x4 + 30 cm) sono **stime**.
+  Telaio: fili di ordito = larghezza + 1, ordito = lunghezza + 40 cm di sprechi, trama = ogni riga attraversa due volte la larghezza. Misure perlina (1,6 x 1,3 mm) e fili sono **stime**.
 
 ## Sviluppo
 ```

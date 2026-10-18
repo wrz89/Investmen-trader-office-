@@ -2,7 +2,7 @@
   const C = window.Core;
   const $ = (id) => document.getElementById(id);
   const cv = $('cv'), ctx = cv.getContext('2d');
-  const OPZ = { larghezzaMm: 1.6, altezzaMm: 1.3, fattoreFilo: 4, margineCm: 30, perRp: 200 };
+  const OPZ = { larghezzaMm: 1.6, altezzaMm: 1.3, fattoreFilo: 4, margineCm: 30, perRp: 200, spreccoOrditoCm: 40, extraTramaMm: 10 };
 
   let S = nuovoProgetto();
   let colore = 0, strumento = 'penna', zoom = 22, disegnando = false;
@@ -11,7 +11,7 @@
   function nuovoProgetto() {
     const palette = C.DEFAULT_PALETTE.map((c) => ({ ...c }));
     const rings = [2, 1, 0, 0];
-    return { nome: '', tecnica: 'peyote', w: 10, h: 56, palette, celle: C.genera('rombi', 10, 56, 14, rings), opz: { ...OPZ } };
+    return { nome: '', tecnica: 'telaio', w: 10, h: 56, palette, celle: C.genera('rombi', 10, 56, 14, rings), opz: { ...OPZ } };
   }
 
   function msg(t) { $('msg').textContent = t; clearTimeout(msg.t); msg.t = setTimeout(() => ($('msg').textContent = ''), 3500); }
@@ -123,11 +123,18 @@
   const num = (n, d) => n.toFixed(d).replace('.', ',');
   function materiali() {
     const cnt = C.conteggi(S.celle, S.palette.length), tot = cnt.reduce((a, b) => a + b, 0);
-    const m = C.stimaMisure(S.w, S.h, S.opz);
+    const m = C.stimaMisure(S.w, S.h, S.opz, S.tecnica);
     $('mat').innerHTML = `<table><tr><th></th><th>Colore</th><th>Perline</th><th>rp.</th></tr>` +
       S.palette.map((c, i) => `<tr><td><span class="sw" style="background:${c.hex}"></span> ${C.lettera(i)}</td><td>${esc(c.cod)} ${esc(c.nome)}</td><td>${cnt[i]}</td><td>${num(C.rp(cnt[i], S.opz.perRp), 1)}</td></tr>`).join('') +
       `<tr><th></th><th>Totale</th><th>${tot}</th><th></th></tr></table>` +
-      `<small>Misure circa ${num(m.largMm / 10, 1)} × ${num(m.lungMm / 10, 1)} cm · filo consigliato ≈ ${m.filoCm} cm (stima: lunghezza ×${S.opz.fattoreFilo} + ${S.opz.margineCm} cm). 1 rp. = ${S.opz.perRp} perline.</small>`;
+      `<small>${testoMisure(m)}</small>`;
+  }
+  function testoMisure(m) {
+    const mis = `Misure circa ${num(m.largMm / 10, 1)} × ${num(m.lungMm / 10, 1)} cm`;
+    const filo = S.tecnica === 'telaio'
+      ? `${m.fiiOrdito} fili di ordito da ≈ ${m.ordCm} cm · filo di trama ≈ ${num(m.tramaCm / 100, 1)} m`
+      : `filo ≈ ${m.filoCm} cm`;
+    return `${mis} · ${filo} (stime). 1 rp. = ${S.opz.perRp} perline.`;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -187,12 +194,12 @@
   $('stampa').onclick = () => {
     const off = document.createElement('canvas'), c2 = off.getContext('2d');
     disegna(c2, 26, { lettere: true });
-    const cnt = C.conteggi(S.celle, S.palette.length), m = C.stimaMisure(S.w, S.h, S.opz);
+    const cnt = C.conteggi(S.celle, S.palette.length), m = C.stimaMisure(S.w, S.h, S.opz, S.tecnica);
     const righe = S.celle.map((r, i) => `Riga ${i + 1}: ${C.lettura(r)}`).join('<br>');
     $('sheet').innerHTML = `<h1>${esc(S.nome || 'Progetto')} — ${S.tecnica === 'peyote' ? 'Peyote' : 'Telaio'} ${S.w} × ${S.h}</h1>
       <img src="${off.toDataURL('image/png')}"><table style="margin-top:8px"><tr><th>Lettera</th><th>Colore</th><th>Perline</th><th>rp.</th></tr>` +
       S.palette.map((c, i) => `<tr><td><span class="sw" style="background:${c.hex}"></span> ${C.lettera(i)}</td><td>${esc(c.cod)} ${esc(c.nome)}</td><td>${cnt[i]}</td><td>${num(C.rp(cnt[i], S.opz.perRp), 1)}</td></tr>`).join('') +
-      `</table><p>Misure circa ${num(m.largMm / 10, 1)} × ${num(m.lungMm / 10, 1)} cm · filo ≈ ${m.filoCm} cm</p><h1 style="page-break-before:always">Lettura per riga (sinistra → destra, dall'alto)</h1><div class="rig">${righe}</div>`;
+      `</table><p>${testoMisure(m)}</p><h1 style="page-break-before:always">Lettura per riga (sinistra → destra, dall'alto)</h1><div class="rig">${righe}</div>`;
     window.print();
   };
 

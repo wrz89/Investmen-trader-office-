@@ -60,10 +60,20 @@
   // "rp." come negli schemi di riferimento: perline / perline-per-rp (es. 220 -> 1,1)
   function rp(perline, perRp) { return perRp > 0 ? perline / perRp : 0; }
 
-  function stimaMisure(w, h, opz) {
-    const bw = opz.larghezzaMm, bh = opz.altezzaMm;
-    const largMm = w * bw, lungMm = h * bh;
-    return { largMm, lungMm, filoCm: Math.round((lungMm * opz.fattoreFilo) / 10 + opz.margineCm) };
+  // Telaio: ordito = w+1 fili lunghi (lavoro + sprechi), trama = 1 filo che attraversa ogni riga andata e ritorno.
+  // Peyote: un solo filo, stima = lunghezza x fattore. Tutte stime, parametri in opz.
+  function stimaMisure(w, h, opz, tecnica) {
+    const largMm = w * opz.larghezzaMm, lungMm = h * opz.altezzaMm;
+    const out = { largMm, lungMm };
+    if (tecnica === 'telaio') {
+      out.fiiOrdito = w + 1;
+      out.ordCm = Math.round(lungMm / 10 + opz.spreccoOrditoCm);
+      out.tramaCm = Math.round((h * (largMm * 2 + opz.extraTramaMm)) / 10 + opz.margineCm);
+      out.filoCm = out.tramaCm;
+    } else {
+      out.filoCm = Math.round((lungMm * opz.fattoreFilo) / 10 + opz.margineCm);
+    }
+    return out;
   }
 
   // "A3 B A2" per ogni riga (run-length)
