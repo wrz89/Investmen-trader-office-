@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 # dati di runtime (database, storico, registro, report): restano sul tuo PC
 runtime/
+
+# progetti di Perline: restano sul tuo PC
+perline/dati/

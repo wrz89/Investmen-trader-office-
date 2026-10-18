@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Perline</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#f4f1ec;--card:#fff;--ink:#222;--mut:#6b6b6b;--acc:#2f6f6a;--line:#d8d2c8}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0 10px 0 0}
+main{display:grid;grid-template-columns:300px 1fr;gap:12px;padding:12px}
+aside{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
+.card h2{font-size:13px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+label{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:4px 0}
+input,select,button{font:inherit}
+input[type=number]{width:70px}input[type=text]{width:150px}
+button{padding:5px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+button:hover{background:#eee}button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+button.on{outline:2px solid var(--acc)}
+.row{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:20px;height:20px;border:1px solid #888;border-radius:3px;display:inline-block;vertical-align:middle}
+.pal{display:grid;grid-template-columns:22px 24px 80px 1fr 28px;gap:4px;align-items:center;margin:3px 0}
+.pal.sel{background:#e3efed;border-radius:4px}
+.pal input[type=text]{width:100%}
+.pal input[type=color]{width:24px;height:22px;padding:0;border:0}
+table{border-collapse:collapse;width:100%}td,th{padding:3px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mut);font-weight:600}
+#wrap{overflow:auto;max-height:calc(100vh - 80px);background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}
+#sheet{display:none}
+small{color:var(--mut)}
+@media(max-width:800px){main{grid-template-columns:1fr}}
+@media print{
+ body{background:#fff}header,main{display:none}
+ #sheet{display:block;padding:0}
+ #sheet img{max-width:100%;max-height:60vh}
+ #sheet h1{font-size:18px;margin:0 0 6px}
+ .rig{columns:2;font:11px/1.5 monospace}
+}
+</style>
+</head>
+<body>
+<header>
+ <h1>Perline <small id="ver"></small></h1>
+ <input type="text" id="nome" placeholder="Nome progetto">
+ <button class="pri" id="salva">Salva</button>
+ <select id="elenco"><option value="">Apri progetto…</option></select>
+ <button id="nuovo">Nuovo</button>
+ <button id="elimina">Elimina</button>
+ <button id="stampa">Stampa / PDF</button>
+ <button id="esci">Chiudi app</button>
+ <span id="msg"></span>
+</header>
+<main>
+<aside>
+ <div class="card"><h2>Griglia</h2>
+  <label>Tecnica <select id="tecnica"><option value="peyote">Peyote (colonne sfalsate)</option><option value="telaio">Telaio / square stitch</option></select></label>
+  <label>Larghezza (perline) <input type="number" id="w" min="1" max="60"></label>
+  <label>Lunghezza (righe) <input type="number" id="h" min="1" max="800"></label>
+  <label>Zoom <input type="range" id="zoom" min="10" max="40" value="22"></label>
+  <label><span>Lettere nelle celle</span><input type="checkbox" id="lettere" checked></label>
+  <button id="ridim">Applica misure</button>
+ </div>
+ <div class="card"><h2>Strumenti</h2>
+  <div class="row"><button id="t-penna" class="on">Pennello</button><button id="t-riempi">Riempi</button>
+  <button id="undo">Annulla</button><button id="redo">Ripeti</button></div>
+  <label><span>Simmetria (specchio)</span><input type="checkbox" id="simm"></label>
+ </div>
+ <div class="card"><h2>Colori (Delica DB)</h2><div id="pal"></div>
+  <button id="addcol">+ colore</button>
+  <small>Clic sulla riga per sceglierlo. Codici e tinte sono modificabili.</small>
+ </div>
+ <div class="card"><h2>Generatore motivo</h2>
+  <label>Motivo <select id="g-tipo"><option value="rombi">Rombi</option><option value="chevron">Chevron</option><option value="righe">Righe</option></select></label>
+  <label>Righe per modulo <input type="number" id="g-p" min="2" max="120" value="14"></label>
+  <label>Anello 1 (centro) <select id="g-c0"></select></label>
+  <label>Anello 2 <select id="g-c1"></select></label>
+  <label>Anello 3 <select id="g-c2"></select></label>
+  <label>Anello 4 (sfondo) <select id="g-c3"></select></label>
+  <button class="pri" id="genera">Genera su tutta la griglia</button>
+  <button id="ripeti">Ripeti le prime righe del modulo</button>
+ </div>
+</aside>
+<section>
+ <div class="card" style="margin-bottom:12px"><h2>Materiali</h2><div id="mat"></div></div>
+ <div id="wrap"><canvas id="cv"></canvas></div>
+</section>
+</main>
+<div id="sheet"></div>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

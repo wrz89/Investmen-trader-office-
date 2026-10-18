@@ -1,0 +1,28 @@
+name: Perline exe
+
+# Compila Perline.exe (Windows) e lo pubblica nella release "perline-latest".
+on:
+  push:
+    branches: [perline, master]
+    paths: ['perline/**', '.github/workflows/perline-exe.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pyinstaller pytest
+      - run: python -m pytest perline/tests -q
+      - run: pyinstaller --onefile --name Perline --add-data "perline/web;web" perline/perline.py
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: perline-latest
+          name: Perline (ultima versione)
+          files: dist/Perline.exe
